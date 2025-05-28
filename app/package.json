@@ -12,6 +12,7 @@
   "dependencies": {
     "body-parser": "^2.2.0",
     "dataenv": "^1.0.0-beta.1",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0"
   }
 }
