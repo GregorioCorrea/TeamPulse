@@ -11,13 +11,14 @@ const model = new OpenAIModel({
   azureApiKey: config.azureOpenAIKey,
   azureDefaultDeployment: config.azureOpenAIDeploymentName,
   azureEndpoint: config.azureOpenAIEndpoint,
-
   useSystemMessages: true,
   logRequests: true,
 });
+
 const prompts = new PromptManager({
   promptsFolder: path.join(__dirname, "../prompts"),
 });
+
 const planner = new ActionPlanner({
   model,
   prompts,
@@ -34,69 +35,172 @@ const app = new Application({
   },
 });
 
+// Interfaces para mejor tipado
+interface Pregunta {
+  pregunta: string;
+  opciones: string[];
+}
+
+interface Encuesta {
+  titulo: string;
+  objetivo: string;
+  preguntas: Pregunta[];
+  creador?: string;
+  fechaCreacion?: Date;
+  id?: string;
+}
 
 interface EncuestaTempState {
-    titulo: string;
-    objetivo: string;
-    preguntas: any[]; // Cambia 'any[]' por el tipo adecuado si lo sabes
+  titulo?: string;
+  objetivo?: string;
+  preguntas?: Pregunta[];
 }
 
-
-function guardarEncuestaComoJSON(encuesta: any) {
-    const fileName = encuesta.titulo.replace(/\s+/g, '_').toLowerCase() + '.json';
-    const filePath = path.join(__dirname, '../../data', fileName);
-    fs.writeFileSync(filePath, JSON.stringify(encuesta, null, 2), 'utf-8');
-    console.log(`Encuesta guardada en: ${filePath}`);
-}
-
-app.ai.action('crear_encuesta', async (context, state) => {
-    try {
-        const temp = state.temp as unknown as EncuestaTempState;
-
-        if (!temp?.titulo || !temp?.objetivo || !temp?.preguntas) {
-            await context.sendActivity("❌ No se pudo crear la encuesta. Faltan datos.");
-            console.error("Datos incompletos:", temp);
-            return 'crear_encuesta';
-        }
-
-        const encuesta = {
-            titulo: temp.titulo,
-            objetivo: temp.objetivo,
-            preguntas: temp.preguntas
-        };
-
-        guardarEncuestaComoJSON(encuesta);
-        await context.sendActivity(`✅ Encuesta "${encuesta.titulo}" guardada correctamente.`);
-        return 'crear_encuesta';
-    } catch (error) {
-        console.error("❌ Error al guardar la encuesta:", error);
-        await context.sendActivity("❌ Ocurrió un error al guardar la encuesta.");
-        return 'crear_encuesta';
+// Función mejorada para guardar encuestas
+function guardarEncuestaComoJSON(encuesta: Encuesta): string {
+  try {
+    // Crear directorio data si no existe
+    const dataDir = path.join(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
     }
-});
 
-app.feedbackLoop(async (context, state, feedbackLoopData) => {
-  //add custom feedback process logic here
-  console.log("Your feedback is " + JSON.stringify(context.activity.value));
-});
-app.message(/forzar_guardado/i, async (context, state) => {
-    const encuesta = {
-        titulo: "Encuesta de prueba",
-        objetivo: "Verificar que el guardado funcione correctamente.",
-        preguntas: [
-            {
-                pregunta: "¿Te gusta usar este bot?",
-                opciones: ["Sí", "No"]
-            },
-            {
-                pregunta: "¿Lo recomendarías a otros?",
-                opciones: ["Sí", "No", "Tal vez"]
-            }
-        ]
+    // Generar ID único y timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${encuesta.titulo.replace(/\s+/g, '_').toLowerCase()}_${timestamp}.json`;
+    const filePath = path.join(dataDir, fileName);
+
+    // Agregar metadata
+    const encuestaCompleta = {
+      ...encuesta,
+      id: fileName.replace('.json', ''),
+      fechaCreacion: new Date(),
     };
 
-    guardarEncuestaComoJSON(encuesta);
-    await context.sendActivity("✅ Encuesta de prueba guardada correctamente.");
+    fs.writeFileSync(filePath, JSON.stringify(encuestaCompleta, null, 2), 'utf-8');
+    console.log(`✅ Encuesta guardada en: ${filePath}`);
+    return filePath;
+  } catch (error) {
+    console.error('❌ Error al guardar encuesta:', error);
+    throw error;
+  }
+}
+
+// Acción mejorada para crear encuesta
+app.ai.action('crear_encuesta', async (context, state, data) => {
+  try {
+    console.log('🔄 Acción crear_encuesta invocada con datos:', JSON.stringify(data, null, 2));
+
+    // Validar que los datos estén presentes
+    if (!data || typeof data !== 'object') {
+      await context.sendActivity("❌ No se recibieron datos para crear la encuesta.");
+      return 'create-survey';
+    }
+
+    const { titulo, objetivo, preguntas } = data as Encuesta;
+
+    // Validaciones
+    if (!titulo || !objetivo || !preguntas || !Array.isArray(preguntas) || preguntas.length === 0) {
+      await context.sendActivity("❌ Faltan datos requeridos. Necesito título, objetivo y al menos una pregunta.");
+      console.error("Datos incompletos recibidos:", { titulo, objetivo, preguntas });
+      return 'create-survey';
+    }
+
+    // Validar estructura de preguntas
+    for (const pregunta of preguntas) {
+      if (!pregunta.pregunta || !Array.isArray(pregunta.opciones) || pregunta.opciones.length < 2) {
+        await context.sendActivity("❌ Cada pregunta debe tener texto y al menos 2 opciones.");
+        return 'create-survey';
+      }
+    }
+
+    const encuesta: Encuesta = {
+      titulo,
+      objetivo,
+      preguntas,
+      creador: context.activity.from.name || 'Usuario desconocido',
+    };
+
+    const rutaArchivo = guardarEncuestaComoJSON(encuesta);
+    
+    // Respuesta exitosa con resumen
+    const resumen = `✅ **Encuesta "${titulo}" creada exitosamente!**
+
+📋 **Objetivo:** ${objetivo}
+👤 **Creador:** ${encuesta.creador}
+❓ **Preguntas:** ${preguntas.length}
+
+**Preguntas creadas:**
+${preguntas.map((p, i) => `${i + 1}. ${p.pregunta}\n   Opciones: ${p.opciones.join(', ')}`).join('\n')}
+
+📁 Guardada en: ${path.basename(rutaArchivo)}`;
+
+    await context.sendActivity(resumen);
+    return 'create-survey';
+
+  } catch (error) {
+    console.error("❌ Error en acción crear_encuesta:", error);
+    await context.sendActivity("❌ Ocurrió un error interno al crear la encuesta. Intenta nuevamente.");
+    return 'create-survey';
+  }
+});
+
+// Comando para pruebas (mantener para debugging)
+app.message(/forzar_guardado/i, async (context, state) => {
+  const encuesta: Encuesta = {
+    titulo: "Encuesta de Prueba Manual",
+    objetivo: "Verificar que el guardado funcione correctamente",
+    preguntas: [
+      {
+        pregunta: "¿Te gusta usar este bot?",
+        opciones: ["Sí", "No", "Regular"]
+      },
+      {
+        pregunta: "¿Lo recomendarías a otros?",
+        opciones: ["Definitivamente sí", "Probablemente sí", "No estoy seguro", "Probablemente no", "Definitivamente no"]
+      }
+    ],
+    creador: context.activity.from.name || 'Prueba Manual',
+  };
+
+  try {
+    const rutaArchivo = guardarEncuestaComoJSON(encuesta);
+    await context.sendActivity(`✅ Encuesta de prueba guardada en: ${path.basename(rutaArchivo)}`);
+  } catch (error) {
+    await context.sendActivity("❌ Error al guardar encuesta de prueba.");
+  }
+});
+
+// Comando para listar encuestas guardadas
+app.message(/listar_encuestas/i, async (context, state) => {
+  try {
+    const dataDir = path.join(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      await context.sendActivity("📁 No hay encuestas guardadas aún.");
+      return;
+    }
+
+    const archivos = fs.readdirSync(dataDir).filter(file => file.endsWith('.json'));
+    
+    if (archivos.length === 0) {
+      await context.sendActivity("📁 No hay encuestas guardadas aún.");
+      return;
+    }
+
+    let lista = "📋 **Encuestas guardadas:**\n\n";
+    archivos.forEach((archivo, index) => {
+      lista += `${index + 1}. ${archivo.replace('.json', '').replace(/_/g, ' ')}\n`;
+    });
+
+    await context.sendActivity(lista);
+  } catch (error) {
+    await context.sendActivity("❌ Error al listar encuestas.");
+  }
+});
+
+// Feedback loop
+app.feedbackLoop(async (context, state, feedbackLoopData) => {
+  console.log("Feedback recibido:", JSON.stringify(context.activity.value));
 });
 
 export default app;
