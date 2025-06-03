@@ -1,0 +1,52 @@
+{
+  "titulo": "Feedback sobre Cambios en Objetivos Estratégicos",
+  "objetivo": "Feedback de la reunión gerencial",
+  "preguntas": [
+    {
+      "pregunta": "¿Consideras que los cambios en los objetivos estratégicos fueron claros?",
+      "opciones": [
+        "Muy claros",
+        "Claros",
+        "Poco claros",
+        "Nada claros"
+      ]
+    },
+    {
+      "pregunta": "¿Te sientes alineado con los nuevos objetivos estratégicos?",
+      "opciones": [
+        "Totalmente alineado",
+        "Alineado",
+        "Poco alineado",
+        "Nada alineado"
+      ]
+    },
+    {
+      "pregunta": "¿Cómo calificarías la comunicación de los cambios en los objetivos estratégicos?",
+      "opciones": [
+        "Excelente",
+        "Buena",
+        "Regular",
+        "Mala"
+      ]
+    },
+    {
+      "pregunta": "¿Crees que los cambios en los objetivos estratégicos impactarán positivamente en tu trabajo?",
+      "opciones": [
+        "Totalmente de acuerdo",
+        "De acuerdo",
+        "En desacuerdo",
+        "Totalmente en desacuerdo"
+      ]
+    },
+    {
+      "pregunta": "¿Te gustaría recibir más información sobre los cambios en los objetivos estratégicos?",
+      "opciones": [
+        "Sí",
+        "No"
+      ]
+    }
+  ],
+  "creador": "User",
+  "id": "feedback_sobre_cambios_en_obje_2025-06-03-19-07-52",
+  "fechaCreacion": "2025-06-03T19:07:52.699Z"
+}

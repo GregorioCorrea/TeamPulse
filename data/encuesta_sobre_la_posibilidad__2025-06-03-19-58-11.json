@@ -1,0 +1,42 @@
+{
+  "titulo": "Encuesta sobre la posibilidad de tener mascotas en la oficina",
+  "objetivo": "Entender qué puede pensar el empleado de habilitar la posibilidad de tener mascotas en la oficina",
+  "preguntas": [
+    {
+      "pregunta": "¿Te gustaría que se permitieran mascotas en la oficina?",
+      "opciones": [
+        "Sí",
+        "No",
+        "Indiferente"
+      ]
+    },
+    {
+      "pregunta": "¿Qué tipo de mascotas consideras adecuadas para la oficina?",
+      "opciones": [
+        "Perros",
+        "Gatos",
+        "Otros",
+        "Ninguna"
+      ]
+    },
+    {
+      "pregunta": "¿Crees que la presencia de mascotas mejoraría el ambiente laboral?",
+      "opciones": [
+        "Sí, definitivamente",
+        "Tal vez",
+        "No"
+      ]
+    },
+    {
+      "pregunta": "¿Tienes alguna preocupación sobre la presencia de mascotas en la oficina?",
+      "opciones": [
+        "Sí",
+        "No",
+        "No estoy seguro"
+      ]
+    }
+  ],
+  "creador": "User",
+  "id": "encuestaso_1748980691593_288msj",
+  "fechaCreacion": "2025-06-03T19:58:11.594Z"
+}

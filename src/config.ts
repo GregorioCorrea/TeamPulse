@@ -11,9 +11,10 @@ const config = {
   MicrosoftAppType: process.env.BOT_TYPE,
   MicrosoftAppTenantId: process.env.BOT_TENANT_ID,
   MicrosoftAppPassword: process.env.BOT_PASSWORD,
-  azureOpenAIKey: getEnvVar("SECRET_AZURE_OPENAI_API_KEY"),
-  azureOpenAIEndpoint: getEnvVar("AZURE_OPENAI_ENDPOINT"),
-  azureOpenAIDeploymentName: getEnvVar("AZURE_OPENAI_DEPLOYMENT_NAME"),
+  // Corregir las variables de entorno para que sean consistentes
+  azureOpenAIKey: process.env.SECRET_AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY,
+  azureOpenAIEndpoint: process.env.AZURE_OPENAI_ENDPOINT,
+  azureOpenAIDeploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
 };
 
 export default config;

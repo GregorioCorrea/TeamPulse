@@ -1,0 +1,38 @@
+{
+  "encuestaId": "feedback_sobre_cambios_en_obje_2025-06-03-19-07-52",
+  "titulo": "Feedback sobre Cambios en Objetivos Estratégicos",
+  "fechaCreacion": "2025-06-03T19:28:22.578Z",
+  "estado": "activa",
+  "totalParticipantes": 0,
+  "respuestas": [],
+  "resumen": {
+    "0": {
+      "Muy claros": 0,
+      "Claros": 0,
+      "Poco claros": 0,
+      "Nada claros": 0
+    },
+    "1": {
+      "Totalmente alineado": 0,
+      "Alineado": 0,
+      "Poco alineado": 0,
+      "Nada alineado": 0
+    },
+    "2": {
+      "Excelente": 0,
+      "Buena": 0,
+      "Regular": 0,
+      "Mala": 0
+    },
+    "3": {
+      "Totalmente de acuerdo": 0,
+      "De acuerdo": 0,
+      "En desacuerdo": 0,
+      "Totalmente en desacuerdo": 0
+    },
+    "4": {
+      "Sí": 0,
+      "No": 0
+    }
+  }
+}

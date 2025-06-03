@@ -1,0 +1,38 @@
+{
+  "titulo": "Encuesta de Prueba Automática",
+  "objetivo": "Verificar el correcto funcionamiento del sistema de guardado",
+  "preguntas": [
+    {
+      "pregunta": "¿Cómo calificarías tu experiencia con TeamPulse?",
+      "opciones": [
+        "Excelente",
+        "Buena",
+        "Regular",
+        "Mala",
+        "Muy mala"
+      ]
+    },
+    {
+      "pregunta": "¿Recomendarías TeamPulse a tu equipo?",
+      "opciones": [
+        "Definitivamente sí",
+        "Probablemente sí",
+        "No estoy seguro",
+        "Probablemente no",
+        "Definitivamente no"
+      ]
+    },
+    {
+      "pregunta": "¿Qué función te parece más útil?",
+      "opciones": [
+        "Creación rápida de encuestas",
+        "Análisis con IA",
+        "Integración con Teams",
+        "Anonimato garantizado"
+      ]
+    }
+  ],
+  "creador": "User",
+  "id": "encuesta_de_prueba_automtica_2025-06-03-19-05-41",
+  "fechaCreacion": "2025-06-03T19:05:41.490Z"
+}
