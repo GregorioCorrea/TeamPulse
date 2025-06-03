@@ -1,0 +1,14 @@
+{
+  "schema": 1.1,
+  "description": "Prompt para crear encuestas",
+  "type": "completion",
+  "completion": {
+    "completion_type": "action",
+    "tool_choice": "auto",
+    "max_tokens": 1500,
+    "temperature": 0.7
+  },
+  "augmentation": {
+    "augmentation_type": "tools"
+  }
+}

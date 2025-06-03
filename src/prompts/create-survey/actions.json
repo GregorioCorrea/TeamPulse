@@ -1,0 +1,39 @@
+[
+  {
+    "name": "crear_encuesta",
+    "description": "Guarda una encuesta con título, objetivo y preguntas",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "titulo": {
+          "type": "string",
+          "description": "Título de la encuesta"
+        },
+        "objetivo": {
+          "type": "string",
+          "description": "Objetivo de la encuesta"
+        },
+        "preguntas": {
+          "type": "array",
+          "description": "Lista de preguntas con opciones",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pregunta": {
+                "type": "string"
+              },
+              "opciones": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": ["pregunta", "opciones"]
+          }
+        }
+      },
+      "required": ["titulo", "objetivo", "preguntas"]
+    }
+  }
+]

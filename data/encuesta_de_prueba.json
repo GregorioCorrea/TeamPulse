@@ -1,0 +1,21 @@
+{
+  "titulo": "Encuesta de prueba",
+  "objetivo": "Verificar que el guardado funcione correctamente.",
+  "preguntas": [
+    {
+      "pregunta": "¿Te gusta usar este bot?",
+      "opciones": [
+        "Sí",
+        "No"
+      ]
+    },
+    {
+      "pregunta": "¿Lo recomendarías a otros?",
+      "opciones": [
+        "Sí",
+        "No",
+        "Tal vez"
+      ]
+    }
+  ]
+}
