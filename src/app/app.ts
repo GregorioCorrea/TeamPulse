@@ -1,4 +1,4 @@
-import { MemoryStorage, MessageFactory, TurnContext } from "botbuilder";
+import { MemoryStorage, CardFactory, MessageFactory, TurnContext } from "botbuilder";
 import * as path from "path";
 import config from "../config";
 import * as fs from 'fs';
@@ -39,7 +39,10 @@ const app = new Application({
   },
 });
 
-// Interfaces para mejor tipado
+// ============================
+// INTERFACES
+// ============================
+
 interface Pregunta {
   pregunta: string;
   opciones: string[];
@@ -52,11 +55,11 @@ interface Encuesta {
   creador?: string;
   fechaCreacion?: Date;
   id?: string;
+  basadoEnTemplate?: string;
 }
 
-// NUEVAS interfaces para respuestas
 interface Respuesta {
-  participanteId: string; // Hash anónimo
+  participanteId: string;
   preguntaIndex: number;
   respuesta: string;
   timestamp: Date;
@@ -76,7 +79,27 @@ interface ResultadosEncuesta {
   };
 }
 
-// Función para generar ID único de encuesta
+interface TemplateEncuesta {
+  partitionKey: string;     
+  rowKey: string;          
+  nombre: string;          
+  categoria: string;       
+  descripcion: string;     
+  objetivo: string;        
+  preguntas: any[];        
+  creador: string;         
+  esPublico: boolean;      
+  organizacion?: string;   
+  fechaCreacion: string;   
+  vecesUsado: number;      
+  tags: string;           
+  nivelPlan: string;      
+}
+
+// ============================
+// FUNCIONES UTILITARIAS
+// ============================
+
 function generarIdEncuesta(titulo: string): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
@@ -84,64 +107,27 @@ function generarIdEncuesta(titulo: string): string {
   return `${tituloLimpio}_${timestamp}_${random}`;
 }
 
-// Función para crear hash anónimo de usuario
 function crearParticipanteAnonimo(userId: string, encuestaId: string): string {
-  // Crear hash simple pero anónimo
   const data = userId + encuestaId + "salt_secreto";
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return `anon_${Math.abs(hash).toString(36)}`;
 }
 
-// Función para guardar/cargar resultados
-function guardarResultados(resultados: ResultadosEncuesta): void {
-  try {
-    const dataDir = path.join(__dirname, '../../data/resultados');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    const filePath = path.join(dataDir, `${resultados.encuestaId}_resultados.json`);
-    fs.writeFileSync(filePath, JSON.stringify(resultados, null, 2), 'utf-8');
-    console.log(`📊 Resultados guardados: ${resultados.encuestaId}`);
-  } catch (error) {
-    console.error('❌ Error guardando resultados:', error);
-    throw error;
-  }
-}
-
-function cargarResultados(encuestaId: string): ResultadosEncuesta | null {
-  try {
-    const filePath = path.join(__dirname, `../../data/resultados/${encuestaId}_resultados.json`);
-    if (!fs.existsSync(filePath)) {
-      return null;
-    }
-    
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('❌ Error cargando resultados:', error);
-    return null;
-  }
-}
-
-// Función para calcular resumen automático
 function calcularResumen(resultados: ResultadosEncuesta, encuesta: Encuesta): void {
   resultados.resumen = {};
   
   encuesta.preguntas.forEach((pregunta, preguntaIndex) => {
     resultados.resumen![preguntaIndex] = {};
     
-    // Inicializar contadores
     pregunta.opciones.forEach(opcion => {
       resultados.resumen![preguntaIndex][opcion] = 0;
     });
     
-    // Contar respuestas
     resultados.respuestas
       .filter(r => r.preguntaIndex === preguntaIndex)
       .forEach(respuesta => {
@@ -151,54 +137,293 @@ function calcularResumen(resultados: ResultadosEncuesta, encuesta: Encuesta): vo
       });
   });
   
-  // Actualizar total de participantes únicos
   const participantesUnicos = new Set(resultados.respuestas.map(r => r.participanteId));
   resultados.totalParticipantes = participantesUnicos.size;
 }
 
-// Función mejorada para guardar encuestas
-function guardarEncuestaComoJSON(encuesta: Encuesta): string {
+// ============================
+// FUNCIONES AZURE
+// ============================
+
+async function guardarEncuestaEnAzure(encuesta: Encuesta): Promise<string> {
   try {
-    // Crear directorio data si no existe
-    const dataDir = path.join(__dirname, '../../data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    // Generar nombre de archivo más limpio
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-    const tituloLimpio = encuesta.titulo
-      .replace(/[^a-zA-Z0-9\s]/g, '')
-      .replace(/\s+/g, '_')
-      .toLowerCase()
-      .substring(0, 30);
-    
-    const fileName = `${tituloLimpio}_${timestamp}.json`;
-    const filePath = path.join(dataDir, fileName);
-
-    // Agregar metadata
-    const encuestaCompleta = {
-      ...encuesta,
-      fechaCreacion: new Date().toISOString(),
-    };
-
-    fs.writeFileSync(filePath, JSON.stringify(encuestaCompleta, null, 2), 'utf-8');
-    console.log(`✅ Encuesta guardada exitosamente en: ${filePath}`);
-    return filePath;
+    console.log(`💾 Guardando encuesta en Azure: ${encuesta.titulo}`);
+    await azureService.guardarEncuesta(encuesta);
+    return encuesta.id!;
   } catch (error) {
-    console.error('❌ Error detallado al guardar encuesta:', error);
-    throw new Error(`Error al guardar: ${error.message}`);
+    console.error('❌ Error guardando encuesta en Azure:', error);
+    throw new Error(`Error al guardar en Azure: ${error.message}`);
   }
 }
 
-// ACCIÓN PRINCIPAL - Mejorada con IDs únicos
+async function cargarResultadosAzure(encuestaId: string): Promise<ResultadosEncuesta | null> {
+  try {
+    console.log(`📊 Cargando resultados desde Azure: ${encuestaId}`);
+    return await azureService.cargarResultados(encuestaId);
+  } catch (error) {
+    console.error('❌ Error cargando resultados desde Azure:', error);
+    return null;
+  }
+}
+
+async function guardarResultadosAzure(resultados: ResultadosEncuesta): Promise<void> {
+  try {
+    console.log(`💾 Guardando resultados en Azure: ${resultados.encuestaId}`);
+    await azureService.guardarResultados(resultados);
+  } catch (error) {
+    console.error('❌ Error guardando resultados en Azure:', error);
+    throw error;
+  }
+}
+
+async function buscarEncuestaEnAzure(encuestaId: string): Promise<Encuesta | null> {
+  try {
+    console.log(`🔍 Buscando encuesta en Azure: ${encuestaId}`);
+    return await azureService.cargarEncuesta(encuestaId);
+  } catch (error) {
+    console.error('❌ Error buscando encuesta en Azure:', error);
+    return null;
+  }
+}
+
+async function listarEncuestasAzure(): Promise<Encuesta[]> {
+  try {
+    console.log(`📋 Listando encuestas desde Azure`);
+    return await azureService.listarEncuestas();
+  } catch (error) {
+    console.error('❌ Error listando encuestas desde Azure:', error);
+    return [];
+  }
+}
+
+async function guardarRespuestaIndividualAzure(
+  encuestaId: string, 
+  userId: string, 
+  preguntaIndex: number, 
+  respuesta: string, 
+  preguntaTexto: string
+): Promise<void> {
+  try {
+    console.log(`💾 Guardando respuesta en Azure: ${encuestaId}, Pregunta ${preguntaIndex}`);
+    
+    const participanteAnonimo = crearParticipanteAnonimo(userId, encuestaId);
+    await azureService.guardarRespuesta(encuestaId, participanteAnonimo, preguntaIndex, respuesta);
+    await actualizarResultadosConsolidados(encuestaId);
+    
+    console.log(`✅ Respuesta guardada en Azure exitosamente`);
+  } catch (error) {
+    console.error('❌ Error al guardar respuesta en Azure:', error);
+    throw error;
+  }
+}
+
+async function actualizarResultadosConsolidados(encuestaId: string): Promise<void> {
+  try {
+    const encuesta = await azureService.cargarEncuesta(encuestaId);
+    if (!encuesta) return;
+    
+    const respuestas = await azureService.cargarRespuestasEncuesta(encuestaId);
+    
+    let resultados = await cargarResultadosAzure(encuestaId);
+    if (!resultados) {
+      resultados = {
+        encuestaId: encuestaId,
+        titulo: encuesta.titulo,
+        fechaCreacion: new Date(encuesta.fechaCreacion),
+        estado: 'activa',
+        totalParticipantes: 0,
+        respuestas: [],
+        resumen: {}
+      };
+    }
+    
+    resultados.respuestas = respuestas;
+    calcularResumen(resultados, encuesta);
+    await guardarResultadosAzure(resultados);
+  } catch (error) {
+    console.error('❌ Error actualizando resultados consolidados:', error);
+  }
+}
+
+function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): any {
+  const pregunta = encuesta.preguntas[preguntaIndex];
+  const totalPreguntas = encuesta.preguntas.length;
+  const progreso = Math.round(((preguntaIndex + 1) / totalPreguntas) * 100);
+  
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "ColumnSet",
+            "columns": [
+              {
+                "type": "Column",
+                "width": "auto",
+                "items": [
+                  {
+                    "type": "Image",
+                    "url": "https://incumate.io/teampulse/icon-small.png",
+                    "size": "Small",
+                    "style": "Person"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": "stretch",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "TeamPulse",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                    "color": "Accent"
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": encuesta.titulo,
+                    "size": "Small",
+                    "color": "Good",
+                    "weight": "Bolder"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Container",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": `Pregunta ${preguntaIndex + 1} de ${totalPreguntas}`,
+            "size": "Small",
+            "color": "Accent",
+            "weight": "Bolder"
+          },
+          {
+            "type": "ProgressBar",
+            "value": progreso
+          }
+        ],
+        "spacing": "Medium"
+      },
+      {
+        "type": "Container",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": pregunta.pregunta,
+            "size": "Large",
+            "weight": "Bolder",
+            "wrap": true,
+            "color": "Default"
+          }
+        ],
+        "spacing": "Large",
+        "style": "emphasis"
+      },
+      {
+        "type": "Container",
+        "items": pregunta.opciones.map((opcion, index) => ({
+          "type": "ActionSet",
+          "actions": [
+            {
+              "type": "Action.Submit",
+              "title": `🔘 ${opcion}`,
+              "data": {
+                "action": "survey_response",
+                "encuestaId": encuesta.id,
+                "preguntaIndex": preguntaIndex,
+                "respuesta": opcion,
+                "preguntaTexto": pregunta.pregunta
+              },
+              "style": index === 0 ? "positive" : "default"
+            }
+          ]
+        })),
+        "spacing": "Medium"
+      },
+      {
+        "type": "Container",
+        "items": [
+          {
+            "type": "ColumnSet",
+            "columns": [
+              {
+                "type": "Column",
+                "width": "stretch",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "💾 **Respuestas guardadas en Azure** ☁️",
+                    "size": "Small",
+                    "color": "Accent"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": "auto",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "🔒 Anónimas",
+                    "size": "Small",
+                    "color": "Good"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "spacing": "Large",
+        "separator": true
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "📊 Ver Resultados",
+        "data": {
+          "action": "view_results",
+          "encuestaId": encuesta.id
+        },
+        "style": "default"
+      },
+      {
+        "type": "Action.Submit", 
+        "title": "📋 Todas las Encuestas",
+        "data": {
+          "action": "list_surveys"
+        },
+        "style": "default"
+      }
+    ]
+  };
+  
+  return CardFactory.adaptiveCard(card);
+}
+
+
+// ============================
+// COMANDOS PRINCIPALES
+// ============================
+
+// ACCIÓN PRINCIPAL - CREAR ENCUESTA
 app.ai.action('crear_encuesta', async (context, state, data) => {
-  console.log('🚀 ACCIÓN crear_encuesta INICIADA');
+  console.log('🚀 ACCIÓN crear_encuesta INICIADA (Azure)');
   console.log('📝 Datos recibidos:', JSON.stringify(data, null, 2));
   console.log('👤 Usuario:', context.activity.from.name);
   
   try {
-    // Validación inicial
     if (!data || typeof data !== 'object') {
       console.error('❌ Datos inválidos o vacíos');
       await context.sendActivity("❌ Error: No se recibieron datos válidos para crear la encuesta.");
@@ -208,7 +433,6 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
     const { titulo, objetivo, preguntas } = data as Encuesta;
     console.log('🔍 Validando datos:', { titulo, objetivo, preguntasCount: preguntas?.length });
 
-    // Validaciones específicas
     if (!titulo || titulo.trim().length === 0) {
       await context.sendActivity("❌ Error: El título de la encuesta es obligatorio.");
       return 'create-survey';
@@ -224,7 +448,6 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
       return 'create-survey';
     }
 
-    // Validar cada pregunta
     for (let i = 0; i < preguntas.length; i++) {
       const pregunta = preguntas[i];
       if (!pregunta.pregunta || pregunta.pregunta.trim().length === 0) {
@@ -237,20 +460,17 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
         return 'create-survey';
       }
 
-      // Validar que las opciones no estén vacías
       const opcionesValidas = pregunta.opciones.filter(op => op && op.trim().length > 0);
       if (opcionesValidas.length < 2) {
         await context.sendActivity(`❌ Error: La pregunta ${i + 1} necesita al menos 2 opciones válidas.`);
         return 'create-survey';
       }
       
-      // Limpiar las opciones
       pregunta.opciones = opcionesValidas.map(op => op.trim());
     }
 
-    console.log('✅ Validaciones completadas, creando encuesta...');
+    console.log('✅ Validaciones completadas, creando encuesta en Azure...');
 
-    // GENERAR ID ÚNICO
     const encuestaId = generarIdEncuesta(titulo);
     
     const encuesta: Encuesta = {
@@ -258,12 +478,12 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
       objetivo: objetivo.trim(),
       preguntas,
       creador: context.activity.from.name || 'Usuario desconocido',
-      id: encuestaId, // NUEVO: ID único
+      id: encuestaId,
+      fechaCreacion: new Date(),
     };
 
-    const rutaArchivo = guardarEncuestaComoJSON(encuesta);
+    await guardarEncuestaEnAzure(encuesta);
     
-    // NUEVO: Crear archivo de resultados vacío
     const resultadosIniciales: ResultadosEncuesta = {
       encuestaId: encuestaId,
       titulo: encuesta.titulo,
@@ -274,41 +494,41 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
       resumen: {}
     };
     
-    guardarResultados(resultadosIniciales);
+    await guardarResultadosAzure(resultadosIniciales);
     
-    // Generar respuesta exitosa detallada
-    const resumen = `🎉 **¡Encuesta "${encuesta.titulo}" creada exitosamente!**
+    const resumen = `🎉 **¡Encuesta "${encuesta.titulo}" creada exitosamente en Azure!**
 
 **📋 Detalles:**
 • **ID:** \`${encuestaId}\`
 • **Objetivo:** ${encuesta.objetivo}
 • **Creador:** ${encuesta.creador}
 • **Preguntas:** ${preguntas.length}
-• **Archivo:** ${path.basename(rutaArchivo)}
+• **Almacenado en:** Azure Table Storage ☁️
 
 **❓ Preguntas incluidas:**
 ${preguntas.map((p, i) => 
   `**${i + 1}.** ${p.pregunta}\n   📊 Opciones: ${p.opciones.join(' | ')}`
 ).join('\n\n')}
 
-✅ La encuesta ha sido guardada correctamente y está lista para usar.
+✅ La encuesta ha sido guardada correctamente en la nube y está lista para usar.
 
 **🎯 Próximos pasos:**
+• **Responder:** \`responder ${encuestaId}\`
 • **Ver resultados:** \`resultados ${encuestaId}\``;
 
     await context.sendActivity(resumen);
-    console.log('🎉 Encuesta creada y respuesta enviada exitosamente');
+    console.log('🎉 Encuesta creada en Azure y respuesta enviada exitosamente');
     return 'create-survey';
 
   } catch (error) {
-    console.error("💥 ERROR CRÍTICO en crear_encuesta:", error);
+    console.error("💥 ERROR CRÍTICO en crear_encuesta (Azure):", error);
     console.error("Stack trace:", error.stack);
-    await context.sendActivity(`❌ Error interno al crear la encuesta: ${error.message}\n\nPor favor, intenta nuevamente.`);
+    await context.sendActivity(`❌ Error interno al crear la encuesta en Azure: ${error.message}\n\nPor favor, intenta nuevamente.`);
     return 'create-survey';
   }
 });
 
-// NUEVO comando para ver resultados
+// COMANDO VER RESULTADOS
 app.message(/^ver_resultados|resultados\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^(?:ver_resultados|resultados)\s+(.+)$/i);
   
@@ -318,35 +538,18 @@ app.message(/^ver_resultados|resultados\s+(.+)$/i, async (context, state) => {
   }
 
   const encuestaId = match[1].trim();
-  console.log(`📊 Buscando resultados para: ${encuestaId}`);
+  console.log(`📊 Buscando resultados en Azure para: ${encuestaId}`);
 
   try {
-    // Cargar encuesta original
-    const dataDir = path.join(__dirname, '../../data');
-    const archivosEncuestas = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
-    
-    let encuestaOriginal: Encuesta | null = null;
-    for (const archivo of archivosEncuestas) {
-      try {
-        const contenido = JSON.parse(fs.readFileSync(path.join(dataDir, archivo), 'utf-8'));
-        if (contenido.id === encuestaId) {
-          encuestaOriginal = contenido;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
+    const encuestaOriginal = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaOriginal) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      await context.sendActivity(`❌ **Encuesta no encontrada en Azure**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
       return;
     }
 
-    // Cargar resultados
-    let resultados = cargarResultados(encuestaId);
+    let resultados = await cargarResultadosAzure(encuestaId);
     if (!resultados) {
-      // Crear resultados vacíos si no existen
       resultados = {
         encuestaId: encuestaId,
         titulo: encuestaOriginal.titulo,
@@ -356,19 +559,18 @@ app.message(/^ver_resultados|resultados\s+(.+)$/i, async (context, state) => {
         respuestas: [],
         resumen: {}
       };
-      guardarResultados(resultados);
+      await guardarResultadosAzure(resultados);
     }
 
-    // Calcular resumen actualizado
     calcularResumen(resultados, encuestaOriginal);
-    guardarResultados(resultados);
+    await guardarResultadosAzure(resultados);
 
-    // Generar reporte
-    let reporte = `📊 **Resultados: ${resultados.titulo}**\n`;
+    let reporte = `📊 **Resultados: ${resultados.titulo}** ☁️\n`;
     reporte += `🆔 ID: \`${encuestaId}\`\n`;
     reporte += `📅 Creada: ${new Date(resultados.fechaCreacion).toLocaleDateString()}\n`;
     reporte += `👥 Participantes: **${resultados.totalParticipantes}**\n`;
-    reporte += `📊 Estado: **${resultados.estado}**\n\n`;
+    reporte += `📊 Estado: **${resultados.estado}**\n`;
+    reporte += `💾 Almacenado en: **Azure Table Storage**\n\n`;
 
     if (resultados.totalParticipantes === 0) {
       reporte += `🔔 **Sin respuestas aún**\n\n`;
@@ -376,6 +578,7 @@ app.message(/^ver_resultados|resultados\s+(.+)$/i, async (context, state) => {
       encuestaOriginal.preguntas.forEach((pregunta, index) => {
         reporte += `${index + 1}. ${pregunta.pregunta}\n`;
       });
+      reporte += `\n**Para responder:** \`responder ${encuestaId}\``;
     } else {
       reporte += `📈 **Resultados por pregunta:**\n\n`;
       
@@ -401,160 +604,43 @@ app.message(/^ver_resultados|resultados\s+(.+)$/i, async (context, state) => {
     await context.sendActivity(reporte);
 
   } catch (error) {
-    console.error('❌ Error al generar resultados:', error);
-    await context.sendActivity("❌ Error al cargar los resultados. Verifica que el ID sea correcto.");
+    console.error('❌ Error al generar resultados desde Azure:', error);
+    await context.sendActivity("❌ Error al cargar los resultados desde Azure. Verifica que el ID sea correcto.");
   }
 });
 
-// Comando de prueba mejorado
-app.message(/^test_encuesta$/i, async (context, state) => {
-  console.log('🧪 Ejecutando prueba de guardado...');
-  
-  const encuestaPrueba: Encuesta = {
-    titulo: "Encuesta de Prueba Automática",
-    objetivo: "Verificar el correcto funcionamiento del sistema de guardado",
-    preguntas: [
-      {
-        pregunta: "¿Cómo calificarías tu experiencia con TeamPulse?",
-        opciones: ["Excelente", "Buena", "Regular", "Mala", "Muy mala"]
-      },
-      {
-        pregunta: "¿Recomendarías TeamPulse a tu equipo?",
-        opciones: ["Definitivamente sí", "Probablemente sí", "No estoy seguro", "Probablemente no", "Definitivamente no"]
-      },
-      {
-        pregunta: "¿Qué función te parece más útil?",
-        opciones: ["Creación rápida de encuestas", "Análisis con IA", "Integración con Teams", "Anonimato garantizado"]
-      }
-    ],
-    creador: context.activity.from.name || 'Sistema de Pruebas',
-  };
-
-  try {
-    // Generar ID y completar datos
-    const encuestaId = generarIdEncuesta(encuestaPrueba.titulo);
-    encuestaPrueba.id = encuestaId;
-    
-    const rutaArchivo = guardarEncuestaComoJSON(encuestaPrueba);
-    
-    // Crear resultados vacíos
-    const resultadosIniciales: ResultadosEncuesta = {
-      encuestaId: encuestaId,
-      titulo: encuestaPrueba.titulo,
-      fechaCreacion: new Date(),
-      estado: 'activa',
-      totalParticipantes: 0,
-      respuestas: [],
-      resumen: {}
-    };
-    
-    guardarResultados(resultadosIniciales);
-    
-    await context.sendActivity(`✅ **Prueba exitosa!**
-
-📋 **Encuesta creada:**
-• **Título:** ${encuestaPrueba.titulo}
-• **ID:** \`${encuestaId}\`
-• **Archivo:** \`${path.basename(rutaArchivo)}\`
-
-🧪 **Prueba estos comandos:**
-• \`resultados ${encuestaId}\`
-• \`listar\`
-
-El sistema está funcionando correctamente. 🎉`);
-  } catch (error) {
-    await context.sendActivity(`❌ **Prueba fallida:** ${error.message}`);
-  }
-});
-
-// Comando para listar encuestas con más detalles
+// COMANDO LISTAR
 app.message(/^listar|mostrar_encuestas$/i, async (context, state) => {
   try {
-    const dataDir = path.join(__dirname, '../../data');
-    console.log(`📁 Buscando encuestas en: ${dataDir}`);
+    console.log(`📁 Listando encuestas desde Azure Table Storage`);
     
-    if (!fs.existsSync(dataDir)) {
-      await context.sendActivity("📂 **No hay encuestas guardadas aún.**\n\nCrea tu primera encuesta escribiendo: *\"Quiero crear una encuesta\"*");
+    const encuestas = await listarEncuestasAzure();
+    
+    if (encuestas.length === 0) {
+      await context.sendActivity("📂 **No hay encuestas guardadas en Azure aún.**\n\nCrea tu primera encuesta escribiendo: *\"Quiero crear una encuesta\"*");
       return;
     }
 
-    const archivos = fs.readdirSync(dataDir).filter(file => file.endsWith('.json'));
+    let lista = `📋 **Encuestas en Azure (${encuestas.length}):**\n\n`;
     
-    if (archivos.length === 0) {
-      await context.sendActivity("📂 **No hay encuestas guardadas aún.**\n\nCrea tu primera encuesta escribiendo: *\"Quiero crear una encuesta\"*");
-      return;
-    }
-
-    let lista = `📋 **Encuestas guardadas (${archivos.length}):**\n\n`;
-    
-    archivos.forEach((archivo, index) => {
-      try {
-        const contenido = JSON.parse(fs.readFileSync(path.join(dataDir, archivo), 'utf-8'));
-        const fecha = contenido.fechaCreacion ? new Date(contenido.fechaCreacion).toLocaleDateString() : 'N/A';
-        lista += `**${index + 1}.** ${contenido.titulo || archivo.replace('.json', '')}\n`;
-        lista += `   🆔 ID: \`${contenido.id || 'sin_id'}\`\n`;
-        lista += `   📅 Creada: ${fecha} | 👤 ${contenido.creador || 'N/A'} | ❓ ${contenido.preguntas?.length || 0} preguntas\n\n`;
-      } catch (e) {
-        lista += `**${index + 1}.** ${archivo.replace('.json', '')} *(error al leer detalles)*\n\n`;
-      }
+    encuestas.forEach((encuesta, index) => {
+      const fecha = encuesta.fechaCreacion ? new Date(encuesta.fechaCreacion).toLocaleDateString() : 'N/A';
+      lista += `**${index + 1}.** ${encuesta.titulo}\n`;
+      lista += `   🆔 ID: \`${encuesta.id}\`\n`;
+      lista += `   📅 Creada: ${fecha} | 👤 ${encuesta.creador || 'N/A'} | ❓ ${encuesta.preguntas?.length || 0} preguntas\n`;
+      lista += `   ☁️ **Almacenado en Azure Table Storage**\n\n`;
     });
 
     await context.sendActivity(lista);
   } catch (error) {
-    console.error('Error al listar encuestas:', error);
-    await context.sendActivity("❌ Error al acceder a las encuestas guardadas.");
+    console.error('Error al listar encuestas desde Azure:', error);
+    await context.sendActivity("❌ Error al acceder a las encuestas en Azure Table Storage.");
   }
 });
 
-// Comando de ayuda
-app.message(/^ayuda|help$/i, async (context, state) => {
-  const ayuda = `🤖 **TeamPulse - Comandos disponibles:**
-
-**📝 Crear encuestas:**
-• "Quiero crear una encuesta"
-• "Ayuda con una encuesta de clima laboral"
-• "Necesito hacer preguntas de satisfacción"
-
-**📋 Ver encuestas:**
-• "listar" - Ver todas las encuestas guardadas
-• "mostrar_encuestas" - Mismo comando anterior
-
-**📊 Ver resultados:**
-• "resultados [ID]" - Ver resultados de una encuesta
-• Ejemplo: \`resultados clima_1234567_abc123\`
-
-**🧪 Pruebas:**
-• "test_encuesta" - Crear encuesta de prueba
-• "ayuda" - Mostrar este mensaje
-
-**💡 Ejemplos de uso:**
-• *"Crear encuesta de satisfacción laboral"*
-• *"Encuesta sobre la nueva oficina"*
-• *"Feedback del último proyecto"*
-
-¡Empezá creando tu primera encuesta! 🚀`;
-
-  await context.sendActivity(ayuda);
-});
-
-// Manejo de errores del feedback loop
-app.feedbackLoop(async (context, state, feedbackLoopData) => {
-  console.log("📢 Feedback recibido:", JSON.stringify(feedbackLoopData, null, 2));
-  console.log("💬 Actividad completa:", JSON.stringify(context.activity, null, 2));
-});
-
-// Manejo de errores generales
-app.error(async (context, error) => {
-  console.error(`💥 Error general de la aplicación:`, error);
-  await context.sendActivity("❌ Ocurrió un error inesperado. Por favor, intenta nuevamente o contacta al administrador.");
-});
-
-// AGREGAR ESTE ÚNICO COMANDO al final de src/app/app.ts
-// (antes del export default app)
-
-// MICRO-PASO 1: Solo un comando simple para responder encuestas
+// COMANDO RESPONDER ENCUESTA
 app.message(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i, async (context, state) => {
-  console.log('🎯 Comando responder_encuesta ejecutado');
+  console.log('🎯 Comando responder_encuesta ejecutado (Azure)');
   
   try {
     const match = context.activity.text.match(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i);
@@ -567,33 +653,17 @@ app.message(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i, async (context, s
     const encuestaId = match[1].trim();
     const numeroPregunta = parseInt(match[2]);
     const respuestaTexto = match[3].trim();
-    const preguntaIndex = numeroPregunta - 1; // Convertir a índice
+    const preguntaIndex = numeroPregunta - 1;
     
     console.log(`📝 Datos: ID=${encuestaId}, Pregunta=${numeroPregunta}, Respuesta=${respuestaTexto}`);
     
-    // Buscar la encuesta
-    const dataDir = path.join(__dirname, '../../data');
-    const archivosEncuestas = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
-    
-    let encuestaEncontrada: Encuesta | null = null;
-    for (const archivo of archivosEncuestas) {
-      try {
-        const contenido = JSON.parse(fs.readFileSync(path.join(dataDir, archivo), 'utf-8'));
-        if (contenido.id === encuestaId) {
-          encuestaEncontrada = contenido;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
+    const encuestaEncontrada = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaEncontrada) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      await context.sendActivity(`❌ **Encuesta no encontrada en Azure**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
       return;
     }
 
-    // Validar número de pregunta
     if (preguntaIndex < 0 || preguntaIndex >= encuestaEncontrada.preguntas.length) {
       await context.sendActivity(`❌ **Pregunta inválida**: ${numeroPregunta}\n\nLa encuesta "${encuestaEncontrada.titulo}" tiene ${encuestaEncontrada.preguntas.length} pregunta(s).`);
       return;
@@ -601,7 +671,6 @@ app.message(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i, async (context, s
 
     const pregunta = encuestaEncontrada.preguntas[preguntaIndex];
     
-    // Validar que la respuesta sea una de las opciones válidas
     const opcionValida = pregunta.opciones.find(opcion => 
       opcion.toLowerCase() === respuestaTexto.toLowerCase()
     );
@@ -611,44 +680,10 @@ app.message(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i, async (context, s
       return;
     }
 
-    // Cargar resultados existentes
-    let resultados = cargarResultados(encuestaId);
-    if (!resultados) {
-      await context.sendActivity(`❌ **Error**: No se encontraron datos de resultados para esta encuesta.`);
-      return;
-    }
-
-    // Crear hash anónimo para el participante
     const userId = context.activity.from.id;
-    const participanteAnonimo = crearParticipanteAnonimo(userId, encuestaId);
+    await guardarRespuestaIndividualAzure(encuestaId, userId, preguntaIndex, opcionValida, pregunta.pregunta);
 
-    // Verificar si ya respondió esta pregunta
-    const respuestaExistente = resultados.respuestas.find(
-      r => r.participanteId === participanteAnonimo && r.preguntaIndex === preguntaIndex
-    );
-
-    if (respuestaExistente) {
-      // Actualizar respuesta existente
-      respuestaExistente.respuesta = opcionValida;
-      respuestaExistente.timestamp = new Date();
-      console.log(`🔄 Respuesta actualizada para pregunta ${numeroPregunta}`);
-    } else {
-      // Agregar nueva respuesta
-      const nuevaRespuesta: Respuesta = {
-        participanteId: participanteAnonimo,
-        preguntaIndex: preguntaIndex,
-        respuesta: opcionValida,
-        timestamp: new Date()
-      };
-      resultados.respuestas.push(nuevaRespuesta);
-      console.log(`✅ Nueva respuesta agregada para pregunta ${numeroPregunta}`);
-    }
-
-    // Guardar resultados actualizados
-    guardarResultados(resultados);
-
-    // Confirmar al usuario
-    const confirmacion = `✅ **¡Respuesta guardada exitosamente!**
+    const confirmacion = `✅ **¡Respuesta guardada en Azure exitosamente!** ☁️
 
 📋 **Encuesta:** ${encuestaEncontrada.titulo}
 ❓ **Pregunta ${numeroPregunta}:** ${pregunta.pregunta}
@@ -658,18 +693,15 @@ app.message(/^responder_encuesta\s+([^\s]+)\s+(\d+)\s+(.+)$/i, async (context, s
 📝 **Responder otra pregunta:** \`responder_encuesta ${encuestaId} [número] [respuesta]\``;
     
     await context.sendActivity(confirmacion);
-    console.log(`✅ Respuesta procesada exitosamente`);
+    console.log(`✅ Respuesta procesada exitosamente en Azure`);
 
   } catch (error) {
-    console.error('❌ Error en responder_encuesta:', error);
-    await context.sendActivity("❌ Error interno al procesar tu respuesta. Intenta nuevamente o contacta al administrador.");
+    console.error('❌ Error en responder_encuesta (Azure):', error);
+    await context.sendActivity("❌ Error interno al procesar tu respuesta en Azure. Intenta nuevamente o contacta al administrador.");
   }
 });
 
-// AGREGAR ESTE SEGUNDO COMANDO al final de src/app/app.ts
-// (después del comando anterior, antes del export default app)
-
-// MICRO-PASO 2: Comando más amigable para mostrar encuesta y opciones
+// COMANDO RESPONDER
 app.message(/^responder\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^responder\s+(.+)$/i);
   
@@ -679,69 +711,35 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
   }
 
   const encuestaId = match[1].trim();
-  console.log(`🎯 Usuario quiere responder encuesta: ${encuestaId}`);
+  console.log(`🎯 Usuario quiere responder encuesta desde Azure: ${encuestaId}`);
 
   try {
-    // Buscar la encuesta
-    const dataDir = path.join(__dirname, '../../data');
-    const archivosEncuestas = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
-    
-    let encuestaEncontrada: Encuesta | null = null;
-    for (const archivo of archivosEncuestas) {
-      try {
-        const contenido = JSON.parse(fs.readFileSync(path.join(dataDir, archivo), 'utf-8'));
-        if (contenido.id === encuestaId) {
-          encuestaEncontrada = contenido;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
+    const encuestaEncontrada = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaEncontrada) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      await context.sendActivity(`❌ **Encuesta no encontrada en Azure**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
       return;
     }
 
-    // Verificar estado de la encuesta
-    const resultados = cargarResultados(encuestaId);
+    const resultados = await cargarResultadosAzure(encuestaId);
     if (resultados && resultados.estado === 'cerrada') {
       await context.sendActivity(`🔒 **Encuesta cerrada**: "${encuestaEncontrada.titulo}"\n\nEsta encuesta ya no acepta respuestas.`);
       return;
     }
 
-    // Mostrar encuesta con formato amigable
-    let mensaje = `📋 **${encuestaEncontrada.titulo}**\n`;
-    mensaje += `🎯 **Objetivo:** ${encuestaEncontrada.objetivo}\n\n`;
-    mensaje += `**❓ Preguntas disponibles:**\n\n`;
-
-    encuestaEncontrada.preguntas.forEach((pregunta, index) => {
-      mensaje += `**${index + 1}.** ${pregunta.pregunta}\n`;
-      mensaje += `**Opciones:** ${pregunta.opciones.join(' | ')}\n\n`;
-    });
-
-    mensaje += `**📝 Para responder:**\n`;
-    mensaje += `\`responder_encuesta ${encuestaId} [número_pregunta] [tu_respuesta]\`\n\n`;
-    mensaje += `**💡 Ejemplos:**\n`;
-    mensaje += `• \`responder_encuesta ${encuestaId} 1 ${encuestaEncontrada.preguntas[0].opciones[0]}\`\n`;
-    if (encuestaEncontrada.preguntas.length > 1) {
-      mensaje += `• \`responder_encuesta ${encuestaId} 2 ${encuestaEncontrada.preguntas[1].opciones[0]}\`\n`;
-    }
-    mensaje += `\n🆔 **ID:** \`${encuestaId}\``;
-
-    await context.sendActivity(mensaje);
-    console.log(`✅ Encuesta mostrada para responder: ${encuestaId}`);
+    // 🎴 CREAR ADAPTIVE CARD para la primera pregunta
+    const responseCard = createSurveyResponseCard(encuestaEncontrada, 0);
+    
+    await context.sendActivity(MessageFactory.attachment(responseCard));
+    console.log(`✅ Survey Response Card enviada para: ${encuestaId}`);
 
   } catch (error) {
-    console.error('❌ Error al mostrar encuesta:', error);
-    await context.sendActivity("❌ Error al cargar la encuesta. Verifica que el ID sea correcto.");
+    console.error('❌ Error al mostrar encuesta desde Azure:', error);
+    await context.sendActivity("❌ Error al cargar la encuesta desde Azure. Verifica que el ID sea correcto.");
   }
 });
 
-// AGREGAR ESTE ANÁLISIS INTELIGENTE SIMPLE al final de src/app/app.ts
-
-// ANÁLISIS INTELIGENTE SIN APIs COMPLEJAS
+// ANÁLISIS INTELIGENTE
 app.message(/^analizar\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^analizar\s+(.+)$/i);
   
@@ -751,34 +749,19 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
   }
 
   const encuestaId = match[1].trim();
-  console.log(`📊 Iniciando análisis inteligente para: ${encuestaId}`);
+  console.log(`📊 Iniciando análisis inteligente desde Azure para: ${encuestaId}`);
 
   try {
-    // Cargar encuesta
-    const dataDir = path.join(__dirname, '../../data');
-    const archivosEncuestas = fs.readdirSync(dataDir).filter(f => f.endsWith('.json'));
-    
-    let encuestaOriginal: Encuesta | null = null;
-    for (const archivo of archivosEncuestas) {
-      try {
-        const contenido = JSON.parse(fs.readFileSync(path.join(dataDir, archivo), 'utf-8'));
-        if (contenido.id === encuestaId) {
-          encuestaOriginal = contenido;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
+    const encuestaOriginal = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaOriginal) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      await context.sendActivity(`❌ **Encuesta no encontrada en Azure**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
       return;
     }
 
-    let resultados = cargarResultados(encuestaId);
+    let resultados = await cargarResultadosAzure(encuestaId);
     if (!resultados) {
-      await context.sendActivity(`❌ **Error**: No se encontraron datos de resultados.`);
+      await context.sendActivity(`❌ **Error**: No se encontraron datos de resultados en Azure.`);
       return;
     }
 
@@ -789,18 +772,15 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       return;
     }
 
-    await context.sendActivity("🧠 **Generando análisis inteligente...**");
+    await context.sendActivity("🧠 **Generando análisis inteligente desde Azure...** ☁️");
 
-    // ANÁLISIS INTELIGENTE SIN LLAMADAS EXTERNAS
-    let analisis = `🧠 **Análisis Inteligente: ${encuestaOriginal.titulo}**\n\n`;
+    let analisis = `🧠 **Análisis Inteligente: ${encuestaOriginal.titulo}** ☁️\n\n`;
     
-    // Datos generales
     analisis += `📊 **RESUMEN EJECUTIVO:**\n`;
     analisis += `• **Participantes:** ${resultados.totalParticipantes} ${resultados.totalParticipantes === 1 ? 'persona' : 'personas'}\n`;
-    analisis += `• **Tasa de respuesta:** ${resultados.totalParticipantes > 0 ? 'Datos disponibles' : 'Sin respuestas'}\n`;
+    analisis += `• **Fuente de datos:** Azure Table Storage ☁️\n`;
     analisis += `• **Fecha análisis:** ${new Date().toLocaleDateString()}\n\n`;
 
-    // Análisis por pregunta
     analisis += `🔍 **INSIGHTS POR PREGUNTA:**\n\n`;
     
     let recomendaciones: string[] = [];
@@ -816,7 +796,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
         analisis += `   📝 _Sin respuestas registradas_\n\n`;
         alertas.push(`Pregunta ${index + 1} no tiene respuestas`);
       } else {
-        // Encontrar respuesta más popular
         const respuestasOrdenadas = Object.entries(respuestasPregunta)
           .sort(([,a], [,b]) => (b as number) - (a as number));
         
@@ -825,7 +804,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
         
         analisis += `   🏆 **Respuesta principal:** "${respuestaMasVotada}" (${porcentajeMax}%)\n`;
         
-        // Análisis de consenso
         if (porcentajeMax >= 80) {
           analisis += `   💪 **Alto consenso** - Clara preferencia mayoritaria\n`;
           recomendaciones.push(`Pregunta ${index + 1}: Aprovechar el fuerte consenso hacia "${respuestaMasVotada}"`);
@@ -836,7 +814,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
           alertas.push(`Pregunta ${index + 1}: Opiniones muy divididas requieren atención`);
         }
         
-        // Mostrar distribución
         if (respuestasOrdenadas.length > 1) {
           analisis += `   📈 **Distribución:** `;
           respuestasOrdenadas.slice(0, 3).forEach(([resp, votos], i) => {
@@ -849,28 +826,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       }
     });
 
-    // Análisis específico por tipo de encuesta
-    const tituloLower = encuestaOriginal.titulo.toLowerCase();
-    if (tituloLower.includes('mascota') || tituloLower.includes('oficina')) {
-      analisis += `🐕 **ANÁLISIS ESPECÍFICO - MASCOTAS EN OFICINA:**\n`;
-      
-      // Buscar patrones específicos
-      const primeraRespuesta = resultados.resumen![0] ? Object.entries(resultados.resumen![0])
-        .sort(([,a], [,b]) => (b as number) - (a as number))[0] : null;
-      
-      if (primeraRespuesta) {
-        const [respuesta, votos] = primeraRespuesta;
-        if (respuesta.toLowerCase().includes('sí') || respuesta.toLowerCase().includes('si')) {
-          analisis += `• ✅ **Receptividad positiva** a mascotas en la oficina\n`;
-          recomendaciones.push('Considerar programa piloto de mascotas en oficina');
-        } else if (respuesta.toLowerCase().includes('no')) {
-          analisis += `• ❌ **Resistencia** a mascotas en la oficina\n`;
-          recomendaciones.push('Investigar preocupaciones específicas antes de implementar');
-        }
-      }
-    }
-
-    // Recomendaciones inteligentes
     if (recomendaciones.length > 0) {
       analisis += `\n💡 **RECOMENDACIONES ESTRATÉGICAS:**\n`;
       recomendaciones.forEach((rec, i) => {
@@ -878,7 +833,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       });
     }
 
-    // Alertas importantes
     if (alertas.length > 0) {
       analisis += `\n⚠️ **PUNTOS DE ATENCIÓN:**\n`;
       alertas.forEach((alerta, i) => {
@@ -886,7 +840,6 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       });
     }
 
-    // Siguientes pasos
     analisis += `\n🎯 **PRÓXIMOS PASOS:**\n`;
     if (resultados.totalParticipantes < 5) {
       analisis += `• Aumentar participación para obtener datos más representativos\n`;
@@ -895,29 +848,566 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
     analisis += `• Compartir resultados con stakeholders relevantes\n`;
     
     analisis += `\n📋 **Datos detallados:** \`resultados ${encuestaId}\`\n`;
-    analisis += `🔄 **Actualizar análisis:** \`analizar ${encuestaId}\``;
+    analisis += `🔄 **Actualizar análisis:** \`analizar ${encuestaId}\`\n`;
+    analisis += `☁️ **Datos desde:** Azure Table Storage`;
 
     await context.sendActivity(analisis);
-    console.log(`✅ Análisis inteligente completado para: ${encuestaId}`);
+    console.log(`✅ Análisis inteligente completado desde Azure para: ${encuestaId}`);
 
   } catch (error) {
-    console.error('❌ Error en análisis inteligente:', error);
-    await context.sendActivity(`❌ Error al generar análisis. Usa \`resultados ${encuestaId}\` para ver datos básicos.`);
+    console.error('❌ Error en análisis inteligente desde Azure:', error);
+    await context.sendActivity(`❌ Error al generar análisis desde Azure. Usa \`resultados ${encuestaId}\` para ver datos básicos.`);
   }
 });
 
-// COMANDO DE MIGRACIÓN (ejecutar solo una vez)
+// ============================
+// COMANDOS DE TEMPLATES
+// ============================
+
+// COMANDO: Crear templates seed (para inicializar)
+// REEMPLAZAR el comando seed_templates en app.ts con esta versión con debug:
+
+app.message(/^seed_templates$/i, async (context, state) => {
+  console.log('🌱 Ejecutando seed de templates...');
+  
+  try {
+    await context.sendActivity("🌱 **Creando templates iniciales...** ☁️\n\nEsto puede tardar unos momentos...");
+    
+    console.log('🔧 Llamando a azureService.crearTemplatesSeed()...');
+    
+    await azureService.crearTemplatesSeed();
+    
+    console.log('✅ crearTemplatesSeed() completado sin errores');
+    
+    await context.sendActivity(`🎉 **¡Templates iniciales creados exitosamente!** ☁️
+
+📋 **Templates disponibles:**
+• 🆓 Clima Laboral (HR)
+• 🆓 NPS Cliente (Customer)  
+• 🆓 Feedback Capacitación (Training)
+• 💼 Trabajo Remoto (HR)
+• 💼 Evaluación 360° (360)
+
+**🎯 Comandos disponibles:**
+• \`ver_templates\` - Ver todos los templates
+• \`usar_template [id]\` - Usar un template específico
+• \`buscar_templates [término]\` - Buscar templates
+
+¡Templates listos para usar! 🚀`);
+
+  } catch (error) {
+    console.error('❌ Error creando templates seed:', error);
+    console.error('❌ Stack trace completo:', error.stack);
+    
+    await context.sendActivity(`❌ **Error al crear templates iniciales**: ${error.message}\n\n🔧 **Debug info:** Ver logs del servidor para más detalles.`);
+  }
+});
+
+// COMANDO: Ver todos los templates disponibles
+app.message(/^ver_templates|templates|mostrar_templates$/i, async (context, state) => {
+  console.log('📋 Listando templates disponibles desde Azure...');
+  
+  try {
+    await context.sendActivity("📋 **Cargando templates disponibles...** ☁️");
+    
+    const templatesPublicos = await azureService.listarTemplatesPublicos();
+    
+    if (templatesPublicos.length === 0) {
+      await context.sendActivity("📂 **No hay templates disponibles.**\n\nEjecuta `seed_templates` para cargar templates iniciales.");
+      return;
+    }
+
+    let mensaje = `📋 **Templates Disponibles (${templatesPublicos.length})** ☁️\n\n`;
+
+    const categorias = Array.from(new Set(templatesPublicos.map(t => t.categoria)));
+    
+    categorias.forEach(categoria => {
+      const templatesCategoria = templatesPublicos.filter(t => t.categoria === categoria);
+      
+      mensaje += `### 📂 **${categoria.toUpperCase()}**\n`;
+      
+      templatesCategoria.forEach(template => {
+        const planBadge = template.nivelPlan === 'free' ? '🆓' : 
+                         template.nivelPlan === 'professional' ? '💼' : '🏢';
+        const popularidad = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
+        
+        mensaje += `${planBadge} **${template.nombre}**${popularidad}\n`;
+        mensaje += `   📝 ${template.descripcion}\n`;
+        mensaje += `   🎯 ${template.objetivo}\n`;
+        mensaje += `   🏷️ _${template.tags}_\n`;
+        mensaje += `   ▶️ **Usar:** \`usar_template ${template.rowKey}\`\n\n`;
+      });
+    });
+
+    mensaje += `💡 **Comandos disponibles:**\n`;
+    mensaje += `• \`usar_template [id]\` - Crear encuesta desde template\n`;
+    mensaje += `• \`buscar_templates [término]\` - Buscar templates específicos\n`;
+    mensaje += `• \`crear_template\` - Crear tu propio template (Admin)\n\n`;
+    mensaje += `🆓 Free | 💼 Professional | 🏢 Enterprise`;
+
+    await context.sendActivity(mensaje);
+    console.log(`✅ Mostrados ${templatesPublicos.length} templates`);
+
+  } catch (error) {
+    console.error('❌ Error listando templates:', error);
+    await context.sendActivity("❌ Error al cargar templates desde Azure. Intenta nuevamente.");
+  }
+});
+
+// COMANDO: Usar template específico
+app.message(/^usar_template\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^usar_template\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`usar_template [id_template]`\n\nEjemplo: `usar_template clima_laboral_v1`\n\nUsa `ver_templates` para ver IDs disponibles.");
+    return;
+  }
+
+  const templateId = match[1].trim();
+  console.log(`🎯 Usuario quiere usar template: ${templateId}`);
+
+  try {
+    await context.sendActivity("🔍 **Buscando template...** ☁️");
+    
+    let template = await azureService.obtenerTemplate('TEMPLATE', templateId);
+    
+    if (!template) {
+      await context.sendActivity(`❌ **Template no encontrado**: \`${templateId}\`\n\nUsa \`ver_templates\` para ver templates disponibles.`);
+      return;
+    }
+
+    if (template.nivelPlan === 'enterprise') {
+      await context.sendActivity(`🏢 **Template Enterprise**: "${template.nombre}"\n\nEste template requiere plan Enterprise. Contacta al administrador.\n\n💡 **Alternativamente**, puedes usar templates gratuitos con \`ver_templates\`.`);
+      return;
+    }
+
+    const preguntas = JSON.parse(template.preguntas as string) as Pregunta[];
+
+    let preview = `📋 **Template: ${template.nombre}** ☁️\n\n`;
+    preview += `📂 **Categoría:** ${template.categoria}\n`;
+    preview += `🎯 **Objetivo:** ${template.objetivo}\n`;
+    preview += `📝 **Descripción:** ${template.descripcion}\n`;
+    preview += `👤 **Creado por:** ${template.creador}\n`;
+    preview += `📊 **Usado:** ${template.vecesUsado} veces\n\n`;
+    
+    preview += `**❓ Preguntas incluidas (${preguntas.length}):**\n\n`;
+    preguntas.forEach((pregunta: Pregunta, index: number) => {
+      preview += `**${index + 1}.** ${pregunta.pregunta}\n`;
+      preview += `   📊 Opciones: ${pregunta.opciones.join(' | ')}\n\n`;
+    });
+
+    preview += `✅ **Para crear encuesta desde este template:**\n`;
+    preview += `\`confirmar_template ${templateId}\`\n\n`;
+    preview += `🔙 **Ver otros templates:** \`ver_templates\``;
+
+    await context.sendActivity(preview);
+    console.log(`✅ Template preview mostrado: ${template.nombre}`);
+
+  } catch (error) {
+    console.error('❌ Error obteniendo template:', error);
+    await context.sendActivity("❌ Error al cargar el template desde Azure. Verifica el ID e intenta nuevamente.");
+  }
+});
+
+// COMANDO: Confirmar y crear encuesta desde template
+app.message(/^confirmar_template\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^confirmar_template\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`confirmar_template [id_template]`");
+    return;
+  }
+
+  const templateId = match[1].trim();
+  console.log(`✅ Confirmando creación desde template: ${templateId}`);
+
+  try {
+    await context.sendActivity("🚀 **Creando encuesta desde template...** ☁️");
+    
+    const template = await azureService.obtenerTemplate('TEMPLATE', templateId);
+    
+    if (!template) {
+      await context.sendActivity(`❌ **Template no encontrado**: \`${templateId}\``);
+      return;
+    }
+
+    await azureService.incrementarUsoTemplate('TEMPLATE', templateId);
+
+    const encuestaId = generarIdEncuesta(template.nombre);
+    
+    const preguntasConvertidas: Pregunta[] = (JSON.parse(template.preguntas as string) as any[]).map(p => ({
+      pregunta: p.pregunta,
+      opciones: p.opciones
+    }));
+
+    const nuevaEncuesta: Encuesta = {
+      titulo: `${template.nombre} - ${new Date().toLocaleDateString()}`,
+      objetivo: template.objetivo,
+      preguntas: preguntasConvertidas,
+      creador: context.activity.from.name || 'Usuario',
+      id: encuestaId,
+      fechaCreacion: new Date(),
+      basadoEnTemplate: templateId
+    };
+
+    await guardarEncuestaEnAzure(nuevaEncuesta);
+    
+    const resultadosIniciales: ResultadosEncuesta = {
+      encuestaId: encuestaId,
+      titulo: nuevaEncuesta.titulo,
+      fechaCreacion: new Date(),
+      estado: 'activa',
+      totalParticipantes: 0,
+      respuestas: [],
+      resumen: {}
+    };
+    
+    await guardarResultadosAzure(resultadosIniciales);
+
+    const exito = `🎉 **¡Encuesta creada desde template exitosamente!** ☁️
+
+📋 **Encuesta Nueva:**
+• **Título:** ${nuevaEncuesta.titulo}
+• **ID:** \`${encuestaId}\`
+• **Basada en:** ${template.nombre}
+• **Preguntas:** ${nuevaEncuesta.preguntas.length}
+
+**🎯 Comandos disponibles:**
+• **Responder:** \`responder ${encuestaId}\`
+• **Ver resultados:** \`resultados ${encuestaId}\`
+• **Analizar:** \`analizar ${encuestaId}\`
+
+**📋 Preguntas incluidas:**
+${nuevaEncuesta.preguntas.map((p, i) => 
+  `**${i + 1}.** ${p.pregunta}`
+).join('\n')}
+
+✅ **¡Lista para recibir respuestas!**`;
+
+    await context.sendActivity(exito);
+    console.log(`🎉 Encuesta creada desde template: ${template.nombre} → ${encuestaId}`);
+
+  } catch (error) {
+    console.error('❌ Error creando encuesta desde template:', error);
+    await context.sendActivity("❌ Error al crear encuesta desde template. Intenta nuevamente.");
+  }
+});
+
+// COMANDO: Buscar templates por término
+app.message(/^buscar_templates\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^buscar_templates\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`buscar_templates [término]`\n\nEjemplo: `buscar_templates clima` o `buscar_templates hr`");
+    return;
+  }
+
+  const termino = match[1].trim();
+  console.log(`🔍 Buscando templates con término: ${termino}`);
+
+  try {
+    await context.sendActivity(`🔍 **Buscando templates con "${termino}"...** ☁️`);
+    
+    const templatesEncontrados = await azureService.buscarTemplates(termino);
+    
+    if (templatesEncontrados.length === 0) {
+      await context.sendActivity(`🔍 **No se encontraron templates con "${termino}"**\n\n💡 **Sugerencias:**\n• Intenta términos como: "clima", "cliente", "capacitacion", "hr"\n• Usa \`ver_templates\` para ver todos los disponibles`);
+      return;
+    }
+
+    let mensaje = `🔍 **Resultados para "${termino}" (${templatesEncontrados.length})** ☁️\n\n`;
+
+    templatesEncontrados.forEach(template => {
+      const planBadge = template.nivelPlan === 'free' ? '🆓' : 
+                       template.nivelPlan === 'professional' ? '💼' : '🏢';
+      const popularidad = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
+      
+      mensaje += `${planBadge} **${template.nombre}**${popularidad}\n`;
+      mensaje += `   📂 ${template.categoria} | 📝 ${template.descripcion}\n`;
+      mensaje += `   ▶️ **Usar:** \`usar_template ${template.rowKey}\`\n\n`;
+    });
+
+    mensaje += `💡 **Para ver detalles:** \`usar_template [id]\`\n`;
+    mensaje += `📋 **Ver todos:** \`ver_templates\``;
+
+    await context.sendActivity(mensaje);
+    console.log(`✅ Encontrados ${templatesEncontrados.length} templates para: ${termino}`);
+
+  } catch (error) {
+    console.error('❌ Error buscando templates:', error);
+    await context.sendActivity("❌ Error al buscar templates. Intenta nuevamente.");
+  }
+});
+
+// AGREGAR handler para las acciones de la Adaptive Card
+// Handler para las acciones de Adaptive Cards usando Teams AI library
+app.ai.action('survey_response', async (context, state, data) => {
+  console.log(`🎴 Respuesta desde Adaptive Card:`, data);
+  
+  const { encuestaId, preguntaIndex, respuesta, preguntaTexto } = data;
+  const userId = context.activity.from.id;
+  
+  try {
+    // Guardar respuesta en Azure (misma lógica existente)
+    await guardarRespuestaIndividualAzure(encuestaId, userId, preguntaIndex, respuesta, preguntaTexto);
+    
+    // Buscar la encuesta para ver si hay más preguntas
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    
+    if (encuesta && preguntaIndex + 1 < encuesta.preguntas.length) {
+      // Hay más preguntas - mostrar la siguiente
+      const nextCard = createSurveyResponseCard(encuesta, preguntaIndex + 1);
+      await context.sendActivity(MessageFactory.attachment(nextCard));
+    } else {
+      // Era la última pregunta - mostrar confirmación
+      const confirmacion = `🎉 **¡Encuesta completada!** 
+
+✅ **Respuesta guardada:** "${respuesta}"
+📊 **Encuesta:** ${encuesta?.titulo}
+☁️ **Almacenado en Azure** de forma anónima
+
+🎯 **Ver resultados:** \`resultados ${encuestaId}\`
+📋 **Otras encuestas:** \`listar\``;
+      
+      await context.sendActivity(confirmacion);
+    }
+    
+    return 'survey_response_handled';
+    
+  } catch (error) {
+    console.error('❌ Error procesando respuesta de Adaptive Card:', error);
+    await context.sendActivity("❌ Error al procesar tu respuesta. Intenta nuevamente.");
+    return 'survey_response_error';
+  }
+});
+
+app.ai.action('view_results', async (context, state, data) => {
+  const { encuestaId } = data;
+  console.log(`📊 Ver resultados solicitado para: ${encuestaId}`);
+  
+  // Reutilizar lógica existente del comando "resultados"
+  try {
+    const encuestaOriginal = await buscarEncuestaEnAzure(encuestaId);
+
+    if (!encuestaOriginal) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return 'view_results_error';
+    }
+
+    let resultados = await cargarResultadosAzure(encuestaId);
+    if (!resultados) {
+      resultados = {
+        encuestaId: encuestaId,
+        titulo: encuestaOriginal.titulo,
+        fechaCreacion: new Date(),
+        estado: 'activa',
+        totalParticipantes: 0,
+        respuestas: [],
+        resumen: {}
+      };
+      await guardarResultadosAzure(resultados);
+    }
+
+    calcularResumen(resultados, encuestaOriginal);
+    await guardarResultadosAzure(resultados);
+
+    // Generar reporte (versión simplificada)
+    let reporte = `📊 **Resultados: ${resultados.titulo}** ☁️\n`;
+    reporte += `👥 Participantes: **${resultados.totalParticipantes}**\n`;
+    reporte += `📊 Estado: **${resultados.estado}**\n\n`;
+
+    if (resultados.totalParticipantes === 0) {
+      reporte += `🔔 **Sin respuestas aún**\n\n**Para responder:** \`responder ${encuestaId}\``;
+    } else {
+      reporte += `📈 **Resultados disponibles**\n\n**Análisis completo:** \`resultados ${encuestaId}\``;
+    }
+
+    await context.sendActivity(reporte);
+    return 'view_results_handled';
+    
+  } catch (error) {
+    console.error('❌ Error al mostrar resultados:', error);
+    await context.sendActivity("❌ Error al cargar resultados.");
+    return 'view_results_error';
+  }
+});
+
+app.ai.action('list_surveys', async (context, state, data) => {
+  console.log(`📋 Listando encuestas desde Adaptive Card`);
+  
+  try {
+    const encuestas = await listarEncuestasAzure();
+    
+    if (encuestas.length === 0) {
+      await context.sendActivity("📂 **No hay encuestas guardadas en Azure aún.**");
+      return 'list_surveys_empty';
+    }
+
+    let lista = `📋 **Encuestas en Azure (${encuestas.length}):**\n\n`;
+    
+    // Mostrar solo las primeras 5 para no saturar
+    encuestas.slice(0, 5).forEach((encuesta, index) => {
+      const fecha = encuesta.fechaCreacion ? new Date(encuesta.fechaCreacion).toLocaleDateString() : 'N/A';
+      lista += `**${index + 1}.** ${encuesta.titulo}\n`;
+      lista += `   🆔 \`${encuesta.id}\`\n`;
+      lista += `   📅 ${fecha} | 👤 ${encuesta.creador || 'N/A'}\n\n`;
+    });
+
+    if (encuestas.length > 5) {
+      lista += `... y ${encuestas.length - 5} más. Usa \`listar\` para ver todas.`;
+    }
+
+    await context.sendActivity(lista);
+    return 'list_surveys_handled';
+    
+  } catch (error) {
+    console.error('❌ Error listando encuestas:', error);
+    await context.sendActivity("❌ Error al cargar encuestas.");
+    return 'list_surveys_error';
+  }
+});
+
+
+// ============================
+// COMANDOS DE UTILIDAD
+// ============================
+
+// COMANDO DE MIGRACIÓN
 app.message(/^migrar_azure$/i, async (context, state) => {
   await context.sendActivity("🔄 **Iniciando migración a Azure Tables...**\n\nEsto puede tardar unos momentos...");
   
   try {
     const { migrarDatosJSON } = await import('../services/azureTableService');
     await migrarDatosJSON();
-    await context.sendActivity("🎉 **¡Migración completada exitosamente!**\n\nTodos los datos ahora están en Azure Table Storage.");
+    await context.sendActivity("🎉 **¡Migración completada exitosamente!**\n\nTodos los datos ahora están en Azure Table Storage.\n\n✅ **El sistema ahora funciona 100% en la nube** ☁️");
   } catch (error) {
     console.error('Error en migración:', error);
     await context.sendActivity("❌ **Error en migración**: " + error.message);
   }
+});
+
+// COMANDO DE PRUEBA AZURE
+app.message(/^test_azure$/i, async (context, state) => {
+  console.log('🧪 Ejecutando prueba de Azure Table Storage...');
+  
+  const encuestaPrueba: Encuesta = {
+    titulo: "🔬 Prueba Azure Table Storage",
+    objetivo: "Verificar el correcto funcionamiento de la migración a Azure",
+    preguntas: [
+      {
+        pregunta: "¿Funciona correctamente Azure Table Storage?",
+        opciones: ["Excelente", "Bien", "Regular", "Mal"]
+      },
+      {
+        pregunta: "¿La migración fue exitosa?",
+        opciones: ["Totalmente", "Parcialmente", "No funciona"]
+      }
+    ],
+    creador: context.activity.from.name || 'Sistema de Pruebas Azure',
+  };
+
+  try {
+    const encuestaId = generarIdEncuesta(encuestaPrueba.titulo);
+    encuestaPrueba.id = encuestaId;
+    encuestaPrueba.fechaCreacion = new Date();
+    
+    await guardarEncuestaEnAzure(encuestaPrueba);
+    
+    const resultadosIniciales: ResultadosEncuesta = {
+      encuestaId: encuestaId,
+      titulo: encuestaPrueba.titulo,
+      fechaCreacion: new Date(),
+      estado: 'activa',
+      totalParticipantes: 0,
+      respuestas: [],
+      resumen: {}
+    };
+    
+    await guardarResultadosAzure(resultadosIniciales);
+    
+    await context.sendActivity(`✅ **¡Prueba Azure exitosa!** ☁️
+
+📋 **Encuesta creada en Azure:**
+• **Título:** ${encuestaPrueba.titulo}
+• **ID:** \`${encuestaId}\`
+• **Almacenado en:** Azure Table Storage
+
+🧪 **Prueba estos comandos:**
+• \`resultados ${encuestaId}\`
+• \`responder ${encuestaId}\`
+• \`listar\`
+
+🎉 **Azure Table Storage está funcionando correctamente!**`);
+  } catch (error) {
+    await context.sendActivity(`❌ **Prueba Azure fallida:** ${error.message}\n\nVerifica la configuración de Azure Table Storage.`);
+  }
+});
+
+// COMANDO DE AYUDA
+app.message(/^ayuda|help$/i, async (context, state) => {
+  const ayuda = `🤖 **TeamPulse - Comandos disponibles (Azure):** ☁️
+
+**📝 Crear encuestas:**
+• "Quiero crear una encuesta"
+• "Ayuda con una encuesta de clima laboral"
+• "Necesito hacer preguntas de satisfacción"
+
+**📋 Templates:**
+• \`ver_templates\` - Ver todos los templates disponibles
+• \`usar_template [id]\` - Crear encuesta desde template
+• \`buscar_templates [término]\` - Buscar templates específicos
+• \`seed_templates\` - Cargar templates iniciales
+
+**📋 Ver encuestas:**
+• \`listar\` - Ver todas las encuestas en Azure
+• \`mostrar_encuestas\` - Mismo comando anterior
+
+**📊 Ver resultados:**
+• \`resultados [ID]\` - Ver resultados desde Azure
+• Ejemplo: \`resultados clima_1234567_abc123\`
+
+**📝 Responder encuestas:**
+• \`responder [ID]\` - Ver encuesta y opciones
+• \`responder_encuesta [ID] [#pregunta] [respuesta]\`
+
+**🧠 Análisis inteligente:**
+• \`analizar [ID]\` - Análisis avanzado con insights
+
+**🧪 Pruebas y migración:**
+• \`test_azure\` - Probar Azure Table Storage
+• \`migrar_azure\` - Migrar datos JSON a Azure (una vez)
+• \`ayuda\` - Mostrar este mensaje
+
+**💾 Almacenamiento:**
+✅ **Todos los datos están en Azure Table Storage** ☁️
+• Alta disponibilidad y escalabilidad
+• Respaldo automático en la nube
+• Acceso desde cualquier parte del mundo
+
+**💡 Ejemplos de uso:**
+• *"Crear encuesta de satisfacción laboral"*
+• *"Encuesta sobre la nueva oficina"*
+• *"Feedback del último proyecto"*
+
+¡Empezá creando tu primera encuesta en Azure! 🚀☁️`;
+
+  await context.sendActivity(ayuda);
+});
+
+// ============================
+// MANEJO DE ERRORES
+// ============================
+
+// Manejo de errores del feedback loop
+app.feedbackLoop(async (context, state, feedbackLoopData) => {
+  console.log("📢 Feedback recibido:", JSON.stringify(feedbackLoopData, null, 2));
+  console.log("💬 Actividad completa:", JSON.stringify(context.activity, null, 2));
+});
+
+// Manejo de errores generales
+app.error(async (context, error) => {
+  console.error(`💥 Error general de la aplicación:`, error);
+  await context.sendActivity("❌ Ocurrió un error inesperado con Azure. Por favor, intenta nuevamente o contacta al administrador.");
 });
 
 export default app;

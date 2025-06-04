@@ -36,10 +36,45 @@ interface AzureResultados {
   resumen: string; // JSON stringified
 }
 
+interface TemplateEncuesta {
+  partitionKey: string;     // "TEMPLATE" o "ORG_[orgId]"  
+  rowKey: string;          // template_id único
+  nombre: string;          // "Clima Laboral", "NPS Cliente"
+  categoria: string;       // "HR", "Customer", "Training", "360"
+  descripcion: string;     // Descripción detallada
+  objetivo: string;        // Objetivo del template
+  preguntas: string;       // JSON de preguntas y opciones
+  creador: string;         // Usuario que lo creó
+  esPublico: boolean;      // Si está disponible para todos
+  organizacion?: string;   // ID de org (para templates privados)
+  fechaCreacion: string;   // ISO timestamp
+  vecesUsado: number;      // Métrica de popularidad
+  tags: string;           // "clima,hr,satisfaccion" para búsqueda
+  nivelPlan: string;      // "free", "professional", "enterprise"
+}
+
+interface AzureTemplate {
+  partitionKey: string;
+  rowKey: string;
+  nombre: string;
+  categoria: string;
+  descripcion: string;
+  objetivo: string;
+  preguntas: string; // JSON stringified
+  creador: string;
+  esPublico: boolean;
+  organizacion?: string;
+  fechaCreacion: string;
+  vecesUsado: number;
+  tags: string;
+  nivelPlan: string;
+}
+
 export class AzureTableService {
   private encuestasTable: TableClient;
   private respuestasTable: TableClient;
   private resultadosTable: TableClient;
+  private templatesTable: TableClient;
 
   constructor() {
     const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
@@ -64,7 +99,49 @@ export class AzureTableService {
       'Resultados',
       credential
     );
+
+    this.templatesTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'Templates',
+      credential
+    );
+
+    // Crear tablas si no existen
+    this.initializeTables();
   }
+
+  private async initializeTables(): Promise<void> {
+    try {
+      await this.encuestasTable.createTable();
+      console.log('✅ Tabla Encuestas inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+    try {
+      await this.respuestasTable.createTable();
+      console.log('✅ Tabla Respuestas inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+    try {
+      await this.resultadosTable.createTable();
+      console.log('✅ Tabla Resultados inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+        // NUEVA TABLA TEMPLATES
+    try {
+      await this.templatesTable.createTable();
+      console.log('✅ Tabla Templates inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+  }
+
+  
 
   // ENCUESTAS
   async guardarEncuesta(encuesta: any): Promise<string> {
@@ -76,7 +153,7 @@ export class AzureTableService {
         objetivo: encuesta.objetivo,
         preguntas: JSON.stringify(encuesta.preguntas),
         creador: encuesta.creador || 'Usuario',
-        fechaCreacion: encuesta.fechaCreacion || new Date().toISOString(),
+        fechaCreacion: encuesta.fechaCreacion ? encuesta.fechaCreacion.toISOString() : new Date().toISOString(),
         estado: 'activa'
       };
 
@@ -132,9 +209,7 @@ export class AzureTableService {
     }
   }
 
-  // RESULTADOS
- // REEMPLAZAR la función guardarResultados en src/services/azureTableService.ts
-
+  // RESULTADOS - VERSIÓN CORREGIDA
   async guardarResultados(resultados: any): Promise<void> {
     try {
       // Fix para fechas - convertir a Date si es string
@@ -154,8 +229,8 @@ export class AzureTableService {
         titulo: resultados.titulo,
         fechaCreacion: fechaCreacion,
         estado: resultados.estado,
-        totalParticipantes: resultados.totalParticipantes,
-        respuestas: JSON.stringify(resultados.respuestas),
+        totalParticipantes: resultados.totalParticipantes || 0,
+        respuestas: JSON.stringify(resultados.respuestas || []),
         resumen: JSON.stringify(resultados.resumen || {})
       };
 
@@ -176,9 +251,9 @@ export class AzureTableService {
         titulo: entity.titulo,
         fechaCreacion: new Date(entity.fechaCreacion as string),
         estado: entity.estado,
-        totalParticipantes: entity.totalParticipantes,
-        respuestas: JSON.parse(entity.respuestas as string),
-        resumen: JSON.parse(entity.resumen as string)
+        totalParticipantes: entity.totalParticipantes || 0,
+        respuestas: JSON.parse(entity.respuestas as string || '[]'),
+        resumen: JSON.parse(entity.resumen as string || '{}')
       };
     } catch (error) {
       console.log(`📝 Resultados no encontrados en Azure: ${encuestaId}`);
@@ -231,7 +306,383 @@ export class AzureTableService {
       return [];
     }
   }
+
+    // ========================
+  // FUNCIONES DE TEMPLATES
+  // ========================
+
+  // Guardar template
+  async guardarTemplate(template: TemplateEncuesta): Promise<string> {
+    try {
+      const entity: AzureTemplate = {
+        partitionKey: template.partitionKey,
+        rowKey: template.rowKey,
+        nombre: template.nombre,
+        categoria: template.categoria,
+        descripcion: template.descripcion,
+        objetivo: template.objetivo,
+        preguntas: JSON.stringify(template.preguntas),
+        creador: template.creador,
+        esPublico: template.esPublico,
+        organizacion: template.organizacion,
+        fechaCreacion: template.fechaCreacion,
+        vecesUsado: template.vecesUsado,
+        tags: template.tags,
+        nivelPlan: template.nivelPlan
+      };
+
+      await this.templatesTable.createEntity(entity);
+      console.log(`✅ Template guardado en Azure: ${template.nombre}`);
+      return template.rowKey;
+    } catch (error) {
+      console.error('❌ Error guardando template en Azure:', error);
+      throw error;
+    }
+  }
+
+  // Listar templates públicos
+  async listarTemplatesPublicos(): Promise<TemplateEncuesta[]> {
+    try {
+      const entities = this.templatesTable.listEntities({
+        queryOptions: { 
+          filter: "PartitionKey eq 'TEMPLATE' and esPublico eq true" 
+        }
+      });
+
+      const templates = [];
+      for await (const entity of entities) {
+        templates.push({
+          partitionKey: entity.partitionKey as string,
+          rowKey: entity.rowKey as string,
+          nombre: entity.nombre as string,
+          categoria: entity.categoria as string,
+          descripcion: entity.descripcion as string,
+          objetivo: entity.objetivo as string,
+          preguntas: JSON.parse(entity.preguntas as string),
+          creador: entity.creador as string,
+          esPublico: entity.esPublico as boolean,
+          organizacion: entity.organizacion as string,
+          fechaCreacion: entity.fechaCreacion as string,
+          vecesUsado: entity.vecesUsado as number,
+          tags: entity.tags as string,
+          nivelPlan: entity.nivelPlan as string
+        });
+      }
+
+      // Ordenar por popularidad (vecesUsado) y luego por fecha
+      return templates.sort((a, b) => {
+        if (b.vecesUsado !== a.vecesUsado) {
+          return b.vecesUsado - a.vecesUsado;
+        }
+        return new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
+      });
+    } catch (error) {
+      console.error('❌ Error listando templates públicos:', error);
+      return [];
+    }
+  }
+
+// Listar templates por organización
+  async listarTemplatesOrganizacion(organizacion: string): Promise<TemplateEncuesta[]> {
+    try {
+      const entities = this.templatesTable.listEntities({
+        queryOptions: { 
+          filter: `PartitionKey eq 'ORG_${organizacion}'` 
+        }
+      });
+
+      const templates = [];
+      for await (const entity of entities) {
+        templates.push({
+          partitionKey: entity.partitionKey as string,
+          rowKey: entity.rowKey as string,
+          nombre: entity.nombre as string,
+          categoria: entity.categoria as string,
+          descripcion: entity.descripcion as string,
+          objetivo: entity.objetivo as string,
+          preguntas: JSON.parse(entity.preguntas as string),
+          creador: entity.creador as string,
+          esPublico: entity.esPublico as boolean,
+          organizacion: entity.organizacion as string,
+          fechaCreacion: entity.fechaCreacion as string,
+          vecesUsado: entity.vecesUsado as number,
+          tags: entity.tags as string,
+          nivelPlan: entity.nivelPlan as string
+        });
+      }
+
+      return templates.sort((a, b) => b.vecesUsado - a.vecesUsado);
+    } catch (error) {
+      console.error('❌ Error listando templates de organización:', error);
+      return [];
+    }
+  }
+
+  // Obtener template por ID
+  async obtenerTemplate(partitionKey: string, rowKey: string): Promise<TemplateEncuesta | null> {
+    try {
+      const entity = await this.templatesTable.getEntity(partitionKey, rowKey);
+      
+      return {
+        partitionKey: entity.partitionKey as string,
+        rowKey: entity.rowKey as string,
+        nombre: entity.nombre as string,
+        categoria: entity.categoria as string,
+        descripcion: entity.descripcion as string,
+        objetivo: entity.objetivo as string,
+        preguntas: JSON.parse(entity.preguntas as string),
+        creador: entity.creador as string,
+        esPublico: entity.esPublico as boolean,
+        organizacion: entity.organizacion as string,
+        fechaCreacion: entity.fechaCreacion as string,
+        vecesUsado: entity.vecesUsado as number,
+        tags: entity.tags as string,
+        nivelPlan: entity.nivelPlan as string
+      };
+    } catch (error) {
+      console.log(`📝 Template no encontrado: ${partitionKey}/${rowKey}`);
+      return null;
+    }
+  }
+
+  // Buscar templates por categoría o tags
+  async buscarTemplates(query: string): Promise<TemplateEncuesta[]> {
+    try {
+      // Buscar en templates públicos
+      const templates = await this.listarTemplatesPublicos();
+      
+      const queryLower = query.toLowerCase();
+      return templates.filter(template => 
+        template.nombre.toLowerCase().includes(queryLower) ||
+        template.categoria.toLowerCase().includes(queryLower) ||
+        template.tags.toLowerCase().includes(queryLower) ||
+        template.descripcion.toLowerCase().includes(queryLower)
+      );
+    } catch (error) {
+      console.error('❌ Error buscando templates:', error);
+      return [];
+    }
+  }
+
+  async incrementarUsoTemplate(partitionKey: string, rowKey: string): Promise<void> {
+    try {
+      const template = await this.obtenerTemplate(partitionKey, rowKey);
+      if (template) {
+        template.vecesUsado += 1;
+        
+        const entity: AzureTemplate = {
+          partitionKey: template.partitionKey,
+          rowKey: template.rowKey,
+          nombre: template.nombre,
+          categoria: template.categoria,
+          descripcion: template.descripcion,
+          objetivo: template.objetivo,
+          preguntas: JSON.stringify(template.preguntas),
+          creador: template.creador,
+          esPublico: template.esPublico,
+          organizacion: template.organizacion,
+          fechaCreacion: template.fechaCreacion,
+          vecesUsado: template.vecesUsado,
+          tags: template.tags,
+          nivelPlan: template.nivelPlan
+        };
+
+        await this.templatesTable.updateEntity(entity);
+        console.log(`✅ Incrementado uso de template: ${template.nombre}`);
+      }
+    } catch (error) {
+      console.error('❌ Error incrementando uso de template:', error);
+    }
+  }
+
+  // Función para crear templates seed (ejecutar una vez)
+// REEMPLAZAR la función crearTemplatesSeed en azureTableService.ts con esta versión corregida:
+
+async crearTemplatesSeed(): Promise<void> {
+  console.log('🌱 Creando templates seed...');
+
+  const templatesSeed = [
+    {
+      partitionKey: 'TEMPLATE',
+      rowKey: 'clima_laboral_v1',
+      nombre: 'Clima Laboral',
+      categoria: 'HR',
+      descripcion: 'Evaluación completa del ambiente de trabajo y satisfacción laboral',
+      objetivo: 'Medir la satisfacción y engagement de los empleados',
+      preguntas: JSON.stringify([ // 🔧 FIX: Convertir a JSON string
+        {
+          pregunta: '¿Cómo calificarías el ambiente general de trabajo?',
+          opciones: ['Excelente', 'Bueno', 'Regular', 'Malo', 'Muy malo']
+        },
+        {
+          pregunta: '¿Te sientes valorado por tu supervisor inmediato?',
+          opciones: ['Siempre', 'Frecuentemente', 'A veces', 'Raramente', 'Nunca']
+        },
+        {
+          pregunta: '¿Recomendarías esta empresa como un buen lugar para trabajar?',
+          opciones: ['Definitivamente sí', 'Probablemente sí', 'No estoy seguro', 'Probablemente no', 'Definitivamente no']
+        },
+        {
+          pregunta: '¿Qué tan clara es la comunicación de los objetivos del equipo?',
+          opciones: ['Muy clara', 'Clara', 'Moderadamente clara', 'Poco clara', 'Nada clara']
+        },
+        {
+          pregunta: '¿Tienes las herramientas necesarias para hacer bien tu trabajo?',
+          opciones: ['Completamente', 'Mayormente', 'Parcialmente', 'Muy poco', 'Para nada']
+        }
+      ]),
+      creador: 'TeamPulse System',
+      esPublico: true,
+      fechaCreacion: new Date().toISOString(),
+      vecesUsado: 0,
+      tags: 'clima,laboral,hr,satisfaccion,ambiente',
+      nivelPlan: 'free'
+    },
+    {
+      partitionKey: 'TEMPLATE',
+      rowKey: 'nps_cliente_v1',
+      nombre: 'NPS - Satisfacción Cliente',
+      categoria: 'Customer',
+      descripcion: 'Net Promoter Score para medir lealtad y satisfacción del cliente',
+      objetivo: 'Evaluar la probabilidad de recomendación y identificar áreas de mejora',
+      preguntas: JSON.stringify([ // 🔧 FIX: JSON string
+        {
+          pregunta: '¿Qué tan probable es que recomiendes nuestro producto/servicio?',
+          opciones: ['10 - Extremadamente probable', '9 - Muy probable', '8 - Probable', '7 - Neutral', '6 - Poco probable', '5 - Muy poco probable', '0-4 - Nada probable']
+        },
+        {
+          pregunta: '¿Cómo calificarías la calidad de nuestro servicio al cliente?',
+          opciones: ['Excelente', 'Muy bueno', 'Bueno', 'Regular', 'Malo']
+        },
+        {
+          pregunta: '¿Qué tan fácil fue resolver tu consulta/problema?',
+          opciones: ['Muy fácil', 'Fácil', 'Moderado', 'Difícil', 'Muy difícil']
+        }
+      ]),
+      creador: 'TeamPulse System',
+      esPublico: true,
+      fechaCreacion: new Date().toISOString(),
+      vecesUsado: 0,
+      tags: 'nps,cliente,satisfaccion,recomendacion,servicio',
+      nivelPlan: 'free'
+    },
+    {
+      partitionKey: 'TEMPLATE',
+      rowKey: 'feedback_capacitacion_v1',
+      nombre: 'Feedback Capacitación',
+      categoria: 'Training',
+      descripcion: 'Evaluación post-capacitación para medir efectividad del entrenamiento',
+      objetivo: 'Evaluar la utilidad y calidad de las sesiones de capacitación',
+      preguntas: JSON.stringify([ // 🔧 FIX: JSON string
+        {
+          pregunta: '¿Qué tan útil fue esta capacitación para tu trabajo?',
+          opciones: ['Extremadamente útil', 'Muy útil', 'Moderadamente útil', 'Poco útil', 'Nada útil']
+        },
+        {
+          pregunta: '¿El contenido fue presentado de manera clara?',
+          opciones: ['Muy claro', 'Claro', 'Moderadamente claro', 'Poco claro', 'Confuso']
+        },
+        {
+          pregunta: '¿El instructor demostró conocimiento del tema?',
+          opciones: ['Experto', 'Muy conocedor', 'Conocedor', 'Poco conocedor', 'Principiante']
+        },
+        {
+          pregunta: '¿Recomendarías esta capacitación a tus colegas?',
+          opciones: ['Definitivamente sí', 'Probablemente sí', 'Tal vez', 'Probablemente no', 'Definitivamente no']
+        }
+      ]),
+      creador: 'TeamPulse System',
+      esPublico: true,
+      fechaCreacion: new Date().toISOString(),
+      vecesUsado: 0,
+      tags: 'capacitacion,training,feedback,educacion,curso',
+      nivelPlan: 'free'
+    },
+    {
+      partitionKey: 'TEMPLATE',
+      rowKey: 'trabajo_remoto_v1',
+      nombre: 'Trabajo Remoto',
+      categoria: 'HR',
+      descripcion: 'Evaluación de la experiencia y productividad en trabajo remoto',
+      objetivo: 'Entender los desafíos y beneficios del trabajo remoto',
+      preguntas: JSON.stringify([ // 🔧 FIX: JSON string
+        {
+          pregunta: '¿Qué tan productivo te sientes trabajando desde casa?',
+          opciones: ['Más productivo', 'Igual de productivo', 'Menos productivo', 'Mucho menos productivo']
+        },
+        {
+          pregunta: '¿Tienes un espacio adecuado para trabajar desde casa?',
+          opciones: ['Sí, muy adecuado', 'Sí, adecuado', 'Parcialmente', 'No muy adecuado', 'No adecuado']
+        },
+        {
+          pregunta: '¿Qué tan efectiva es la comunicación con tu equipo?',
+          opciones: ['Muy efectiva', 'Efectiva', 'Moderadamente efectiva', 'Poco efectiva', 'Inefectiva']
+        },
+        {
+          pregunta: '¿Prefieres trabajar remoto, presencial o híbrido?',
+          opciones: ['100% remoto', 'Mayormente remoto', 'Híbrido 50/50', 'Mayormente presencial', '100% presencial']
+        }
+      ]),
+      creador: 'TeamPulse System',
+      esPublico: true,
+      fechaCreacion: new Date().toISOString(),
+      vecesUsado: 0,
+      tags: 'remoto,home,office,productividad,hibrido',
+      nivelPlan: 'professional'
+    },
+    {
+      partitionKey: 'TEMPLATE',
+      rowKey: 'evaluacion_360_v1',
+      nombre: 'Evaluación 360°',
+      categoria: '360',
+      descripcion: 'Evaluación integral desde múltiples perspectivas: supervisor, pares y subordinados',
+      objetivo: 'Obtener feedback completo para desarrollo profesional',
+      preguntas: JSON.stringify([ // 🔧 FIX: JSON string
+        {
+          pregunta: '¿Cómo calificarías las habilidades de comunicación?',
+          opciones: ['Excelente', 'Muy bueno', 'Bueno', 'Necesita mejora', 'Deficiente']
+        },
+        {
+          pregunta: '¿Demuestra liderazgo efectivo en situaciones desafiantes?',
+          opciones: ['Siempre', 'Frecuentemente', 'A veces', 'Raramente', 'Nunca']
+        },
+        {
+          pregunta: '¿Qué tan bien colabora con el equipo?',
+          opciones: ['Excepcional', 'Muy bien', 'Bien', 'Regular', 'Mal']
+        },
+        {
+          pregunta: '¿Cumple consistentemente con los plazos establecidos?',
+          opciones: ['Siempre', 'Casi siempre', 'Generalmente', 'A veces', 'Raramente']
+        },
+        {
+          pregunta: '¿Busca activamente oportunidades de mejora?',
+          opciones: ['Muy proactivo', 'Proactivo', 'Moderadamente', 'Poco proactivo', 'Nada proactivo']
+        }
+      ]),
+      creador: 'TeamPulse System',
+      esPublico: true,
+      fechaCreacion: new Date().toISOString(),
+      vecesUsado: 0,
+      tags: '360,evaluacion,feedback,desarrollo,liderazgo',
+      nivelPlan: 'professional'
+    }
+  ];
+
+  // Guardar cada template
+  for (const templateData of templatesSeed) {
+    try {
+      await this.guardarTemplate(templateData);
+      console.log(`✅ Template seed creado: ${templateData.nombre}`);
+    } catch (error) {
+      console.log(`⚠️ Template ya existe: ${templateData.nombre}`);
+    }
+  }
+
+  console.log('🎉 Templates seed completados!');
 }
+
+}
+
 
 // MIGRACIÓN UTILITY - Ejecutar una sola vez
 export async function migrarDatosJSON() {
@@ -296,4 +747,5 @@ export async function migrarDatosJSON() {
     console.error('❌ Error en migración:', error);
     throw error;
   }
+
 }

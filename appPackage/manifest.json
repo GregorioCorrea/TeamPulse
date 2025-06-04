@@ -4,10 +4,11 @@
     "version": "1.0.0",
     "id": "${{TEAMS_APP_ID}}",
     "developer": {
-        "name": "My App, Inc.",
-        "websiteUrl": "https://www.example.com",
-        "privacyUrl": "https://www.example.com/privacy",
-        "termsOfUseUrl": "https://www.example.com/termofuse"
+    "name": "INCUBA CONSULTORES",
+    "websiteUrl": "https://incumate.io",
+    "privacyUrl": "https://incumate.io/teampulse/privacy",
+    "termsOfUseUrl": "https://incumate.io/teampulse/terms",
+    "mpnId": "4891338"
     },
     "icons": {
         "color": "color.png",
@@ -15,19 +16,19 @@
     },
     "name": {
         "short": "TeamPulse${{APP_NAME_SUFFIX}}",
-        "full": "full name for TeamPulse"
+        "full": "TeamPulse - Smart Survey & Feedback Bot"
     },
     "description": {
-        "short": "short description for TeamPulse",
-        "full": "full description for TeamPulse"
+        "short": "Create instant surveys, collect feedback, and analyze results with AI-powered insights directly in Teams.",
+        "full": "TeamPulse revolutionizes team feedback with instant survey creation, real-time response collection, and AI-powered analytics. Create professional surveys from templates (HR, Customer, Training, 360°), gather anonymous responses, and get intelligent insights - all without leaving Microsoft Teams. Perfect for employee engagement, customer satisfaction, training feedback, and performance reviews. Features include: • Pre-built professional templates • Anonymous response collection • Real-time analytics with AI insights • Azure cloud storage • Enterprise-grade security • Easy integration with existing workflows. Trusted by organizations worldwide for streamlined feedback management."
     },
-    "accentColor": "#FFFFFF",
+    "accentColor": "#0078D4",
     "bots": [
         {
             "botId": "${{BOT_ID}}",
             "scopes": [
                 "team",
-                "groupChat",
+                "groupChat", 
                 "personal"
             ],
             "supportsFiles": false,
@@ -35,16 +36,30 @@
             "commandLists": [
                 {
                     "scopes": [
-                        "personal"
+                        "personal",
+                        "team",
+                        "groupChat"
                     ],
                     "commands": [
                         {
-                            "title": "How can you help me?",
-                            "description": "How can you help me?"
+                            "title": "Create Survey",
+                            "description": "Create a new survey with custom questions and options"
                         },
                         {
-                            "title": "How to develop agent for Teams?",
-                            "description": "How can I develop agents with Microsoft 365 Agents Toolkit?"
+                            "title": "View Templates",
+                            "description": "Browse professional survey templates (HR, Customer, Training, 360°)"
+                        },
+                        {
+                            "title": "List Surveys", 
+                            "description": "View all created surveys and their status"
+                        },
+                        {
+                            "title": "Survey Results",
+                            "description": "View detailed results and analytics for any survey"
+                        },
+                        {
+                            "title": "Help",
+                            "description": "Get help with TeamPulse commands and features"
                         }
                     ]
                 }
@@ -58,5 +73,19 @@
         "identity",
         "messageTeamMembers"
     ],
-    "validDomains": []
+    "validDomains": [
+    "incumate.io",
+    "*.azurewebsites.net"
+    ],
+    "webApplicationInfo": {
+        "id": "${{BOT_ID}}",
+        "resource": "https://graph.microsoft.com"
+    },
+    "packageName": "com.incubaconsultores.teampulse",
+    "localizationInfo": {
+        "defaultLanguageTag": "en-us",
+        "additionalLanguages": []
+    },
+    "showLoadingIndicator": true,
+    "isFullScreen": false
 }

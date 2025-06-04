@@ -12,6 +12,9 @@ appPackage/build
 # dependencies
 node_modules/
 
+# carpetas de datos de encuestas
+data/
+
 # misc
 .env
 .deployment
