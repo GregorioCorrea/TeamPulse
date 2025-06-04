@@ -332,27 +332,6 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       },
       {
         "type": "Container",
-        "items": pregunta.opciones.map((opcion, index) => ({
-          "type": "ActionSet",
-          "actions": [
-            {
-              "type": "Action.Submit",
-              "title": `🔘 ${opcion}`,
-              "data": {
-                "action": "survey_response",
-                "encuestaId": encuesta.id,
-                "preguntaIndex": preguntaIndex,
-                "respuesta": opcion,
-                "preguntaTexto": pregunta.pregunta
-              },
-              "style": index === 0 ? "positive" : "default"
-            }
-          ]
-        })),
-        "spacing": "Medium"
-      },
-      {
-        "type": "Container",
         "items": [
           {
             "type": "ColumnSet",
@@ -389,6 +368,20 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
+      // ✅ RESPUESTAS - Una acción por opción
+      ...pregunta.opciones.map((opcion, index) => ({
+        "type": "Action.Submit",
+        "title": `🔘 ${opcion}`,
+        "data": {
+          "action": "survey_response",
+          "encuestaId": encuesta.id,
+          "preguntaIndex": preguntaIndex,
+          "respuesta": opcion,
+          "preguntaTexto": pregunta.pregunta
+        },
+        "style": index === 0 ? "positive" : "default"
+      })),
+      // ✅ ACCIONES ADICIONALES
       {
         "type": "Action.Submit",
         "title": "📊 Ver Resultados",
