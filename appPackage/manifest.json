@@ -2,7 +2,7 @@
     "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.21/MicrosoftTeams.schema.json",
     "manifestVersion": "1.21",
     "version": "1.0.0",
-    "id": "4cb85dd3-5894-44a7-9b6a-91245fe62e",
+    "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
     "developer": {
         "name": "INCUBA CONSULTORES",
         "websiteUrl": "https://incumate.io",
@@ -19,7 +19,7 @@
         "full": "TeamPulse - Smart Survey & Feedback Bot"
     },
     "description": {
-        "short": "Create instant surveys, collect feedback, and analyze results with AI-powered insights directly in Teams.",
+        "short": "Smart survey & feedback bot for Teams with AI insights",
         "full": "TeamPulse revolutionizes team feedback with instant survey creation, real-time response collection, and AI-powered analytics. Create professional surveys from templates (HR, Customer, Training, 360°), gather anonymous responses, and get intelligent insights - all without leaving Microsoft Teams. Features include: • Pre-built professional templates • Anonymous response collection • Real-time analytics with AI insights • Azure cloud storage • Enterprise-grade security • Easy integration with existing workflows. Trusted by organizations worldwide for streamlined feedback management."
     },
     "accentColor": "#0078D4",
@@ -81,7 +81,6 @@
         "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
         "resource": "https://graph.microsoft.com"
     },
-    "packageName": "com.incubaconsultores.teampulse",
     "localizationInfo": {
         "defaultLanguageTag": "en-us",
         "additionalLanguages": []
