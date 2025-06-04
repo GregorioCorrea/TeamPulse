@@ -25,7 +25,7 @@
     "accentColor": "#0078D4",
     "bots": [
         {
-            "botId": "4cb85dd3-5894-44a7-9b6a-91245fe62e",
+            "botId": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
             "scopes": [
                 "team",
                 "groupChat", 
@@ -78,7 +78,7 @@
         "*.azurewebsites.net"
     ],
     "webApplicationInfo": {
-        "id": "4cb85dd3-5894-44a7-9b6a-91245fe62e",
+        "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
         "resource": "https://graph.microsoft.com"
     },
     "packageName": "com.incubaconsultores.teampulse",
