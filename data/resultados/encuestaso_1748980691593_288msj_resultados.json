@@ -3,7 +3,42 @@
   "titulo": "Encuesta sobre la posibilidad de tener mascotas en la oficina",
   "fechaCreacion": "2025-06-03T19:58:11.597Z",
   "estado": "activa",
-  "totalParticipantes": 0,
-  "respuestas": [],
-  "resumen": {}
+  "totalParticipantes": 1,
+  "respuestas": [
+    {
+      "participanteId": "anon_h41uyf",
+      "preguntaIndex": 0,
+      "respuesta": "Sí",
+      "timestamp": "2025-06-03T20:11:28.630Z"
+    },
+    {
+      "participanteId": "anon_h41uyf",
+      "preguntaIndex": 1,
+      "respuesta": "Perros",
+      "timestamp": "2025-06-03T20:13:31.939Z"
+    }
+  ],
+  "resumen": {
+    "0": {
+      "Sí": 1,
+      "No": 0,
+      "Indiferente": 0
+    },
+    "1": {
+      "Perros": 1,
+      "Gatos": 0,
+      "Otros": 0,
+      "Ninguna": 0
+    },
+    "2": {
+      "Sí, definitivamente": 0,
+      "Tal vez": 0,
+      "No": 0
+    },
+    "3": {
+      "Sí": 0,
+      "No": 0,
+      "No estoy seguro": 0
+    }
+  }
 }

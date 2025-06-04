@@ -26,6 +26,7 @@
         "url": "https://github.com"
     },
     "dependencies": {
+        "@azure/data-tables": "^13.3.1",
         "@microsoft/teams-ai": "^1.5.3",
         "botbuilder": "^4.23.1",
         "dotenv": "^16.5.0",
