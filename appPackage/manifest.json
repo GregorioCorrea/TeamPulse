@@ -42,24 +42,32 @@
                     ],
                     "commands": [
                         {
-                            "title": "Create Survey",
-                            "description": "Create a new survey with custom questions and options"
+                            "title": "crear encuesta",
+                            "description": "Crear una nueva encuesta con preguntas personalizadas"
                         },
                         {
-                            "title": "View Templates",
-                            "description": "Browse professional survey templates (HR, Customer, Training, 360°)"
+                            "title": "ver_templates",
+                            "description": "Ver todos los templates disponibles"
                         },
                         {
-                            "title": "List Surveys", 
-                            "description": "View all created surveys and their status"
+                            "title": "listar",
+                            "description": "Ver todas las encuestas en Azure"
                         },
                         {
-                            "title": "Survey Results",
-                            "description": "View detailed results and analytics for any survey"
+                            "title": "resultados [ID]",
+                            "description": "Ver resultados de una encuesta específica"
                         },
                         {
-                            "title": "Help",
-                            "description": "Get help with TeamPulse commands and features"
+                            "title": "responder [ID]",
+                            "description": "Responder una encuesta específica"
+                        },
+                        {
+                            "title": "analizar [ID]",
+                            "description": "Análisis inteligente de resultados"
+                        },
+                        {
+                            "title": "ayuda",
+                            "description": "Mostrar todos los comandos disponibles"
                         }
                     ]
                 }
