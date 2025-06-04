@@ -1403,4 +1403,41 @@ app.error(async (context, error) => {
   await context.sendActivity("❌ Ocurrió un error inesperado con Azure. Por favor, intenta nuevamente o contacta al administrador.");
 });
 
+// HANDLER DE DEBUG
+app.ai.action('debug_test', async (context, state, data) => {
+  console.log('🔧 DEBUG: Action handler funcionando!', data);
+  await context.sendActivity("✅ Handler funcionando correctamente!");
+  return 'debug_success';
+});
+
+// COMANDO DE PRUEBA
+app.message(/^test_card$/i, async (context, state) => {
+  const testCard = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard", 
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "🔧 Prueba de Adaptive Card",
+        "weight": "Bolder",
+        "size": "Large"
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "Probar Handler",
+        "data": {
+          "action": "debug_test",
+          "mensaje": "Hola desde la card"
+        }
+      }
+    ]
+  };
+  
+  const cardMessage = MessageFactory.attachment(CardFactory.adaptiveCard(testCard));
+  await context.sendActivity(cardMessage);
+});
+
 export default app;
