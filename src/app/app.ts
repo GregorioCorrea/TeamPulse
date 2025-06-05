@@ -457,37 +457,45 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
-      // Respuestas
-      ...pregunta.opciones.map((opcion, index) => ({
-        "type": "Action.Submit",
-        "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
-        "data": {
-          "action": "survey_response",
+    // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA
+    ...pregunta.opciones.map((opcion, index) => ({
+      "type": "Action.Submit",
+      "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
+      "data": {
+        // ❌ ANTES: "action": "survey_response"
+        // ✅ AHORA: Campo directo
+        "survey_response": {
           "encuestaId": encuesta.id,
           "preguntaIndex": preguntaIndex,
           "respuesta": opcion,
           "preguntaTexto": pregunta.pregunta
-        },
-        "style": index === 0 ? "positive" : "default"
-      })),
+        }
+      },
+      "style": index === 0 ? "positive" : "default"
+    })),
       
       // Acciones adicionales
       {
-        "type": "Action.Submit",
-        "title": "📊 Ver Resultados",
-        "data": {
-          "action": "view_results",
+      "type": "Action.Submit",
+      "title": "📊 Ver Resultados",
+      "data": {
+        // ❌ ANTES: "action": "view_results"
+        // ✅ AHORA: Campo directo
+        "view_results": {
           "encuestaId": encuesta.id
         }
-      },
-      {
-        "type": "Action.Submit", 
-        "title": "📋 Todas las Encuestas",
-        "data": {
-          "action": "list_surveys"
-        }
       }
-    ]
+    },
+    {
+      "type": "Action.Submit", 
+      "title": "📋 Todas las Encuestas",
+      "data": {
+        // ❌ ANTES: "action": "list_surveys"
+        // ✅ AHORA: Campo directo
+        "list_surveys": {}
+      }
+    }
+  ]
   };
   
   return CardFactory.adaptiveCard(card);
@@ -733,9 +741,12 @@ app.message(/^debug_cards$/i, async (context, state) => {
         "type": "Action.Submit",
         "title": "🟢 PROBAR HANDLER",
         "data": {
-          "action": "debug_test",
-          "mensaje": "Test desde debug_cards",
-          "timestamp": new Date().toISOString()
+          // ❌ ANTES: "action": "debug_test"
+          // ✅ AHORA: Campo directo
+          "debug_test": {
+            "mensaje": "Test desde debug_cards",
+            "timestamp": new Date().toISOString()
+          }
         },
         "style": "positive"
       }
