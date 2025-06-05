@@ -368,7 +368,7 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
-      // ✅ RESPUESTAS - Una acción por opción
+      // ✅ RESPUESTAS - Una acción por opción (ESTRUCTURA CORREGIDA)
       ...pregunta.opciones.map((opcion, index) => ({
         "type": "Action.Submit",
         "title": `🔘 ${opcion}`,
@@ -404,7 +404,6 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
   
   return CardFactory.adaptiveCard(card);
 }
-
 
 // ============================
 // COMANDOS PRINCIPALES
