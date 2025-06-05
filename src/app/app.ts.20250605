@@ -100,94 +100,28 @@ interface TemplateEncuesta {
 // AGREGAR handler para las acciones de la Adaptive Card
 // Handler para las acciones de Adaptive Cards usando Teams AI library
 app.ai.action('survey_response', async (context, state, data) => {
-  const timestamp = new Date().toISOString();
-  const userId = context.activity.from.id;
-  const userName = context.activity.from.name || 'Usuario';
+  console.log(`🎴 Respuesta desde Adaptive Card:`, data);
   
-  console.log(`🎴 [${timestamp}] ADAPTIVE CARD ACTION: survey_response`);
-  console.log(`👤 Usuario: ${userName} (${userId})`);
-  console.log(`📥 Datos recibidos:`, JSON.stringify(data, null, 2));
+  const { encuestaId, preguntaIndex, respuesta, preguntaTexto } = data;
+  const userId = context.activity.from.id;
   
   try {
-    // ✅ VALIDACIÓN ROBUSTA DE DATOS
-    if (!data || !data.encuestaId || data.preguntaIndex === undefined || !data.respuesta || !data.preguntaTexto) {
-      console.error(`❌ [${timestamp}] Datos inválidos:`, data);
-      
-      await context.sendActivity(`❌ **Error en los datos de la encuesta**
-
-💡 **Alternativa:** Usa el comando \`responder ${data?.encuestaId || '[ID_encuesta]'}\` para responder manualmente.`);
-      
-      return 'survey_response_validation_error';
-    }
-
-    const { encuestaId, preguntaIndex, respuesta, preguntaTexto } = data;
+    // Guardar respuesta en Azure (misma lógica existente)
+    await guardarRespuestaIndividualAzure(encuestaId, userId, preguntaIndex, respuesta, preguntaTexto);
     
-    console.log(`🔍 [${timestamp}] Datos validados - Encuesta: ${encuestaId}, Pregunta: ${preguntaIndex}, Respuesta: ${respuesta}`);
-    
-    // ✅ VERIFICAR QUE LA ENCUESTA EXISTE
+    // Buscar la encuesta para ver si hay más preguntas
     const encuesta = await buscarEncuestaEnAzure(encuestaId);
-    if (!encuesta) {
-      console.error(`❌ [${timestamp}] Encuesta no encontrada: ${encuestaId}`);
-      
-      await context.sendActivity(`❌ **Encuesta no encontrada**
-
-🆔 **ID buscado:** \`${encuestaId}\`
-
-💡 **Usar:** \`listar\` para ver encuestas disponibles`);
-      
-      return 'survey_response_not_found';
-    }
-
-    // ✅ VERIFICAR QUE LA PREGUNTA EXISTE
-    if (preguntaIndex < 0 || preguntaIndex >= encuesta.preguntas.length) {
-      console.error(`❌ [${timestamp}] Índice de pregunta inválido: ${preguntaIndex}`);
-      
-      await context.sendActivity(`❌ **Pregunta no válida**
-
-La encuesta "${encuesta.titulo}" tiene ${encuesta.preguntas.length} pregunta(s).`);
-      
-      return 'survey_response_invalid_question';
-    }
-
-    // ✅ VERIFICAR QUE LA RESPUESTA ES VÁLIDA
-    const pregunta = encuesta.preguntas[preguntaIndex];
-    const opcionValida = pregunta.opciones.find(opcion => 
-      opcion.toLowerCase() === respuesta.toLowerCase()
-    );
-
-    if (!opcionValida) {
-      console.error(`❌ [${timestamp}] Respuesta inválida: "${respuesta}"`);
-      
-      await context.sendActivity(`❌ **Respuesta no válida**
-
-**Opciones disponibles:** ${pregunta.opciones.join(' | ')}
-**Tu respuesta:** "${respuesta}"`);
-      
-      return 'survey_response_invalid_option';
-    }
-
-    console.log(`✅ [${timestamp}] Todas las validaciones pasaron. Guardando respuesta...`);
     
-    // ✅ GUARDAR RESPUESTA
-    await guardarRespuestaIndividualAzure(encuestaId, userId, preguntaIndex, opcionValida, preguntaTexto);
-    
-    console.log(`💾 [${timestamp}] Respuesta guardada exitosamente en Azure`);
-    
-    // ✅ DETERMINAR SIGUIENTE ACCIÓN
-    if (preguntaIndex + 1 < encuesta.preguntas.length) {
+    if (encuesta && preguntaIndex + 1 < encuesta.preguntas.length) {
       // Hay más preguntas - mostrar la siguiente
-      console.log(`➡️ [${timestamp}] Mostrando siguiente pregunta: ${preguntaIndex + 1}`);
-      
       const nextCard = createSurveyResponseCard(encuesta, preguntaIndex + 1);
       await context.sendActivity(MessageFactory.attachment(nextCard));
     } else {
       // Era la última pregunta - mostrar confirmación
-      console.log(`🏁 [${timestamp}] Última pregunta completada. Mostrando confirmación.`);
-      
       const confirmacion = `🎉 **¡Encuesta completada!** 
 
-✅ **Respuesta guardada:** "${opcionValida}"
-📊 **Encuesta:** ${encuesta.titulo}
+✅ **Respuesta guardada:** "${respuesta}"
+📊 **Encuesta:** ${encuesta?.titulo}
 ☁️ **Almacenado en Azure** de forma anónima
 
 🎯 **Ver resultados:** \`resultados ${encuestaId}\`
@@ -196,44 +130,26 @@ La encuesta "${encuesta.titulo}" tiene ${encuesta.preguntas.length} pregunta(s).
       await context.sendActivity(confirmacion);
     }
     
-    console.log(`✅ [${timestamp}] Acción survey_response completada exitosamente`);
-    return 'survey_response_success';
+    return 'survey_response_handled';
     
   } catch (error) {
-    console.error(`💥 [${timestamp}] ERROR CRÍTICO en survey_response:`, error);
-    
-    const errorMsg = `❌ **Error interno al procesar tu respuesta**
-
-🔧 **Alternativa segura:** 
-\`responder_encuesta ${data?.encuestaId || '[ID]'} ${(data?.preguntaIndex || 0) + 1} ${data?.respuesta || '[respuesta]'}\`
-
-🆘 **O usa:** \`responder ${data?.encuestaId || '[ID]'}\` para ver la encuesta completa`;
-
-    await context.sendActivity(errorMsg);
-    return 'survey_response_critical_error';
+    console.error('❌ Error procesando respuesta de Adaptive Card:', error);
+    await context.sendActivity("❌ Error al procesar tu respuesta. Intenta nuevamente.");
+    return 'survey_response_error';
   }
 });
 
-
 app.ai.action('view_results', async (context, state, data) => {
-  const timestamp = new Date().toISOString();
-  console.log(`📊 [${timestamp}] view_results solicitado para: ${data?.encuestaId}`);
+  const { encuestaId } = data;
+  console.log(`📊 Ver resultados solicitado para: ${encuestaId}`);
   
+  // Reutilizar lógica existente del comando "resultados"
   try {
-    if (!data?.encuestaId) {
-      console.error(`❌ [${timestamp}] view_results: encuestaId faltante`);
-      await context.sendActivity("❌ **Error:** ID de encuesta requerido\n\n💡 **Usar:** `listar` para ver encuestas disponibles");
-      return 'view_results_missing_id';
-    }
-    
-    const { encuestaId } = data;
-    
     const encuestaOriginal = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaOriginal) {
-      console.log(`❌ [${timestamp}] Encuesta no encontrada: ${encuestaId}`);
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\n💡 **Ver disponibles:** \`listar\``);
-      return 'view_results_not_found';
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return 'view_results_error';
     }
 
     let resultados = await cargarResultadosAzure(encuestaId);
@@ -253,69 +169,61 @@ app.ai.action('view_results', async (context, state, data) => {
     calcularResumen(resultados, encuestaOriginal);
     await guardarResultadosAzure(resultados);
 
-    // Generar reporte compacto para card
-    let reporte = `📊 **${resultados.titulo}** ☁️\n`;
-    reporte += `👥 **${resultados.totalParticipantes}** participantes | `;
-    reporte += `📊 **${resultados.estado}**\n\n`;
+    // Generar reporte (versión simplificada)
+    let reporte = `📊 **Resultados: ${resultados.titulo}** ☁️\n`;
+    reporte += `👥 Participantes: **${resultados.totalParticipantes}**\n`;
+    reporte += `📊 Estado: **${resultados.estado}**\n\n`;
 
     if (resultados.totalParticipantes === 0) {
       reporte += `🔔 **Sin respuestas aún**\n\n**Para responder:** \`responder ${encuestaId}\``;
     } else {
-      reporte += `📈 **Resultados disponibles**\n\n**Ver completo:** \`resultados ${encuestaId}\`\n**Análisis IA:** \`analizar ${encuestaId}\``;
+      reporte += `📈 **Resultados disponibles**\n\n**Análisis completo:** \`resultados ${encuestaId}\``;
     }
 
     await context.sendActivity(reporte);
-    console.log(`✅ [${timestamp}] Resultados mostrados exitosamente`);
-    return 'view_results_success';
+    return 'view_results_handled';
     
   } catch (error) {
-    console.error(`💥 [${timestamp}] Error en view_results:`, error);
-    await context.sendActivity(`❌ Error al cargar resultados\n\n💡 **Alternativa:** \`resultados ${data?.encuestaId || '[ID]'}\``);
+    console.error('❌ Error al mostrar resultados:', error);
+    await context.sendActivity("❌ Error al cargar resultados.");
     return 'view_results_error';
   }
 });
 
-
 app.ai.action('list_surveys', async (context, state, data) => {
-  const timestamp = new Date().toISOString();
-  console.log(`📋 [${timestamp}] Listando encuestas desde Adaptive Card`);
+  console.log(`📋 Listando encuestas desde Adaptive Card`);
   
   try {
     const encuestas = await listarEncuestasAzure();
     
     if (encuestas.length === 0) {
-      console.log(`📂 [${timestamp}] No hay encuestas disponibles`);
-      await context.sendActivity("📂 **No hay encuestas guardadas en Azure aún.**\n\n💡 **Crear:** \"Quiero crear una encuesta\"");
+      await context.sendActivity("📂 **No hay encuestas guardadas en Azure aún.**");
       return 'list_surveys_empty';
     }
 
-    let lista = `📋 **Encuestas en Azure (${encuestas.length}):** ☁️\n\n`;
+    let lista = `📋 **Encuestas en Azure (${encuestas.length}):**\n\n`;
     
-    // Mostrar solo las primeras 3 para cards (más compacto)
-    encuestas.slice(0, 3).forEach((encuesta, index) => {
+    // Mostrar solo las primeras 5 para no saturar
+    encuestas.slice(0, 5).forEach((encuesta, index) => {
       const fecha = encuesta.fechaCreacion ? new Date(encuesta.fechaCreacion).toLocaleDateString() : 'N/A';
       lista += `**${index + 1}.** ${encuesta.titulo}\n`;
-      lista += `   🆔 \`${encuesta.id}\` | 📅 ${fecha}\n\n`;
+      lista += `   🆔 \`${encuesta.id}\`\n`;
+      lista += `   📅 ${fecha} | 👤 ${encuesta.creador || 'N/A'}\n\n`;
     });
 
-    if (encuestas.length > 3) {
-      lista += `... y ${encuestas.length - 3} más.\n\n`;
+    if (encuestas.length > 5) {
+      lista += `... y ${encuestas.length - 5} más. Usa \`listar\` para ver todas.`;
     }
-    
-    lista += `💡 **Ver todas:** \`listar\`\n`;
-    lista += `🎯 **Responder:** \`responder [ID]\``;
 
     await context.sendActivity(lista);
-    console.log(`✅ [${timestamp}] Mostradas ${Math.min(encuestas.length, 3)} encuestas`);
-    return 'list_surveys_success';
+    return 'list_surveys_handled';
     
   } catch (error) {
-    console.error(`💥 [${timestamp}] Error en list_surveys:`, error);
-    await context.sendActivity("❌ Error al cargar encuestas\n\n💡 **Alternativa:** `listar`");
+    console.error('❌ Error listando encuestas:', error);
+    await context.sendActivity("❌ Error al cargar encuestas.");
     return 'list_surveys_error';
   }
 });
-
 
 // HANDLER DE DEBUG
 app.ai.action('debug_test', async (context, state, data) => {
@@ -474,13 +382,6 @@ async function actualizarResultadosConsolidados(encuestaId: string): Promise<voi
 }
 
 function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): any {
-  console.log(`🎨 Creando Adaptive Card para: ${encuesta.titulo}, pregunta ${preguntaIndex + 1}`);
-  
-  if (!encuesta || !encuesta.preguntas || preguntaIndex >= encuesta.preguntas.length) {
-    console.error(`❌ Error creando card: datos inválidos`);
-    throw new Error("Datos de encuesta inválidos para crear card");
-  }
-
   const pregunta = encuesta.preguntas[preguntaIndex];
   const totalPreguntas = encuesta.preguntas.length;
   const progreso = Math.round(((preguntaIndex + 1) / totalPreguntas) * 100);
@@ -502,9 +403,10 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
                 "width": "auto",
                 "items": [
                   {
-                    "type": "TextBlock",
-                    "text": "🎯",
-                    "size": "Large"
+                    "type": "Image",
+                    "url": "https://incumate.io/teampulse/icon-small.png",
+                    "size": "Small",
+                    "style": "Person"
                   }
                 ]
               },
@@ -541,6 +443,10 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
             "size": "Small",
             "color": "Accent",
             "weight": "Bolder"
+          },
+          {
+            "type": "ProgressBar",
+            "value": progreso
           }
         ],
         "spacing": "Medium"
@@ -572,7 +478,7 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
                 "items": [
                   {
                     "type": "TextBlock",
-                    "text": `💾 Progreso: ${progreso}%`,
+                    "text": "💾 **Respuestas guardadas en Azure** ☁️",
                     "size": "Small",
                     "color": "Accent"
                   }
@@ -584,7 +490,7 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
                 "items": [
                   {
                     "type": "TextBlock",
-                    "text": "🔒 Anónimo",
+                    "text": "🔒 Anónimas",
                     "size": "Small",
                     "color": "Good"
                   }
@@ -598,21 +504,19 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
-      // ✅ RESPUESTAS - Una acción por opción
+      // ✅ RESPUESTAS - Una acción por opción (ESTRUCTURA CORREGIDA)
       ...pregunta.opciones.map((opcion, index) => ({
         "type": "Action.Submit",
-        "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
+        "title": `🔘 ${opcion}`,
         "data": {
           "action": "survey_response",
           "encuestaId": encuesta.id,
           "preguntaIndex": preguntaIndex,
           "respuesta": opcion,
-          "preguntaTexto": pregunta.pregunta,
-          "timestamp": new Date().toISOString()
+          "preguntaTexto": pregunta.pregunta
         },
         "style": index === 0 ? "positive" : "default"
       })),
-      
       // ✅ ACCIONES ADICIONALES
       {
         "type": "Action.Submit",
@@ -634,10 +538,8 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
     ]
   };
   
-  console.log(`✅ Card creada exitosamente para pregunta ${preguntaIndex + 1}`);
   return CardFactory.adaptiveCard(card);
 }
-
 
 // ============================
 // COMANDOS PRINCIPALES
@@ -1536,100 +1438,6 @@ app.message(/^test_card$/i, async (context, state) => {
   
   const cardMessage = MessageFactory.attachment(CardFactory.adaptiveCard(testCard));
   await context.sendActivity(cardMessage);
-});
-
-// Comando de debug para cards
-app.message(/^debug_cards$/i, async (context, state) => {
-  console.log('🔧 DEBUG DE ADAPTIVE CARDS');
-  
-  try {
-    await context.sendActivity("🔧 **Iniciando debug de Adaptive Cards...**");
-    
-    const testCard = {
-      "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-      "type": "AdaptiveCard",
-      "version": "1.4",
-      "body": [
-        {
-          "type": "TextBlock",
-          "text": "🧪 Test de Handler de TeamPulse",
-          "weight": "Bolder",
-          "size": "Large"
-        },
-        {
-          "type": "TextBlock",
-          "text": "Este card prueba si los handlers funcionan correctamente.",
-          "wrap": true
-        }
-      ],
-      "actions": [
-        {
-          "type": "Action.Submit",
-          "title": "✅ Test Handler",
-          "data": {
-            "action": "debug_test",
-            "mensaje": "Handler funcionando",
-            "timestamp": new Date().toISOString()
-          }
-        }
-      ]
-    };
-    
-    const cardMessage = MessageFactory.attachment(CardFactory.adaptiveCard(testCard));
-    await context.sendActivity(cardMessage);
-    
-    await context.sendActivity(`✅ **Card de debug enviada**
-
-🔍 **Si ves el botón "Test Handler":** Cards se renderizan correctamente
-🎯 **Haz click en el botón:** Para probar que los handlers funcionan
-
-💡 **Si no funciona:** Usa comando \`responder [ID]\` como fallback`);
-    
-  } catch (error) {
-    console.error('❌ Error en debug de cards:', error);
-    await context.sendActivity(`❌ **Error en debug:** ${error.message}
-
-🔧 El sistema de comandos sigue funcionando normalmente.`);
-  }
-});
-
-// Comando de diagnóstico completo
-app.message(/^diagnostico_cards$/i, async (context, state) => {
-  console.log('🔬 DIAGNÓSTICO COMPLETO DE ADAPTIVE CARDS');
-  
-  try {
-    await context.sendActivity("🔬 **Iniciando diagnóstico completo...**");
-    
-    const encuestas = await listarEncuestasAzure();
-    const hayEncuestas = encuestas.length > 0;
-    
-    let reporte = `🔍 **Diagnóstico TeamPulse - Adaptive Cards**\n\n`;
-    
-    reporte += `**🏗️ Sistema Base:**\n`;
-    reporte += `✅ Azure Table Storage: Conectado\n`;
-    reporte += `${hayEncuestas ? '✅' : '⚠️'} Encuestas disponibles: ${encuestas.length}\n`;
-    reporte += `✅ Handlers registrados: survey_response, view_results, list_surveys\n\n`;
-    
-    reporte += `**📋 Comandos Disponibles:**\n`;
-    reporte += `• \`responder [ID]\` - Adaptive Card mejorada\n`;
-    reporte += `• \`debug_cards\` - Test handlers\n`;
-    reporte += `• \`diagnostico_cards\` - Este diagnóstico\n\n`;
-    
-    if (hayEncuestas) {
-      reporte += `**🎯 Test rápido:**\n`;
-      reporte += `\`responder ${encuestas[0].id}\``;
-    } else {
-      reporte += `**💡 Para testing:**\n`;
-      reporte += `1. Crear encuesta: "Quiero crear una encuesta"\n`;
-      reporte += `2. Probar responder: \`responder [ID]\``;
-    }
-    
-    await context.sendActivity(reporte);
-    
-  } catch (error) {
-    console.error('❌ Error en diagnóstico:', error);
-    await context.sendActivity(`❌ **Error en diagnóstico:** ${error.message}`);
-  }
 });
 
 export default app;
