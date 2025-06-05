@@ -109,6 +109,10 @@ app.ai.action('survey_response', async (context, state, data) => {
   console.log(`📥 Datos recibidos:`, JSON.stringify(data, null, 2));
   
   try {
+    console.log(`🎴 [${timestamp}] ===== SURVEY_RESPONSE ACTION INICIADA =====`);
+    console.log(`📥 Raw activity:`, JSON.stringify(context.activity, null, 2));
+    console.log(`📥 Data estructura:`, JSON.stringify(data, null, 2));
+    console.log(`📥 State:`, JSON.stringify(state, null, 2));
     // ✅ VALIDACIÓN ROBUSTA DE DATOS
     if (!data || !data.encuestaId || data.preguntaIndex === undefined || !data.respuesta || !data.preguntaTexto) {
       console.error(`❌ [${timestamp}] Datos inválidos:`, data);
@@ -220,6 +224,9 @@ app.ai.action('view_results', async (context, state, data) => {
   console.log(`📊 [${timestamp}] view_results solicitado para: ${data?.encuestaId}`);
   
   try {
+    console.log(`📊 [${timestamp}] ===== VIEW_RESULTS ACTION INICIADA =====`);
+    console.log(`📥 Raw activity:`, JSON.stringify(context.activity, null, 2));
+    console.log(`📥 Data recibida:`, JSON.stringify(data, null, 2));
     if (!data?.encuestaId) {
       console.error(`❌ [${timestamp}] view_results: encuestaId faltante`);
       await context.sendActivity("❌ **Error:** ID de encuesta requerido\n\n💡 **Usar:** `listar` para ver encuestas disponibles");
@@ -281,8 +288,12 @@ app.ai.action('list_surveys', async (context, state, data) => {
   console.log(`📋 [${timestamp}] Listando encuestas desde Adaptive Card`);
   
   try {
+    console.log(`📋 [${timestamp}] ===== LIST_SURVEYS ACTION INICIADA =====`);
+    console.log(`📥 Raw activity:`, JSON.stringify(context.activity, null, 2));
+    console.log(`📥 Data:`, JSON.stringify(data, null, 2));
+
     const encuestas = await listarEncuestasAzure();
-    
+      
     if (encuestas.length === 0) {
       console.log(`📂 [${timestamp}] No hay encuestas disponibles`);
       await context.sendActivity("📂 **No hay encuestas guardadas en Azure aún.**\n\n💡 **Crear:** \"Quiero crear una encuesta\"");
@@ -319,9 +330,33 @@ app.ai.action('list_surveys', async (context, state, data) => {
 
 // HANDLER DE DEBUG
 app.ai.action('debug_test', async (context, state, data) => {
-  console.log('🔧 DEBUG: Action handler funcionando!', data);
-  await context.sendActivity("✅ Handler funcionando correctamente!");
-  return 'debug_success';
+  const timestamp = new Date().toISOString();
+  const userId = context.activity.from.id;
+  const userName = context.activity.from.name || 'Usuario';
+  
+  console.log(`🔧 [${timestamp}] DEBUG_TEST ACTION EJECUTADA!`);
+  console.log(`👤 Usuario: ${userName} (${userId})`);
+  console.log(`📥 Datos recibidos en debug_test:`, JSON.stringify(data, null, 2));
+  
+  try {
+    await context.sendActivity(`✅ **¡Handler debug_test funcionando!**
+
+🎯 **Datos recibidos:** ${JSON.stringify(data, null, 2)}
+👤 **Usuario:** ${userName}
+⏰ **Timestamp:** ${timestamp}
+
+🎉 **¡Los handlers de Adaptive Cards están funcionando correctamente!**
+
+💡 **Esto significa que el problema anterior está resuelto.**`);
+
+    console.log(`✅ [${timestamp}] Debug test completado exitosamente`);
+    return 'debug_test_success';
+    
+  } catch (error) {
+    console.error(`💥 [${timestamp}] Error en debug_test:`, error);
+    await context.sendActivity("❌ Error en handler de debug");
+    return 'debug_test_error';
+  }
 });
 
 // ============================
@@ -1540,11 +1575,12 @@ app.message(/^test_card$/i, async (context, state) => {
 
 // Comando de debug para cards
 app.message(/^debug_cards$/i, async (context, state) => {
-  console.log('🔧 DEBUG DE ADAPTIVE CARDS');
+  console.log('🔧 DEBUG DE ADAPTIVE CARDS - VERSIÓN MEJORADA');
   
   try {
-    await context.sendActivity("🔧 **Iniciando debug de Adaptive Cards...**");
+    await context.sendActivity("🔧 **Iniciando debug mejorado de Adaptive Cards...**");
     
+    // Card más simple para testing
     const testCard = {
       "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
       "type": "AdaptiveCard",
@@ -1552,25 +1588,36 @@ app.message(/^debug_cards$/i, async (context, state) => {
       "body": [
         {
           "type": "TextBlock",
-          "text": "🧪 Test de Handler de TeamPulse",
+          "text": "🧪 Debug Handler - TeamPulse",
           "weight": "Bolder",
-          "size": "Large"
+          "size": "Large",
+          "color": "Accent"
         },
         {
           "type": "TextBlock",
-          "text": "Este card prueba si los handlers funcionan correctamente.",
-          "wrap": true
+          "text": "Haz click en el botón para probar el handler.",
+          "wrap": true,
+          "spacing": "Medium"
+        },
+        {
+          "type": "TextBlock",
+          "text": "⚠️ IMPORTANTE: Mira los logs en Azure después del click.",
+          "wrap": true,
+          "size": "Small",
+          "color": "Warning"
         }
       ],
       "actions": [
         {
           "type": "Action.Submit",
-          "title": "✅ Test Handler",
+          "title": "🟢 PROBAR HANDLER",
           "data": {
             "action": "debug_test",
-            "mensaje": "Handler funcionando",
-            "timestamp": new Date().toISOString()
-          }
+            "mensaje": "Test desde debug_cards",
+            "timestamp": new Date().toISOString(),
+            "test_id": "debug_001"
+          },
+          "style": "positive"
         }
       ]
     };
@@ -1580,10 +1627,16 @@ app.message(/^debug_cards$/i, async (context, state) => {
     
     await context.sendActivity(`✅ **Card de debug enviada**
 
-🔍 **Si ves el botón "Test Handler":** Cards se renderizan correctamente
-🎯 **Haz click en el botón:** Para probar que los handlers funcionan
+🎯 **Instrucciones:**
+1. **Haz click** en el botón verde "PROBAR HANDLER"
+2. **Espera 2-3 segundos** para la respuesta
+3. **Si NO responde:** Mira los logs en Azure Log Stream
 
-💡 **Si no funciona:** Usa comando \`responder [ID]\` como fallback`);
+💡 **Logs a buscar:**
+\`🔧 DEBUG_TEST ACTION EJECUTADA!\`
+\`📥 Datos recibidos en debug_test:\`
+
+🔍 **Si no ves esos logs:** Los handlers no se están registrando correctamente.`);
     
   } catch (error) {
     console.error('❌ Error en debug de cards:', error);
@@ -1592,6 +1645,7 @@ app.message(/^debug_cards$/i, async (context, state) => {
 🔧 El sistema de comandos sigue funcionando normalmente.`);
   }
 });
+
 
 // Comando de diagnóstico completo
 app.message(/^diagnostico_cards$/i, async (context, state) => {
@@ -1630,6 +1684,16 @@ app.message(/^diagnostico_cards$/i, async (context, state) => {
     console.error('❌ Error en diagnóstico:', error);
     await context.sendActivity(`❌ **Error en diagnóstico:** ${error.message}`);
   }
+});
+
+app.activity('invoke', async (context, state) => {
+  const timestamp = new Date().toISOString();
+  console.log(`🔔 [${timestamp}] ===== INVOKE ACTIVITY RECIBIDA =====`);
+  console.log(`📥 Tipo de actividad:`, context.activity.type);
+  console.log(`📥 Nombre de invoke:`, context.activity.name);
+  console.log(`📥 Value completo:`, JSON.stringify(context.activity.value, null, 2));
+  console.log(`📥 Actividad completa:`, JSON.stringify(context.activity, null, 2));
+  console.log(`========================================`);
 });
 
 export default app;
