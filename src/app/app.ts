@@ -104,7 +104,7 @@ interface TemplateEncuesta {
 // ============================
 
 // Handler para respuestas de encuesta
-app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) => {
+app.adaptiveCards.actionExecute('survey_response', async (context, state, data) => {
   console.log('🎴 Survey response recibida:', data);
   
   try {
@@ -166,10 +166,12 @@ app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) =
     console.error('❌ Error procesando respuesta:', error);
     await context.sendActivity("❌ Error al procesar tu respuesta. Intenta nuevamente.");
   }
+
+  return "";
 });
 
 // Handler para ver resultados desde card
-app.adaptiveCards.actionSubmit('view_results', async (context, state, data) => {
+app.adaptiveCards.actionExecute('view_results', async (context, state, data) => {
   console.log('📊 Ver resultados desde card:', data);
   
   const { encuestaId } = data;
@@ -215,10 +217,14 @@ app.adaptiveCards.actionSubmit('view_results', async (context, state, data) => {
     console.error('❌ Error mostrando resultados:', error);
     await context.sendActivity("❌ Error al cargar resultados");
   }
+  
+  return "";
+  
+  return "";
 });
 
 // Handler para listar encuestas desde card
-app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
+app.adaptiveCards.actionExecute('list_surveys', async (context, state, data) => {
   console.log('📋 Listar encuestas desde card');
   
   try {
@@ -247,10 +253,12 @@ app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
     console.error('❌ Error listando encuestas:', error);
     await context.sendActivity("❌ Error al cargar encuestas");
   }
+  
+  return "";
 });
 
 // Handler para debug
-app.adaptiveCards.actionSubmit('debug_test', async (context, state, data) => {
+app.adaptiveCards.actionExecute('debug_test', async (context, state, data) => {
   console.log('🔧 Debug test ejecutado!', data);
   
   await context.sendActivity(`✅ **¡Handler funcionando!**
@@ -259,6 +267,8 @@ app.adaptiveCards.actionSubmit('debug_test', async (context, state, data) => {
 ⏰ **Timestamp:** ${new Date().toISOString()}
 
 🎉 **Las Adaptive Cards están funcionando correctamente!**`);
+  
+  return "";
 });
 
 // ============================
@@ -457,45 +467,35 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
-    // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA
-    ...pregunta.opciones.map((opcion, index) => ({
-      "type": "Action.Submit",
-      "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
-      "data": {
-        // ❌ ANTES: "action": "survey_response"
-        // ✅ AHORA: Campo directo
-        "survey_response": {
+      // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA PARA actionExecute
+      ...pregunta.opciones.map((opcion, index) => ({
+        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
+        "verb": "survey_response",  // ⚡ CAMBIO CLAVE: usar verb
+        "data": {
           "encuestaId": encuesta.id,
           "preguntaIndex": preguntaIndex,
           "respuesta": opcion,
           "preguntaTexto": pregunta.pregunta
         }
-      },
-      "style": index === 0 ? "positive" : "default"
-    })),
+      })),
       
       // Acciones adicionales
       {
-      "type": "Action.Submit",
-      "title": "📊 Ver Resultados",
-      "data": {
-        // ❌ ANTES: "action": "view_results"
-        // ✅ AHORA: Campo directo
-        "view_results": {
+        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "title": "📊 Ver Resultados",
+        "verb": "view_results",    // ⚡ CAMBIO CLAVE: usar verb
+        "data": {
           "encuestaId": encuesta.id
         }
+      },
+      {
+        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "title": "📋 Todas las Encuestas",
+        "verb": "list_surveys",    // ⚡ CAMBIO CLAVE: usar verb
+        "data": {}
       }
-    },
-    {
-      "type": "Action.Submit", 
-      "title": "📋 Todas las Encuestas",
-      "data": {
-        // ❌ ANTES: "action": "list_surveys"
-        // ✅ AHORA: Campo directo
-        "list_surveys": {}
-      }
-    }
-  ]
+    ]
   };
   
   return CardFactory.adaptiveCard(card);
@@ -738,7 +738,7 @@ app.message(/^debug_cards$/i, async (context, state) => {
     ],
     "actions": [
       {
-        "type": "Action.Submit",
+        "type": "Action.Execute",
         "title": "🟢 PROBAR HANDLER",
         "data": {
           // ❌ ANTES: "action": "debug_test"
