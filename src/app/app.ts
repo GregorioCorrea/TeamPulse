@@ -467,12 +467,12 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       }
     ],
     "actions": [
-      // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA PARA actionExecute
+      // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA FINAL
       ...pregunta.opciones.map((opcion, index) => ({
-        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "type": "Action.Execute",
         "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
-        "verb": "survey_response",  // ⚡ CAMBIO CLAVE: usar verb
         "data": {
+          "verb": "survey_response",  // ⚡ CLAVE: verb va DENTRO de data
           "encuestaId": encuesta.id,
           "preguntaIndex": preguntaIndex,
           "respuesta": opcion,
@@ -482,18 +482,19 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       
       // Acciones adicionales
       {
-        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "type": "Action.Execute",
         "title": "📊 Ver Resultados",
-        "verb": "view_results",    // ⚡ CAMBIO CLAVE: usar verb
         "data": {
+          "verb": "view_results",  // ⚡ CLAVE: verb va DENTRO de data
           "encuestaId": encuesta.id
         }
       },
       {
-        "type": "Action.Execute",  // ⚡ CAMBIO CLAVE: Action.Execute
+        "type": "Action.Execute",
         "title": "📋 Todas las Encuestas",
-        "verb": "list_surveys",    // ⚡ CAMBIO CLAVE: usar verb
-        "data": {}
+        "data": {
+          "verb": "list_surveys"  // ⚡ CLAVE: verb va DENTRO de data
+        }
       }
     ]
   };
@@ -741,14 +742,10 @@ app.message(/^debug_cards$/i, async (context, state) => {
         "type": "Action.Execute",
         "title": "🟢 PROBAR HANDLER",
         "data": {
-          // ❌ ANTES: "action": "debug_test"
-          // ✅ AHORA: Campo directo
-          "debug_test": {
-            "mensaje": "Test desde debug_cards",
-            "timestamp": new Date().toISOString()
-          }
-        },
-        "style": "positive"
+          "verb": "debug_test",  // ⚡ CAMBIO: verb dentro de data
+          "mensaje": "Test desde debug_cards",
+          "timestamp": new Date().toISOString()
+        }
       }
     ]
   };
