@@ -2,6 +2,8 @@
 
 import { Request, Response } from 'express';
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
+import { BaseWebhookHandler } from './base/baseWebhookHandler';
+
 
 interface MarketplaceNotification {
   id: string;

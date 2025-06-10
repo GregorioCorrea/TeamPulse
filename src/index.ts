@@ -11,9 +11,7 @@ import adapter from "./adapter";
 import app from "./app/app";
 
 // En src/index.ts o donde tengas tu servidor Express
-//import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
-
-//const webhookHandler = new MarketplaceWebhookHandler();
+import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
 
 // Create express application.
 const expressApp = express();
@@ -24,9 +22,16 @@ const server = expressApp.listen(process.env.port || process.env.PORT || 3978, (
 });
 
 // Agregar estas rutas ANTES de server.post("/api/messages"...
-/*expressApp.post('/api/marketplace/webhook', (req, res) => {
+try {
+  const webhookHandler = new MarketplaceWebhookHandler();
+  expressApp.post('/api/marketplace/webhook', (req, res) => {
   webhookHandler.handleWebhook(req, res);
 });
+expressApp.get('/api/marketplace/health', (req, res) => {res.send('OK')});
+} catch (error) {
+  console.error('Error al crear MarketplaceWebhookHandler:', error.message || error);
+}
+/*
 
 // Health check para verificar que funciona
 expressApp.get('/api/marketplace/health', (req, res) => {
