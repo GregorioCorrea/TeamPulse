@@ -22,14 +22,33 @@ const server = expressApp.listen(process.env.port || process.env.PORT || 3978, (
 });
 
 // Agregar estas rutas ANTES de server.post("/api/messages"...
+// index.ts - Corregir las rutas del webhook
 try {
   const webhookHandler = new MarketplaceWebhookHandler();
+  
   expressApp.post('/api/marketplace/webhook', (req, res) => {
-  webhookHandler.handleWebhook(req, res);
-});
-expressApp.get('/api/marketplace/health', (req, res) => {res.send('OK')});
+    webhookHandler.handleWebhook(req, res);
+  });
+  
+  expressApp.get('/api/marketplace/health', (req, res) => {
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      service: 'TeamPulse Marketplace Webhook'
+    });
+  });
+  
 } catch (error) {
   console.error('Error al crear MarketplaceWebhookHandler:', error.message || error);
+  
+  // Fallback si falla el webhook handler
+  expressApp.get('/api/marketplace/health', (req, res) => {
+    res.json({ 
+      status: 'degraded', 
+      timestamp: new Date().toISOString(),
+      error: 'Webhook handler initialization failed'
+    });
+  });
 }
 /*
 

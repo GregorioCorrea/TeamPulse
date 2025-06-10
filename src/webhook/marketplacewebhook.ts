@@ -35,7 +35,7 @@ export class MarketplaceWebhookHandler {
     const credential = new AzureNamedKeyCredential(accountName, accountKey);
     this.subscriptionsTable = new TableClient(
       `https://${accountName}.table.core.windows.net`,
-      'MarketPlaceSubscriptions',
+      'MarketplaceSubscriptions',
       credential
     );
     this.initializeTables();
