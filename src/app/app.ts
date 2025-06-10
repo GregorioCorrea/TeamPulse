@@ -100,6 +100,117 @@ interface TemplateEncuesta {
 }
 
 // ============================
+// TEMPLATES PREDEFINIDOS
+// ============================
+
+const TEMPLATES_PREDEFINIDOS = [
+  {
+    nombre: "Clima Laboral Básico",
+    categoria: "HR",
+    descripcion: "Evalúa el ambiente de trabajo y satisfacción del equipo",
+    objetivo: "Medir la satisfacción general y el clima organizacional",
+    preguntas: [
+      {
+        pregunta: "¿Cómo calificarías el ambiente de trabajo en general?",
+        opciones: ["Excelente", "Bueno", "Regular", "Malo"]
+      },
+      {
+        pregunta: "¿Te sientes valorado/a en tu rol actual?",
+        opciones: ["Siempre", "Frecuentemente", "A veces", "Nunca"]
+      },
+      {
+        pregunta: "¿Cómo es la comunicación con tu equipo?",
+        opciones: ["Muy efectiva", "Efectiva", "Puede mejorar", "Deficiente"]
+      },
+      {
+        pregunta: "¿Recomendarías esta empresa como lugar de trabajo?",
+        opciones: ["Definitivamente sí", "Probablemente sí", "No estoy seguro/a", "No"]
+      }
+    ],
+    nivelPlan: "free",
+    tags: "clima,ambiente,satisfacción,hr,básico"
+  },
+  {
+    nombre: "NPS Cliente",
+    categoria: "Customer",
+    descripcion: "Mide la lealtad y satisfacción del cliente (Net Promoter Score)",
+    objetivo: "Evaluar la probabilidad de recomendación y satisfacción del cliente",
+    preguntas: [
+      {
+        pregunta: "¿Qué tan probable es que recomiendes nuestro servicio? (0-10)",
+        opciones: ["9-10 (Promotor)", "7-8 (Neutral)", "0-6 (Detractor)"]
+      },
+      {
+        pregunta: "¿Cómo calificarías tu experiencia general?",
+        opciones: ["Excelente", "Buena", "Regular", "Mala"]
+      },
+      {
+        pregunta: "¿Qué aspecto valoras más de nuestro servicio?",
+        opciones: ["Calidad", "Precio", "Atención al cliente", "Rapidez"]
+      }
+    ],
+    nivelPlan: "free",
+    tags: "nps,cliente,satisfacción,customer,lealtad"
+  },
+  {
+    nombre: "Feedback Capacitación",
+    categoria: "Training",
+    descripcion: "Evalúa la efectividad de sesiones de entrenamiento",
+    objetivo: "Medir el impacto y calidad de las capacitaciones",
+    preguntas: [
+      {
+        pregunta: "¿La capacitación cumplió con tus expectativas?",
+        opciones: ["Superó expectativas", "Cumplió expectativas", "Parcialmente", "No cumplió"]
+      },
+      {
+        pregunta: "¿Qué tan aplicable es lo aprendido a tu trabajo?",
+        opciones: ["Muy aplicable", "Aplicable", "Poco aplicable", "No aplicable"]
+      },
+      {
+        pregunta: "¿Cómo calificarías al instructor/facilitador?",
+        opciones: ["Excelente", "Bueno", "Regular", "Deficiente"]
+      },
+      {
+        pregunta: "¿Recomendarías esta capacitación a otros?",
+        opciones: ["Definitivamente", "Probablemente", "Tal vez", "No"]
+      }
+    ],
+    nivelPlan: "free",
+    tags: "capacitación,training,feedback,educación,aprendizaje"
+  },
+  {
+    nombre: "Evaluación 360°",
+    categoria: "360",
+    descripcion: "Evaluación integral de desempeño desde múltiples perspectivas",
+    objetivo: "Obtener feedback completo sobre el desempeño de un colaborador",
+    preguntas: [
+      {
+        pregunta: "¿Cómo calificarías las habilidades de comunicación?",
+        opciones: ["Excepcional", "Muy buena", "Adecuada", "Necesita mejorar"]
+      },
+      {
+        pregunta: "¿Cómo es su capacidad de trabajo en equipo?",
+        opciones: ["Excelente colaborador", "Buen colaborador", "Colaborador promedio", "Prefiere trabajar solo"]
+      },
+      {
+        pregunta: "¿Cómo maneja la presión y los plazos?",
+        opciones: ["Excepcionalmente bien", "Bien", "Con dificultad", "Mal"]
+      },
+      {
+        pregunta: "¿Demuestra liderazgo en su rol?",
+        opciones: ["Líder natural", "Muestra potencial", "Ocasionalmente", "No aplica"]
+      },
+      {
+        pregunta: "¿Cómo es su actitud hacia el aprendizaje?",
+        opciones: ["Proactivo", "Receptivo", "Pasivo", "Resistente"]
+      }
+    ],
+    nivelPlan: "professional",
+    tags: "360,evaluación,desempeño,feedback,profesional"
+  }
+];
+
+// ============================
 // ADAPTIVE CARDS HANDLERS (MÉTODO CORRECTO)
 // ============================
 
@@ -1112,6 +1223,286 @@ app.message(/^ayuda$/i, async (context, state) => {
 */
 
 // ============================
+// COMANDOS DE TEMPLATES
+// ============================
+
+// COMANDO: Crear templates seed (para inicializar)
+// REEMPLAZAR el comando seed_templates en app.ts con esta versión con debug:
+
+app.message(/^seed_templates$/i, async (context, state) => {
+  console.log('🌱 Ejecutando seed de templates...');
+  
+  try {
+    await context.sendActivity("🌱 **Creando templates iniciales...** ☁️\n\nEsto puede tardar unos momentos...");
+    
+    console.log('🔧 Llamando a azureService.crearTemplatesSeed()...');
+    
+    await azureService.crearTemplatesSeed();
+    
+    console.log('✅ crearTemplatesSeed() completado sin errores');
+    
+    await context.sendActivity(`🎉 **¡Templates iniciales creados exitosamente!** ☁️
+
+📋 **Templates disponibles:**
+• 🆓 Clima Laboral (HR)
+• 🆓 NPS Cliente (Customer)  
+• 🆓 Feedback Capacitación (Training)
+• 💼 Trabajo Remoto (HR)
+• 💼 Evaluación 360° (360)
+
+**🎯 Comandos disponibles:**
+• \`ver_templates\` - Ver todos los templates
+• \`usar_template [id]\` - Usar un template específico
+• \`buscar_templates [término]\` - Buscar templates
+
+¡Templates listos para usar! 🚀`);
+
+  } catch (error) {
+    console.error('❌ Error creando templates seed:', error);
+    console.error('❌ Stack trace completo:', error.stack);
+    
+    await context.sendActivity(`❌ **Error al crear templates iniciales**: ${error.message}\n\n🔧 **Debug info:** Ver logs del servidor para más detalles.`);
+  }
+});
+
+// COMANDO: Ver todos los templates disponibles
+app.message(/^ver_templates|templates|mostrar_templates$/i, async (context, state) => {
+  console.log('📋 Listando templates disponibles desde Azure...');
+  
+  try {
+    await context.sendActivity("📋 **Cargando templates disponibles...** ☁️");
+    
+    const templatesPublicos = await azureService.listarTemplatesPublicos();
+    
+    if (templatesPublicos.length === 0) {
+      await context.sendActivity("📂 **No hay templates disponibles.**\n\nEjecuta `seed_templates` para cargar templates iniciales.");
+      return;
+    }
+
+    let mensaje = `📋 **Templates Disponibles (${templatesPublicos.length})** ☁️\n\n`;
+
+    const categorias = Array.from(new Set(templatesPublicos.map(t => t.categoria)));
+    
+    categorias.forEach(categoria => {
+      const templatesCategoria = templatesPublicos.filter(t => t.categoria === categoria);
+      
+      mensaje += `### 📂 **${categoria.toUpperCase()}**\n`;
+      
+      templatesCategoria.forEach(template => {
+        const planBadge = template.nivelPlan === 'free' ? '🆓' : 
+                         template.nivelPlan === 'professional' ? '💼' : '🏢';
+        const popularidad = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
+        
+        mensaje += `${planBadge} **${template.nombre}**${popularidad}\n`;
+        mensaje += `   📝 ${template.descripcion}\n`;
+        mensaje += `   🎯 ${template.objetivo}\n`;
+        mensaje += `   🏷️ _${template.tags}_\n`;
+        mensaje += `   ▶️ **Usar:** \`usar_template ${template.rowKey}\`\n\n`;
+      });
+    });
+
+    mensaje += `💡 **Comandos disponibles:**\n`;
+    mensaje += `• \`usar_template [id]\` - Crear encuesta desde template\n`;
+    mensaje += `• \`buscar_templates [término]\` - Buscar templates específicos\n`;
+    mensaje += `• \`crear_template\` - Crear tu propio template (Admin)\n\n`;
+    mensaje += `🆓 Free | 💼 Professional | 🏢 Enterprise`;
+
+    await context.sendActivity(mensaje);
+    console.log(`✅ Mostrados ${templatesPublicos.length} templates`);
+
+  } catch (error) {
+    console.error('❌ Error listando templates:', error);
+    await context.sendActivity("❌ Error al cargar templates desde Azure. Intenta nuevamente.");
+  }
+});
+
+// COMANDO: Usar template específico
+app.message(/^usar_template\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^usar_template\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`usar_template [id_template]`\n\nEjemplo: `usar_template clima_laboral_v1`\n\nUsa `ver_templates` para ver IDs disponibles.");
+    return;
+  }
+
+  const templateId = match[1].trim();
+  console.log(`🎯 Usuario quiere usar template: ${templateId}`);
+
+  try {
+    await context.sendActivity("🔍 **Buscando template...** ☁️");
+    
+    let template = await azureService.obtenerTemplate('TEMPLATE', templateId);
+    
+    if (!template) {
+      await context.sendActivity(`❌ **Template no encontrado**: \`${templateId}\`\n\nUsa \`ver_templates\` para ver templates disponibles.`);
+      return;
+    }
+
+    if (template.nivelPlan === 'enterprise') {
+      await context.sendActivity(`🏢 **Template Enterprise**: "${template.nombre}"\n\nEste template requiere plan Enterprise. Contacta al administrador.\n\n💡 **Alternativamente**, puedes usar templates gratuitos con \`ver_templates\`.`);
+      return;
+    }
+
+    const preguntas = JSON.parse(template.preguntas as string) as Pregunta[];
+
+    let preview = `📋 **Template: ${template.nombre}** ☁️\n\n`;
+    preview += `📂 **Categoría:** ${template.categoria}\n`;
+    preview += `🎯 **Objetivo:** ${template.objetivo}\n`;
+    preview += `📝 **Descripción:** ${template.descripcion}\n`;
+    preview += `👤 **Creado por:** ${template.creador}\n`;
+    preview += `📊 **Usado:** ${template.vecesUsado} veces\n\n`;
+    
+    preview += `**❓ Preguntas incluidas (${preguntas.length}):**\n\n`;
+    preguntas.forEach((pregunta: Pregunta, index: number) => {
+      preview += `**${index + 1}.** ${pregunta.pregunta}\n`;
+      preview += `   📊 Opciones: ${pregunta.opciones.join(' | ')}\n\n`;
+    });
+
+    preview += `✅ **Para crear encuesta desde este template:**\n`;
+    preview += `\`confirmar_template ${templateId}\`\n\n`;
+    preview += `🔙 **Ver otros templates:** \`ver_templates\``;
+
+    await context.sendActivity(preview);
+    console.log(`✅ Template preview mostrado: ${template.nombre}`);
+
+  } catch (error) {
+    console.error('❌ Error obteniendo template:', error);
+    await context.sendActivity("❌ Error al cargar el template desde Azure. Verifica el ID e intenta nuevamente.");
+  }
+});
+
+// COMANDO: Confirmar y crear encuesta desde template
+app.message(/^confirmar_template\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^confirmar_template\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`confirmar_template [id_template]`");
+    return;
+  }
+
+  const templateId = match[1].trim();
+  console.log(`✅ Confirmando creación desde template: ${templateId}`);
+
+  try {
+    await context.sendActivity("🚀 **Creando encuesta desde template...** ☁️");
+    
+    const template = await azureService.obtenerTemplate('TEMPLATE', templateId);
+    
+    if (!template) {
+      await context.sendActivity(`❌ **Template no encontrado**: \`${templateId}\``);
+      return;
+    }
+
+    await azureService.incrementarUsoTemplate('TEMPLATE', templateId);
+
+    const encuestaId = generarIdEncuesta(template.nombre);
+    
+    const preguntasConvertidas: Pregunta[] = (JSON.parse(template.preguntas as string) as any[]).map(p => ({
+      pregunta: p.pregunta,
+      opciones: p.opciones
+    }));
+
+    const nuevaEncuesta: Encuesta = {
+      titulo: `${template.nombre} - ${new Date().toLocaleDateString()}`,
+      objetivo: template.objetivo,
+      preguntas: preguntasConvertidas,
+      creador: context.activity.from.name || 'Usuario',
+      id: encuestaId,
+      fechaCreacion: new Date(),
+      basadoEnTemplate: templateId
+    };
+
+    await guardarEncuestaEnAzure(nuevaEncuesta);
+    
+    const resultadosIniciales: ResultadosEncuesta = {
+      encuestaId: encuestaId,
+      titulo: nuevaEncuesta.titulo,
+      fechaCreacion: new Date(),
+      estado: 'activa',
+      totalParticipantes: 0,
+      respuestas: [],
+      resumen: {}
+    };
+    
+    await guardarResultadosAzure(resultadosIniciales);
+
+    const exito = `🎉 **¡Encuesta creada desde template exitosamente!** ☁️
+
+📋 **Encuesta Nueva:**
+• **Título:** ${nuevaEncuesta.titulo}
+• **ID:** \`${encuestaId}\`
+• **Basada en:** ${template.nombre}
+• **Preguntas:** ${nuevaEncuesta.preguntas.length}
+
+**🎯 Comandos disponibles:**
+• **Responder:** \`responder ${encuestaId}\`
+• **Ver resultados:** \`resultados ${encuestaId}\`
+• **Analizar:** \`analizar ${encuestaId}\`
+
+**📋 Preguntas incluidas:**
+${nuevaEncuesta.preguntas.map((p, i) => 
+  `**${i + 1}.** ${p.pregunta}`
+).join('\n')}
+
+✅ **¡Lista para recibir respuestas!**`;
+
+    await context.sendActivity(exito);
+    console.log(`🎉 Encuesta creada desde template: ${template.nombre} → ${encuestaId}`);
+
+  } catch (error) {
+    console.error('❌ Error creando encuesta desde template:', error);
+    await context.sendActivity("❌ Error al crear encuesta desde template. Intenta nuevamente.");
+  }
+});
+
+// COMANDO: Buscar templates por término
+app.message(/^buscar_templates\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^buscar_templates\s+(.+)$/i);
+  
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`buscar_templates [término]`\n\nEjemplo: `buscar_templates clima` o `buscar_templates hr`");
+    return;
+  }
+
+  const termino = match[1].trim();
+  console.log(`🔍 Buscando templates con término: ${termino}`);
+
+  try {
+    await context.sendActivity(`🔍 **Buscando templates con "${termino}"...** ☁️`);
+    
+    const templatesEncontrados = await azureService.buscarTemplates(termino);
+    
+    if (templatesEncontrados.length === 0) {
+      await context.sendActivity(`🔍 **No se encontraron templates con "${termino}"**\n\n💡 **Sugerencias:**\n• Intenta términos como: "clima", "cliente", "capacitacion", "hr"\n• Usa \`ver_templates\` para ver todos los disponibles`);
+      return;
+    }
+
+    let mensaje = `🔍 **Resultados para "${termino}" (${templatesEncontrados.length})** ☁️\n\n`;
+
+    templatesEncontrados.forEach(template => {
+      const planBadge = template.nivelPlan === 'free' ? '🆓' : 
+                       template.nivelPlan === 'professional' ? '💼' : '🏢';
+      const popularidad = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
+      
+      mensaje += `${planBadge} **${template.nombre}**${popularidad}\n`;
+      mensaje += `   📂 ${template.categoria} | 📝 ${template.descripcion}\n`;
+      mensaje += `   ▶️ **Usar:** \`usar_template ${template.rowKey}\`\n\n`;
+    });
+
+    mensaje += `💡 **Para ver detalles:** \`usar_template [id]\`\n`;
+    mensaje += `📋 **Ver todos:** \`ver_templates\``;
+
+    await context.sendActivity(mensaje);
+    console.log(`✅ Encontrados ${templatesEncontrados.length} templates para: ${termino}`);
+
+  } catch (error) {
+    console.error('❌ Error buscando templates:', error);
+    await context.sendActivity("❌ Error al buscar templates. Intenta nuevamente.");
+  }
+});
+
+
+// ============================
 // MANEJO DE ERRORES
 // ============================
 
@@ -1377,11 +1768,46 @@ function createAvailableCommandsCard(): any {
         "wrap": true
       },
       {
+        "type": "TextBlock",
+        "text": "📋 **Comandos de Encuestas**",
+        "weight": "Bolder",
+        "size": "Medium",
+        "spacing": "Medium"
+      },
+      {
         "type": "FactSet",
         "facts": [
           { "title": "`responder [ID]`", "value": "Responder una encuesta por ID" },
           { "title": "`listar`", "value": "Ver todas las encuestas disponibles" },
-          { "title": "`resultados [ID]`", "value": "Ver resultados de una encuesta" },
+          { "title": "`resultados [ID]`", "value": "Ver resultados de una encuesta" }
+        ]
+      },
+      {
+        "type": "TextBlock",
+        "text": "📋 **Comandos de Templates**",
+        "weight": "Bolder",
+        "size": "Medium",
+        "spacing": "Medium"
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          { "title": "`ver_templates`", "value": "Ver todos los templates disponibles" },
+          { "title": "`usar_template [ID]`", "value": "Crear encuesta desde template" },
+          { "title": "`buscar_templates [término]`", "value": "Buscar templates específicos" },
+          { "title": "`seed_templates`", "value": "Cargar templates iniciales (admin)" }
+        ]
+      },
+      {
+        "type": "TextBlock",
+        "text": "🛠️ **Otros Comandos**",
+        "weight": "Bolder",
+        "size": "Medium",
+        "spacing": "Medium"
+      },
+      {
+        "type": "FactSet",
+        "facts": [
           { "title": "`debug_cards`", "value": "Probar tarjetas Adaptive" },
           { "title": "`ayuda`", "value": "Mostrar ayuda general" }
         ]
@@ -1398,7 +1824,5 @@ function createAvailableCommandsCard(): any {
 
   return CardFactory.adaptiveCard(card);
 }
-
-
 
 export default app;
