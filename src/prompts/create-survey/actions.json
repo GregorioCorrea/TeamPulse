@@ -5,28 +5,18 @@
     "parameters": {
       "type": "object",
       "properties": {
-        "titulo": {
-          "type": "string",
-          "description": "Título de la encuesta"
-        },
-        "objetivo": {
-          "type": "string",
-          "description": "Objetivo de la encuesta"
-        },
+        "titulo": { "type": "string", "description": "Título de la encuesta" },
+        "objetivo": { "type": "string", "description": "Objetivo de la encuesta" },
         "preguntas": {
           "type": "array",
           "description": "Lista de preguntas con opciones",
           "items": {
             "type": "object",
             "properties": {
-              "pregunta": {
-                "type": "string"
-              },
+              "pregunta": { "type": "string" },
               "opciones": {
                 "type": "array",
-                "items": {
-                  "type": "string"
-                }
+                "items": { "type": "string" }
               }
             },
             "required": ["pregunta", "opciones"]
@@ -35,5 +25,35 @@
       },
       "required": ["titulo", "objetivo", "preguntas"]
     }
+  },
+    {
+    "name": "responder_por_nombre",
+    "description": "Busca una encuesta por coincidencia en el título y la muestra para responder",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "titulo": {
+          "type": "string",
+          "description": "Texto del título o parte del título de la encuesta"
+        }
+      },
+      "required": ["titulo"]
+    }
+  },
+  {
+    "name": "buscar_encuestas",
+    "description": "Busca encuestas existentes que coincidan con palabras clave",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "description": "Palabras clave para buscar en títulos u objetivos",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["keywords"]
+    }
   }
+  
 ]

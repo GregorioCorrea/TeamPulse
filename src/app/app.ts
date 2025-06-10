@@ -103,8 +103,15 @@ interface TemplateEncuesta {
 // ADAPTIVE CARDS HANDLERS (MÉTODO CORRECTO)
 // ============================
 
+// handler para mostrar comandos disponibles
+app.adaptiveCards.actionSubmit('show_commands', async (context, state, data) => {
+  const card = createAvailableCommandsCard();
+  await context.sendActivity(MessageFactory.attachment(card));
+});
+
+
 // Handler para respuestas de encuesta
-app.adaptiveCards.actionExecute('survey_response', async (context, state, data) => {
+app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) => {
   console.log('🎴 Survey response recibida:', data);
   
   try {
@@ -166,12 +173,10 @@ app.adaptiveCards.actionExecute('survey_response', async (context, state, data) 
     console.error('❌ Error procesando respuesta:', error);
     await context.sendActivity("❌ Error al procesar tu respuesta. Intenta nuevamente.");
   }
-
-  return "";
 });
 
 // Handler para ver resultados desde card
-app.adaptiveCards.actionExecute('view_results', async (context, state, data) => {
+app.adaptiveCards.actionSubmit('view_results', async (context, state, data) => {
   console.log('📊 Ver resultados desde card:', data);
   
   const { encuestaId } = data;
@@ -217,48 +222,63 @@ app.adaptiveCards.actionExecute('view_results', async (context, state, data) => 
     console.error('❌ Error mostrando resultados:', error);
     await context.sendActivity("❌ Error al cargar resultados");
   }
-  
-  return "";
-  
-  return "";
 });
 
 // Handler para listar encuestas desde card
-app.adaptiveCards.actionExecute('list_surveys', async (context, state, data) => {
-  console.log('📋 Listar encuestas desde card');
+app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
+  console.log('📋 Ver todas las encuestas desde card');
   
   try {
     const encuestas = await listarEncuestasAzure();
     
-    if (encuestas.length === 0) {
-      await context.sendActivity("📂 **No hay encuestas guardadas aún.**");
-      return;
-    }
-    
-    let lista = `📋 **Encuestas (${encuestas.length}):**\n\n`;
-    
-    encuestas.slice(0, 3).forEach((encuesta, index) => {
-      const fecha = encuesta.fechaCreacion ? new Date(encuesta.fechaCreacion).toLocaleDateString() : 'N/A';
-      lista += `**${index + 1}.** ${encuesta.titulo}\n`;
-      lista += `   🆔 \`${encuesta.id}\`\n\n`;
-    });
-    
-    if (encuestas.length > 3) {
-      lista += `... y ${encuestas.length - 3} más.`;
-    }
-    
-    await context.sendActivity(lista);
-    
+    const listCard = await createListSurveysCardAsync(encuestas);
+    await context.sendActivity(MessageFactory.attachment(listCard));
+
   } catch (error) {
     console.error('❌ Error listando encuestas:', error);
-    await context.sendActivity("❌ Error al cargar encuestas");
+    await context.sendActivity("❌ Error al acceder a las encuestas.");
   }
+});
+
+// Actualizar el handler existente para usar la nueva card
+app.adaptiveCards.actionSubmit('view_survey_results', async (context, state, data) => {
+  console.log('📊 Ver resultados desde card:', data);
   
-  return "";
+  const { encuestaId, titulo } = data;
+  
+  try {
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return;
+    }
+
+    let resultados = await cargarResultadosAzure(encuestaId);
+    if (!resultados) {
+      resultados = {
+        encuestaId: encuestaId,
+        titulo: encuesta.titulo,
+        fechaCreacion: new Date(),
+        estado: 'activa',
+        totalParticipantes: 0,
+        respuestas: [],
+        resumen: {}
+      };
+    }
+
+    calcularResumen(resultados, encuesta);
+
+    const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity(MessageFactory.attachment(resultsCard));
+
+  } catch (error) {
+    console.error('❌ Error mostrando resultados:', error);
+    await context.sendActivity("❌ Error al cargar resultados");
+  }
 });
 
 // Handler para debug
-app.adaptiveCards.actionExecute('debug_test', async (context, state, data) => {
+app.adaptiveCards.actionSubmit('debug_test', async (context, state, data) => {
   console.log('🔧 Debug test ejecutado!', data);
   
   await context.sendActivity(`✅ **¡Handler funcionando!**
@@ -267,9 +287,109 @@ app.adaptiveCards.actionExecute('debug_test', async (context, state, data) => {
 ⏰ **Timestamp:** ${new Date().toISOString()}
 
 🎉 **Las Adaptive Cards están funcionando correctamente!**`);
-  
-  return "";
 });
+
+// ============================
+// HANDLERS NUEVOS PARA LAS ACCIONES
+// ============================
+
+// Handler para iniciar encuesta desde card
+app.adaptiveCards.actionSubmit('start_survey', async (context, state, data) => {
+  console.log('📝 Iniciar encuesta desde card:', data);
+  
+  const { encuestaId, titulo } = data;
+  
+  try {
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return;
+    }
+
+    const responseCard = createSurveyResponseCard(encuesta, 0);
+    await context.sendActivity(MessageFactory.attachment(responseCard));
+
+  } catch (error) {
+    console.error('❌ Error al iniciar encuesta:', error);
+    await context.sendActivity("❌ Error al cargar la encuesta. Intenta nuevamente.");
+  }
+});
+
+// Handler para ver resultados desde card
+app.adaptiveCards.actionSubmit('view_survey_results', async (context, state, data) => {
+  console.log('📊 Ver resultados desde card:', data);
+  
+  const { encuestaId, titulo } = data;
+  
+  try {
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return;
+    }
+
+    let resultados = await cargarResultadosAzure(encuestaId);
+    if (!resultados) {
+      resultados = {
+        encuestaId: encuestaId,
+        titulo: encuesta.titulo,
+        fechaCreacion: new Date(),
+        estado: 'activa',
+        totalParticipantes: 0,
+        respuestas: [],
+        resumen: {}
+      };
+    }
+
+    calcularResumen(resultados, encuesta);
+
+    const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity(MessageFactory.attachment(resultsCard));
+
+  } catch (error) {
+    console.error('❌ Error mostrando resultados:', error);
+    await context.sendActivity("❌ Error al cargar resultados");
+  }
+});
+
+// Handler para crear nueva encuesta desde card
+app.adaptiveCards.actionSubmit('create_new_survey', async (context, state, data) => {
+  console.log('➕ Crear nueva encuesta desde card');
+  
+  await context.sendActivity(`🎯 **¡Perfecto! Vamos a crear una nueva encuesta.**
+
+Dime qué tipo de encuesta quieres crear. Por ejemplo:
+• *"Quiero una encuesta de clima laboral"*
+• *"Crear encuesta de satisfacción del cliente"*
+• *"Encuesta de feedback para capacitación"*
+
+¡Escribe tu solicitud y yo te ayudo a crearla! 🚀`);
+});
+
+// Handler para responder encuesta desde card
+app.adaptiveCards.actionSubmit('start_survey_by_id', async (context, state, data) => {
+  const encuestaId = data.encuestaId?.trim();
+
+  if (!encuestaId) {
+    await context.sendActivity("❌ Por favor, ingresa un ID de encuesta válido.");
+    return;
+  }
+
+  try {
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ Encuesta no encontrada: \`${encuestaId}\``);
+      return;
+    }
+
+    const responseCard = createSurveyResponseCard(encuesta, 0);
+    await context.sendActivity(MessageFactory.attachment(responseCard));
+  } catch (error) {
+    console.error("❌ Error al iniciar encuesta desde ID:", error);
+    await context.sendActivity("❌ Error al cargar la encuesta. Intenta nuevamente.");
+  }
+});
+
 
 // ============================
 // FUNCIONES UTILITARIAS
@@ -469,10 +589,10 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
     "actions": [
       // ✅ RESPUESTAS - ESTRUCTURA CORREGIDA FINAL
       ...pregunta.opciones.map((opcion, index) => ({
-        "type": "Action.Execute",
+        "type": "Action.Submit",
         "title": `${index === 0 ? '🟢' : index === 1 ? '🔵' : index === 2 ? '🟡' : '⚫'} ${opcion}`,
         "data": {
-          "verb": "survey_response",  // ⚡ CLAVE: verb va DENTRO de data
+          "verb": "survey_response",
           "encuestaId": encuesta.id,
           "preguntaIndex": preguntaIndex,
           "respuesta": opcion,
@@ -482,18 +602,18 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
       
       // Acciones adicionales
       {
-        "type": "Action.Execute",
+        "type": "Action.Submit",
         "title": "📊 Ver Resultados",
         "data": {
-          "verb": "view_results",  // ⚡ CLAVE: verb va DENTRO de data
+          "verb": "view_results",
           "encuestaId": encuesta.id
         }
       },
       {
-        "type": "Action.Execute",
+        "type": "Action.Submit",
         "title": "📋 Todas las Encuestas",
         "data": {
-          "verb": "list_surveys"  // ⚡ CLAVE: verb va DENTRO de data
+          "verb": "list_surveys"
         }
       }
     ]
@@ -501,6 +621,176 @@ function createSurveyResponseCard(encuesta: Encuesta, preguntaIndex: number): an
   
   return CardFactory.adaptiveCard(card);
 }
+
+function createResultsCard(encuesta: Encuesta, resultados: ResultadosEncuesta): any {
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "📊 TeamPulse Results",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Accent"
+          },
+          {
+            "type": "TextBlock",
+            "text": resultados.titulo,
+            "size": "Large",
+            "weight": "Bolder"
+          }
+        ]
+      },
+      {
+        "type": "ColumnSet",
+        "columns": [
+          {
+            "type": "Column",
+            "width": "stretch",
+            "items": [
+              {
+                "type": "TextBlock",
+                "text": `👥 ${resultados.totalParticipantes} participantes`,
+                "size": "Medium",
+                "weight": "Bolder"
+              }
+            ]
+          },
+          {
+            "type": "Column",
+            "width": "auto",
+            "items": [
+              {
+                "type": "TextBlock",
+                "text": `🎯 ${encuesta.preguntas.length} preguntas`,
+                "size": "Medium",
+                "weight": "Bolder"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "📝 Responder Encuesta",
+        "data": {
+          "verb": "start_survey",
+          "encuestaId": encuesta.id,
+          "titulo": encuesta.titulo
+        }
+      },
+      {
+        "type": "Action.Submit",
+        "title": "📋 Ver Todas las Encuestas",
+        "data": {
+          "verb": "list_surveys"
+        }
+      }
+    ]
+  };
+
+  if (resultados.totalParticipantes === 0) {
+    // Sin respuestas
+    card.body.push({
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "🔔 Sin Respuestas Aún",
+          "size": "Large",
+          "weight": "Bolder"
+        },
+        {
+          "type": "TextBlock",
+          "text": "Esta encuesta no tiene respuestas todavía. ¡Sé el primero en responder!",
+          "size": "Medium",
+          "weight": "Bolder"
+        }
+      ]
+    });
+  } else {
+    // Con respuestas - agregar resultados por pregunta
+    encuesta.preguntas.forEach((pregunta, index) => {
+      const respuestasPregunta = resultados.resumen![index] || {};
+      const totalRespuestas = Object.values(respuestasPregunta).reduce((sum: number, count) => sum + (count as number), 0);
+      
+      // Container para cada pregunta
+      card.body.push({
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": `Pregunta ${index + 1}`,
+            "size": "Medium",
+            "weight": "Bolder",
+            "color": "Accent"
+          },
+          {
+            "type": "TextBlock",
+            "text": pregunta.pregunta,
+            "size": "Medium",
+            "weight": "Bolder"
+          }
+        ]
+      });
+
+      if (totalRespuestas === 0) {
+        card.body.push({
+          "type": "Container",
+          "style": "emphasis",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Sin respuestas para esta pregunta",
+              "size": "Small",
+              "weight": "Bolder"
+            }
+          ]
+        });
+      } else {
+        // Agregar barras de resultados
+        Object.entries(respuestasPregunta).forEach(([opcion, cantidad]) => {
+          const porcentaje = Math.round(((cantidad as number) / totalRespuestas) * 100);
+          const barraLength = Math.floor(porcentaje / 5); // Cada 5% = 1 barra
+          const barras = '█'.repeat(barraLength) + '░'.repeat(20 - barraLength);
+          
+          card.body.push({
+            "type": "Container",
+            "style": "emphasis",
+            "items": [
+              {
+                "type": "TextBlock",
+                "text": `${opcion}`,
+                "size": "Small",
+                "weight": "Bolder"
+              },
+              {
+                "type": "TextBlock",
+                "text": `${barras} ${cantidad} votos (${porcentaje}%)`,
+                "size": "Small",
+                "weight": "Bolder"
+              }
+            ]
+          });
+        });
+      }
+    });
+  }
+
+  return CardFactory.adaptiveCard(card);
+}
+
+
 
 // ============================
 // AI ACTION - CREAR ENCUESTA
@@ -601,6 +891,67 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
   }
 });
 
+// ===============================================
+// AI ACTION - BUSCAR ENCUESTAS POR PALABRAS CLAVE
+// ===============================================
+
+app.ai.action('buscar_encuestas', async (context, state, data) => {
+  const rawKeywords = data?.keywords;
+
+  if (!Array.isArray(rawKeywords) || rawKeywords.length === 0) {
+    await context.sendActivity("❌ No se detectaron palabras clave para buscar encuestas.");
+    return 'buscar_encuestas';
+  }
+
+  const keywords = rawKeywords.map(k => k.toLowerCase());
+
+  const encuestas = await listarEncuestasAzure();
+
+  const coincidencias = encuestas.filter(e =>
+    keywords.some(k =>
+      (typeof e.titulo === 'string' && e.titulo.toLowerCase().includes(k)) ||
+      (typeof e.objetivo === 'string' && e.objetivo.toLowerCase().includes(k))
+    )
+  );
+
+  if (coincidencias.length === 0) {
+    await context.sendActivity("🔍 No se encontraron encuestas que coincidan con esas palabras.");
+  } else {
+    const card = await createListSurveysCardAsync(coincidencias);
+    await context.sendActivity(MessageFactory.attachment(card));
+  }
+
+  return 'buscar_encuestas';
+});
+
+// ===============================================
+// AI ACTION - RESPONDER ENCUESTA POR NOMBRE
+// ===============================================
+
+app.ai.action('responder_por_nombre', async (context, state, data) => {
+  const titulo = data?.titulo?.toLowerCase().trim();
+
+  if (!titulo) {
+    await context.sendActivity("❌ No se especificó un título para buscar la encuesta.");
+    return 'responder_por_nombre';
+  }
+
+  const encuestas = await listarEncuestasAzure();
+  const coincidencia = encuestas.find(e =>
+    typeof e.titulo === 'string' && e.titulo.toLowerCase().includes(titulo)
+  );
+
+  if (!coincidencia) {
+    await context.sendActivity(`🔍 No se encontró ninguna encuesta con el título que contenga: "${titulo}"`);
+  } else {
+    const card = createSurveyResponseCard(coincidencia, 0);
+    await context.sendActivity(MessageFactory.attachment(card));
+  }
+
+  return 'responder_por_nombre';
+});
+
+
 // ============================
 // COMANDOS DE TEXTO
 // ============================
@@ -632,21 +983,9 @@ app.message(/^listar$/i, async (context, state) => {
   try {
     const encuestas = await listarEncuestasAzure();
     
-    if (encuestas.length === 0) {
-      await context.sendActivity("📂 **No hay encuestas guardadas aún.**\n\nCrea tu primera encuesta escribiendo: *\"Quiero crear una encuesta\"*");
-      return;
-    }
+    const listCard = await createListSurveysCardAsync(encuestas);
+    await context.sendActivity(MessageFactory.attachment(listCard));
 
-    let lista = `📋 **Encuestas en Azure (${encuestas.length}):**\n\n`;
-    
-    encuestas.forEach((encuesta, index) => {
-      const fecha = encuesta.fechaCreacion ? new Date(encuesta.fechaCreacion).toLocaleDateString() : 'N/A';
-      lista += `**${index + 1}.** ${encuesta.titulo}\n`;
-      lista += `   🆔 \`${encuesta.id}\`\n`;
-      lista += `   📅 ${fecha} | 👤 ${encuesta.creador || 'N/A'}\n\n`;
-    });
-
-    await context.sendActivity(lista);
   } catch (error) {
     console.error('❌ Error listando encuestas:', error);
     await context.sendActivity("❌ Error al acceder a las encuestas.");
@@ -655,14 +994,20 @@ app.message(/^listar$/i, async (context, state) => {
 
 // COMANDO RESULTADOS
 app.message(/^resultados\s+(.+)$/i, async (context, state) => {
-  const match = context.activity.text.match(/^resultados\s+(.+)$/i);
+  const match = context.activity.text?.match(/^resultados\s+(.+)$/i);
+  if (!match) {
+    await context.sendActivity("❌ **Formato incorrecto**. Usa: `resultados [ID]`");
+    return;
+  }
+  
   const encuestaId = match[1].trim();
 
   try {
-    const encuestaOriginal = await buscarEncuestaEnAzure(encuestaId);
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`
 
-    if (!encuestaOriginal) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+💡 **Tip**: Usa \`listar\` para ver todas las encuestas disponibles.`);
       return;
     }
 
@@ -670,53 +1015,26 @@ app.message(/^resultados\s+(.+)$/i, async (context, state) => {
     if (!resultados) {
       resultados = {
         encuestaId: encuestaId,
-        titulo: encuestaOriginal.titulo,
+        titulo: encuesta.titulo,
         fechaCreacion: new Date(),
         estado: 'activa',
         totalParticipantes: 0,
         respuestas: [],
         resumen: {}
       };
-      await guardarResultadosAzure(resultados);
     }
 
-    calcularResumen(resultados, encuestaOriginal);
-    await guardarResultadosAzure(resultados);
+    calcularResumen(resultados, encuesta);
 
-    let reporte = `📊 **Resultados: ${resultados.titulo}**\n`;
-    reporte += `👥 Participantes: **${resultados.totalParticipantes}**\n\n`;
-
-    if (resultados.totalParticipantes === 0) {
-      reporte += `🔔 **Sin respuestas aún**\n\n**Para responder:** \`responder ${encuestaId}\``;
-    } else {
-      reporte += `📈 **Resultados por pregunta:**\n\n`;
-      
-      encuestaOriginal.preguntas.forEach((pregunta, index) => {
-        reporte += `**${index + 1}.** ${pregunta.pregunta}\n`;
-        
-        const respuestasPregunta = resultados.resumen![index] || {};
-        const totalRespuestas = Object.values(respuestasPregunta).reduce((sum: number, count) => sum + (count as number), 0);
-        
-        if (totalRespuestas === 0) {
-          reporte += `   _(Sin respuestas)_\n\n`;
-        } else {
-          Object.entries(respuestasPregunta).forEach(([opcion, cantidad]) => {
-            const porcentaje = totalRespuestas > 0 ? Math.round(((cantidad as number) / totalRespuestas) * 100) : 0;
-            const barras = '█'.repeat(Math.floor(porcentaje / 10));
-            reporte += `   📊 **${opcion}**: ${cantidad} (${porcentaje}%) ${barras}\n`;
-          });
-          reporte += `\n`;
-        }
-      });
-    }
-
-    await context.sendActivity(reporte);
+    const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity(MessageFactory.attachment(resultsCard));
 
   } catch (error) {
-    console.error('❌ Error generando resultados:', error);
-    await context.sendActivity("❌ Error al cargar los resultados.");
+    console.error('❌ Error mostrando resultados:', error);
+    await context.sendActivity("❌ Error al cargar resultados. Intenta nuevamente.");
   }
 });
+
 
 // COMANDO DEBUG
 app.message(/^debug_cards$/i, async (context, state) => {
@@ -739,10 +1057,10 @@ app.message(/^debug_cards$/i, async (context, state) => {
     ],
     "actions": [
       {
-        "type": "Action.Execute",
+        "type": "Action.Submit",
         "title": "🟢 PROBAR HANDLER",
         "data": {
-          "verb": "debug_test",  // ⚡ CAMBIO: verb dentro de data
+          "verb": "debug_test",
           "mensaje": "Test desde debug_cards",
           "timestamp": new Date().toISOString()
         }
@@ -758,6 +1076,13 @@ app.message(/^debug_cards$/i, async (context, state) => {
 
 // COMANDO AYUDA
 app.message(/^ayuda$/i, async (context, state) => {
+  const welcomeCard = createWelcomeCard();
+  await context.sendActivity(MessageFactory.attachment(welcomeCard));
+});
+
+
+// COMANDO AYUDA --- VERSIÓN VIEJA (Gregorio) 
+/*app.message(/^ayuda$/i, async (context, state) => {
   const ayuda = `🤖 **TeamPulse - Comandos disponibles:**
 
 **📝 Crear encuestas:**
@@ -784,6 +1109,7 @@ app.message(/^ayuda$/i, async (context, state) => {
 
   await context.sendActivity(ayuda);
 });
+*/
 
 // ============================
 // MANEJO DE ERRORES
@@ -797,5 +1123,282 @@ app.error(async (context, error) => {
   console.error(`💥 Error de aplicación:`, error);
   await context.sendActivity("❌ Ocurrió un error inesperado. Por favor, intenta nuevamente.");
 });
+
+
+// ============================
+// FUNCIÓN PARA CREAR CARD DE LISTA DE ENCUESTAS
+// ============================
+
+async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
+  const card: any = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "🎯 TeamPulse",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Accent"
+          },
+          {
+            "type": "TextBlock",
+            "text": "Encuestas Disponibles",
+            "size": "Large",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": `📋 ${encuestas.length} encuestas encontradas`,
+            "size": "Medium",
+            "weight": "Bolder"
+          }
+        ]
+      }
+    ],
+    "actions": []
+  };
+
+  if (encuestas.length === 0) {
+    card.body.push({
+      "type": "TextBlock",
+      "text": "🔔 No hay encuestas disponibles. Crea tu primera encuesta escribiendo: Quiero crear una encuesta",
+      "size": "Medium",
+      "weight": "Bolder"
+    });
+    return CardFactory.adaptiveCard(card);
+  }
+
+  for (const encuesta of encuestas.slice(0, 5)) {
+    const fecha = encuesta.fechaCreacion
+      ? new Date(encuesta.fechaCreacion).toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      : 'Fecha no disponible';
+
+    let estadoTexto = '🔴 Sin respuestas';
+    try {
+      const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!);
+      const participantesUnicos = new Set(respuestas.map(r => r.participanteId));
+      const numParticipantes = participantesUnicos.size;
+      if (numParticipantes > 0) {
+        estadoTexto = `🟢 ${numParticipantes} ${numParticipantes === 1 ? 'respuesta' : 'respuestas'}`;
+      }
+    } catch (error) {
+      console.error('⚠️ Error al obtener respuestas para encuesta:', encuesta.id, error);
+      estadoTexto = '⚠️ Error al cargar estado';
+    }
+
+    card.body.push({
+      "type": "Container",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": encuesta.titulo || "Sin título",
+          "weight": "Bolder",
+          "size": "Medium"
+        },
+        {
+          "type": "TextBlock",
+          "text": `🎯 ${encuesta.objetivo || "Sin objetivo"}`,
+          "size": "Small",
+          "wrap": true
+        },
+        {
+          "type": "TextBlock",
+          "text": `🗓️ ${fecha} | ${estadoTexto}`,
+          "size": "Small",
+          "color": "Good"
+        },
+        {
+          "type": "ActionSet",
+          "actions": [
+            {
+              "type": "Action.Submit",
+              "title": "📝 Responder",
+              "data": {
+                "verb": "start_survey",
+                "encuestaId": encuesta.id,
+                "titulo": encuesta.titulo
+              }
+            },
+            {
+              "type": "Action.Submit",
+              "title": "📊 Ver Resultados",
+              "data": {
+                "verb": "view_survey_results",
+                "encuestaId": encuesta.id,
+                "titulo": encuesta.titulo
+              }
+            }
+          ]
+        }
+      ]
+    });
+  }
+
+  if (encuestas.length > 5) {
+    card.body.push({
+      "type": "TextBlock",
+      "text": `... y ${encuestas.length - 5} encuestas más.`,
+      "size": "Small",
+      "weight": "Bolder"
+    });
+  }
+
+  card.body.push({
+    "type": "ActionSet",
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "➕ Crear Nueva Encuesta",
+        "data": {
+          "verb": "create_new_survey"
+        }
+      }
+    ]
+  });
+
+  return CardFactory.adaptiveCard(card);
+}
+// ============================
+// FUNCIÓN PARA CREAR CARD DE BIENVENIDA
+// ============================
+function createWelcomeCard(): any {
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "👋 ¡Bienvenido a TeamPulse!",
+        "weight": "Bolder",
+        "size": "Large"
+      },
+      {
+        "type": "TextBlock",
+        "text": "¿Qué te gustaría hacer?",
+        "wrap": true,
+        "spacing": "Medium"
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "➕ Crear Encuesta",
+        "data": { "verb": "create_new_survey" }
+      },
+      {
+        "type": "Action.Submit",
+        "title": "📋 Ver Encuestas",
+        "data": { "verb": "list_surveys" }
+      },
+      {
+        "type": "Action.Submit",
+        "title": "📘 Ver Comandos",
+        "data": { "verb": "show_commands" }
+    },
+    {
+      "type": "Action.Submit",
+      "title": "❓ Ayuda",
+      "data": { "verb": "show_help" }
+    }
+  ]
+};
+
+  return CardFactory.adaptiveCard(card);
+}
+
+function createSurveyIdInputCard(): any {
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "📝 Responder una Encuesta",
+        "weight": "Bolder",
+        "size": "Large"
+      },
+      {
+        "type": "TextBlock",
+        "text": "Ingresa el ID de la encuesta que deseas responder:",
+        "wrap": true
+      },
+      {
+        "type": "Input.Text",
+        "id": "encuestaId",
+        "placeholder": "Ejemplo: clima_123456_abcd"
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "Responder Encuesta",
+        "data": {
+          "verb": "start_survey_by_id"
+        }
+      }
+    ]
+  };
+
+  return CardFactory.adaptiveCard(card);
+}
+// ============================
+// FUNCIÓN PARA CREAR CARD DE COMANDOS DISPONIBLES
+// ============================
+function createAvailableCommandsCard(): any {
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      {
+        "type": "TextBlock",
+        "text": "📘 Comandos Disponibles",
+        "weight": "Bolder",
+        "size": "Large"
+      },
+      {
+        "type": "TextBlock",
+        "text": "Estos son los comandos que puedes usar en TeamPulse:",
+        "wrap": true
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          { "title": "`responder [ID]`", "value": "Responder una encuesta por ID" },
+          { "title": "`listar`", "value": "Ver todas las encuestas disponibles" },
+          { "title": "`resultados [ID]`", "value": "Ver resultados de una encuesta" },
+          { "title": "`debug_cards`", "value": "Probar tarjetas Adaptive" },
+          { "title": "`ayuda`", "value": "Mostrar ayuda general" }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "🔙 Volver al Menú Principal",
+        "data": { "verb": "show_welcome" }
+      }
+    ]
+  };
+
+  return CardFactory.adaptiveCard(card);
+}
+
+
 
 export default app;
