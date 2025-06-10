@@ -1,7 +1,7 @@
 // Crear nuevo archivo: src/webhook/marketplaceWebhook.ts
 
 import { Request, Response } from 'express';
-import { TableClient } from '@azure/data-tables';
+import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
 interface MarketplaceNotification {
   id: string;
@@ -27,10 +27,14 @@ export class MarketplaceWebhookHandler {
   private subscriptionsTable: TableClient;
   
   constructor() {
-    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING!;
-    this.subscriptionsTable = TableClient.fromConnectionString(
-      connectionString,
-      "MarketplaceSubscriptions"
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
+    const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+     
+    const credential = new AzureNamedKeyCredential(accountName, accountKey);
+    this.subscriptionsTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'MarketPlaceSubscriptions',
+      credential
     );
     this.initializeTables();
   }
