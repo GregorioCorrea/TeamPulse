@@ -11,9 +11,9 @@ import adapter from "./adapter";
 import app from "./app/app";
 
 // En src/index.ts o donde tengas tu servidor Express
-import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
+//import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
 
-const webhookHandler = new MarketplaceWebhookHandler();
+//const webhookHandler = new MarketplaceWebhookHandler();
 
 // Create express application.
 const expressApp = express();
@@ -24,7 +24,7 @@ const server = expressApp.listen(process.env.port || process.env.PORT || 3978, (
 });
 
 // Agregar estas rutas ANTES de server.post("/api/messages"...
-expressApp.post('/api/marketplace/webhook', (req, res) => {
+/*expressApp.post('/api/marketplace/webhook', (req, res) => {
   webhookHandler.handleWebhook(req, res);
 });
 
@@ -36,6 +36,7 @@ expressApp.get('/api/marketplace/health', (req, res) => {
     service: 'TeamPulse Marketplace Webhook'
   });
 });
+*/
 
 // Listen for incoming requests.
 expressApp.post("/api/messages", async (req, res) => {
