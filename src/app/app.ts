@@ -217,11 +217,13 @@ const TEMPLATES_PREDEFINIDOS = [
 // handler para mostrar comandos disponibles
 app.adaptiveCards.actionSubmit('show_commands', async (context, state, data) => {
   const card = createAvailableCommandsCard();
+  await context.sendActivity("🔄 Generando...");
   await context.sendActivity(MessageFactory.attachment(card));
 });
 
 app.adaptiveCards.actionSubmit('show_help', async (context, state, data) => {
   const welcomeCard = createWelcomeCard();
+  await context.sendActivity("🔄 Generando...");
   await context.sendActivity(MessageFactory.attachment(welcomeCard));
 });
 
@@ -272,6 +274,7 @@ app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) =
     if (preguntaIndex + 1 < encuesta.preguntas.length) {
       // Hay más preguntas
       const nextCard = createSurveyResponseCard(encuesta, preguntaIndex + 1);
+      await context.sendActivity("🔄 Generando...");
       await context.sendActivity(MessageFactory.attachment(nextCard));
     } else {
       // Encuesta completada
@@ -347,6 +350,7 @@ app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
     const encuestas = await listarEncuestasAzure();
     
     const listCard = await createListSurveysCardAsync(encuestas);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(listCard));
 
   } catch (error) {
@@ -384,6 +388,7 @@ app.adaptiveCards.actionSubmit('view_survey_results', async (context, state, dat
     calcularResumen(resultados, encuesta);
 
     const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(resultsCard));
 
   } catch (error) {
@@ -422,6 +427,7 @@ app.adaptiveCards.actionSubmit('start_survey', async (context, state, data) => {
     }
 
     const responseCard = createSurveyResponseCard(encuesta, 0);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(responseCard));
 
   } catch (error) {
@@ -459,6 +465,7 @@ app.adaptiveCards.actionSubmit('view_survey_results', async (context, state, dat
     calcularResumen(resultados, encuesta);
 
     const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(resultsCard));
 
   } catch (error) {
@@ -498,6 +505,7 @@ app.adaptiveCards.actionSubmit('start_survey_by_id', async (context, state, data
     }
 
     const responseCard = createSurveyResponseCard(encuesta, 0);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(responseCard));
   } catch (error) {
     console.error("❌ Error al iniciar encuesta desde ID:", error);
@@ -1033,6 +1041,7 @@ app.ai.action('buscar_encuestas', async (context, state, data) => {
     await context.sendActivity("🔍 No se encontraron encuestas que coincidan con esas palabras.");
   } else {
     const card = await createListSurveysCardAsync(coincidencias);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(card));
   }
 
@@ -1060,6 +1069,7 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
     await context.sendActivity(`🔍 No se encontró ninguna encuesta con el título que contenga: "${titulo}"`);
   } else {
     const card = createSurveyResponseCard(coincidencia, 0);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(card));
   }
 
@@ -1085,6 +1095,7 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
     }
 
     const responseCard = createSurveyResponseCard(encuestaEncontrada, 0);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(responseCard));
 
   } catch (error) {
@@ -1099,6 +1110,7 @@ app.message(/^listar$/i, async (context, state) => {
     const encuestas = await listarEncuestasAzure();
     
     const listCard = await createListSurveysCardAsync(encuestas);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(listCard));
 
   } catch (error) {
@@ -1142,6 +1154,7 @@ app.message(/^resultados\s+(.+)$/i, async (context, state) => {
     calcularResumen(resultados, encuesta);
 
     const resultsCard = createResultsCard(encuesta, resultados);
+    await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(resultsCard));
 
   } catch (error) {
@@ -1192,6 +1205,7 @@ app.message(/^debug_cards$/i, async (context, state) => {
 // COMANDO AYUDA
 app.message(/^ayuda$/i, async (context, state) => {
   const welcomeCard = createWelcomeCard();
+  await context.sendActivity("🔄 Generando...");
   await context.sendActivity(MessageFactory.attachment(welcomeCard));
 });
 

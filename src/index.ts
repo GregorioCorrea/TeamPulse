@@ -22,7 +22,6 @@ const server = expressApp.listen(process.env.port || process.env.PORT || 3978, (
 });
 
 // Agregar estas rutas ANTES de server.post("/api/messages"...
-// index.ts - Corregir las rutas del webhook
 try {
   const webhookHandler = new MarketplaceWebhookHandler();
   
