@@ -220,6 +220,10 @@ app.adaptiveCards.actionSubmit('show_commands', async (context, state, data) => 
   await context.sendActivity(MessageFactory.attachment(card));
 });
 
+app.adaptiveCards.actionSubmit('show_help', async (context, state, data) => {
+  const welcomeCard = createWelcomeCard();
+  await context.sendActivity(MessageFactory.attachment(welcomeCard));
+});
 
 // Handler para respuestas de encuesta
 app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) => {
@@ -1817,7 +1821,7 @@ function createAvailableCommandsCard(): any {
       {
         "type": "Action.Submit",
         "title": "🔙 Volver al Menú Principal",
-        "data": { "verb": "show_welcome" }
+        "data": { "verb": "show_help" }
       }
     ]
   };
