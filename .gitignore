@@ -19,6 +19,7 @@ data/
 .env
 .deployment
 .DS_Store
+*copia*
 
 # build
 lib/

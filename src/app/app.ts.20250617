@@ -559,6 +559,43 @@ function calcularResumen(resultados: ResultadosEncuesta, encuesta: Encuesta): vo
   resultados.totalParticipantes = participantesUnicos.size;
 }
 
+// ====================================
+// FUNCIÓN GENERAR ANÁLISIS INTELIGENTE
+// ====================================
+
+async function generarAnalisisInteligente(
+  encuesta: Encuesta,
+  resultados: ResultadosEncuesta,
+  context: TurnContext,
+  state: any
+): Promise<string> {
+  const contextoPreguntasRespuestas = encuesta.preguntas.map((pregunta, index) => {
+    const respuestasPregunta = resultados.resumen?.[index] ?? {};
+    const totalRespuestas = Object.values(respuestasPregunta).reduce((sum, count) => sum + (count as number), 0);
+
+    return {
+      pregunta: pregunta.pregunta,
+      opciones: pregunta.opciones,
+      respuestas: respuestasPregunta,
+      totalRespuestas,
+      porcentajes: Object.entries(respuestasPregunta).map(([opcion, votos]) => ({
+        opcion,
+        votos: votos as number,
+        porcentaje: totalRespuestas > 0 ? Math.round(((votos as number) / totalRespuestas) * 100) : 0
+      }))
+    };
+  });
+
+  const analysisInput = `Analiza esta encuesta:\nTÍTULO: ${encuesta.titulo}\nOBJETIVO: ${encuesta.objetivo}\nPARTICIPANTES: ${resultados.totalParticipantes}\nDATOS:\n${contextoPreguntasRespuestas.map((item, i) => `\n${i + 1}. ${item.pregunta}\nRespuestas: ${item.porcentajes.map(p => `${p.opcion}: ${p.porcentaje}%`).join(', ')}`).join('\n')}\nGenera análisis ejecutivo con insights y recomendaciones.`;
+
+  const aiResponse = await planner.completePrompt(context, state, analysisInput);
+
+  return aiResponse.message?.content ?? "⚠️ No se pudo generar el análisis con IA.";
+}
+
+
+
+
 // ============================
 // FUNCIONES AZURE
 // ============================
@@ -913,7 +950,38 @@ function createResultsCard(encuesta: Encuesta, resultados: ResultadosEncuesta): 
   return CardFactory.adaptiveCard(card);
 }
 
+// ============================
+// AI ACTION PARA ANÁLISIS INTELIGENTE 
+// ============================
 
+app.ai.action('analizar_encuesta_inteligente', async (context, state, data) => {
+  console.log('🧠 AI Action: Análisis inteligente solicitado', data);
+  
+  try {
+    const { encuestaId, tipoAnalisis } = data as { encuestaId: string; tipoAnalisis?: string };
+
+    if (!encuestaId) {
+      await context.sendActivity("❌ **Error**: ID de encuesta requerido para análisis");
+      return 'analizar_encuesta_inteligente';
+    }
+
+    // Disparar el comando analizar usando el ID
+    await context.sendActivity(`🧠 **Iniciando análisis inteligente...**`);
+    
+    // Simular comando analizar
+    const match = { 1: encuestaId };
+    
+    // Reutilizar lógica del comando analizar
+    // [Aquí se puede extraer la lógica del comando a una función reutilizable]
+    
+    return 'analizar_encuesta_inteligente';
+
+  } catch (error) {
+    console.error("❌ Error en AI action analizar:", error);
+    await context.sendActivity(`❌ Error generando análisis inteligente: ${error.message}`);
+    return 'analizar_encuesta_inteligente';
+  }
+});
 
 // ============================
 // AI ACTION - CREAR ENCUESTA
@@ -1842,5 +1910,250 @@ function createAvailableCommandsCard(): any {
 
   return CardFactory.adaptiveCard(card);
 }
+
+// 🔧 AGREGAR AL FINAL DE app.ts, ANTES de "export default app;"
+
+// ============================
+// WELCOME MESSAGE PROACTIVO (REQUERIDO POR VALIDATOR)
+// ============================
+
+app.conversationUpdate('membersAdded', async (context, state) => {
+  const membersAdded = context.activity.membersAdded;
+  
+  for (const member of membersAdded || []) {
+    if (member.id !== context.activity.recipient.id) {
+      // Es un usuario nuevo, no el bot
+      const welcomeCard = createWelcomeCard();
+      await context.sendActivity("🎯 **¡Bienvenido a TeamPulse!**\n\nTu asistente para crear encuestas inteligentes en Microsoft Teams.\n\n✨ **Funcionalidades:**\n• Crear encuestas desde templates profesionales\n• Recolectar respuestas anónimas\n• Analizar resultados en tiempo real\n• Almacenamiento seguro en Azure\n\n🚀 **Para comenzar, escribe:** *\"Quiero crear una encuesta\"*");
+      await context.sendActivity(MessageFactory.attachment(welcomeCard));
+    }
+  }
+});
+
+// ============================
+// COMANDO HELP ADICIONAL (VALIDATOR REQUIREMENT)
+// ============================
+
+app.message(/^help$/i, async (context, state) => {
+  // Responder igual que "ayuda" para usuarios en inglés
+  const welcomeCard = createWelcomeCard();
+  await context.sendActivity("🔄 Generando...");
+  await context.sendActivity(MessageFactory.attachment(welcomeCard));
+});
+
+
+
+/// ===========================
+// COMANDO ANALIZAR - VERSIÓN AZURE + OPENAI
+// ============================
+
+app.message(/^analizar\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^analizar\s+(.+)$/i);
+
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`analizar [ID_encuesta]`\n\nEjemplo: `analizar clima_1748980691593_abc123`");
+    return;
+  }
+
+  const encuestaId = match[1].trim();
+  console.log(`🧠 Iniciando análisis AI para: ${encuestaId}`);
+
+  try {
+    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      return;
+    }
+
+    let resultados = await cargarResultadosAzure(encuestaId);
+    if (!resultados) {
+      await context.sendActivity(`❌ **Sin datos de resultados** para la encuesta "${encuesta.titulo}"`);
+      return;
+    }
+
+    calcularResumen(resultados, encuesta);
+
+    if (resultados.totalParticipantes === 0) {
+      await context.sendActivity(`📊 **Sin datos para analizar**\n\nLa encuesta "${encuesta.titulo}" no tiene respuestas aún.\n\n**Para responder:** \`responder ${encuestaId}\``);
+      return;
+    }
+
+    await context.sendActivity("🧠 **Generando análisis inteligente con Azure OpenAI...** ⚡");
+
+    const contextoPreguntasRespuestas = encuesta.preguntas.map((pregunta, index) => {
+      const respuestasPregunta = resultados.resumen?.[index] ?? {};
+      const totalRespuestas = Object.values(respuestasPregunta).reduce((sum, count) => sum + (count as number), 0);
+
+      return {
+        pregunta: pregunta.pregunta,
+        opciones: pregunta.opciones,
+        respuestas: respuestasPregunta,
+        totalRespuestas,
+        porcentajes: Object.entries(respuestasPregunta).map(([opcion, votos]) => ({
+          opcion,
+          votos: votos as number,
+          porcentaje: totalRespuestas > 0 ? Math.round(((votos as number) / totalRespuestas) * 100) : 0
+        }))
+      };
+    });
+
+    const analysisInput = `Analiza esta encuesta:
+TÍTULO: ${encuesta.titulo}
+OBJETIVO: ${encuesta.objetivo}
+PARTICIPANTES: ${resultados.totalParticipantes}
+
+DATOS:
+${contextoPreguntasRespuestas.map((item, i) => `
+${i + 1}. ${item.pregunta}
+Respuestas: ${item.porcentajes.map(p => `${p.opcion}: ${p.porcentaje}%`).join(', ')}
+`).join('\n')}
+
+Genera análisis ejecutivo con insights y recomendaciones.`;
+
+    const aiResponse = await planner.completePrompt(context, state, analysisInput);
+    const analisisIA = aiResponse.message?.content || "Error generando análisis IA";
+
+    let analisisFinal = `🧠 **Análisis Inteligente con Azure OpenAI**\n\n`;
+    analisisFinal += `📋 **Encuesta:** ${encuesta.titulo}\n`;
+    analisisFinal += `👥 **Participantes:** ${resultados.totalParticipantes}\n`;
+    analisisFinal += `📅 **Analizado:** ${new Date().toLocaleString()}\n`;
+    analisisFinal += `⚡ **Motor:** Azure OpenAI GPT-4\n\n`;
+    analisisFinal += `${analisisIA}\n\n`;
+    analisisFinal += `**📊 Datos detallados:** \`resultados ${encuestaId}\`\n`;
+    analisisFinal += `**🔄 Actualizar análisis:** \`analizar ${encuestaId}\`\n\n`;
+    analisisFinal += `*✨ Análisis generado por TeamPulse AI - Datos 100% anónimos*`;
+
+    await context.sendActivity(analisisFinal);
+    console.log(`✅ Análisis IA completado para: ${encuestaId}`);
+  } catch (error) {
+    console.error('❌ Error en comando analizar:', error);
+    await context.sendActivity(`❌ **Error al generar análisis**\n\nUsa \`resultados ${encuestaId}\` para ver datos básicos.`);
+  }
+});
+
+
+// ============================
+// FUNCIÓN HELPER: ANÁLISIS BÁSICO FALLBACK
+// ============================
+
+function generarAnalisisBasico(encuesta: Encuesta, resultados: ResultadosEncuesta): string {
+  let analisis = `📊 **RESUMEN EJECUTIVO:**\n`;
+  analisis += `• ${resultados.totalParticipantes} ${resultados.totalParticipantes === 1 ? 'participante' : 'participantes'}\n`;
+  analisis += `• ${encuesta.preguntas.length} preguntas evaluadas\n\n`;
+
+  analisis += `🔍 **INSIGHTS POR PREGUNTA:**\n\n`;
+  
+  const recomendaciones: string[] = [];
+  const alertas: string[] = [];
+
+  encuesta.preguntas.forEach((pregunta, index) => {
+    const respuestasPregunta = resultados.resumen![index] || {};
+    const totalRespuestas = Object.values(respuestasPregunta).reduce((sum, count) => sum + (count as number), 0);
+    
+    analisis += `**${index + 1}. ${pregunta.pregunta}**\n`;
+    
+    if (totalRespuestas === 0) {
+      analisis += `   📝 Sin respuestas registradas\n\n`;
+      alertas.push(`Pregunta ${index + 1}: Sin participación`);
+    } else {
+      const respuestasOrdenadas = Object.entries(respuestasPregunta)
+        .sort(([,a], [,b]) => (b as number) - (a as number));
+      
+      const [respuestaMasVotada, votosMax] = respuestasOrdenadas[0];
+      const porcentajeMax = Math.round(((votosMax as number) / totalRespuestas) * 100);
+      
+      analisis += `   🏆 **Principal:** "${respuestaMasVotada}" (${porcentajeMax}%)\n`;
+      
+      // Análisis de consenso
+      if (porcentajeMax >= 80) {
+        analisis += `   💪 **Alto consenso** - Clara preferencia\n`;
+        recomendaciones.push(`Aprovechar consenso en "${respuestaMasVotada}"`);
+      } else if (porcentajeMax >= 60) {
+        analisis += `   ⚖️ **Consenso moderado**\n`;
+      } else if (porcentajeMax < 40) {
+        analisis += `   🤔 **Opiniones divididas**\n`;
+        alertas.push(`Pregunta ${index + 1}: Requiere atención especial`);
+      }
+      
+      analisis += `\n`;
+    }
+  });
+
+  if (recomendaciones.length > 0) {
+    analisis += `💡 **RECOMENDACIONES:**\n`;
+    recomendaciones.forEach((rec, i) => analisis += `${i + 1}. ${rec}\n`);
+  }
+
+  if (alertas.length > 0) {
+    analisis += `\n⚠️ **ALERTAS:**\n`;
+    alertas.forEach((alerta, i) => analisis += `${i + 1}. ${alerta}\n`);
+  }
+
+  return analisis;
+}
+
+
+// ============================
+// ERROR HANDLER - COMANDOS NO RECONOCIDOS (REQUERIDO POR VALIDATOR)
+// ============================
+
+app.message(/.*/, async (context, state) => {
+  const text = context.activity.text?.trim().toLowerCase();
+  
+  if (!text) return; // Mensaje vacío
+  
+  // Lista de comandos válidos y patrones reconocidos
+  const comandosValidos = [
+    'ayuda', 'help',
+    'listar', 'list',
+    'ver_templates', 'templates', 'mostrar_templates',
+    'seed_templates',
+    'debug_cards',
+    'buscar_templates',
+    'usar_template',
+    'confirmar_template'
+  ];
+  
+  // Patrones que indican comandos válidos
+  const patronesValidos = [
+    /^responder\s+/i,
+    /^resultados\s+/i,
+    /^analizar\s+/i,
+    /encuesta/i,
+    /crear/i,
+    /hacer/i,
+    /nueva/i,
+    /survey/i,
+    /feedback/i,
+    /clima/i,
+    /satisfaccion/i,
+    /capacitacion/i,
+    /training/i,
+    /nps/i,
+    /360/i
+  ];
+  
+  // Verificar si es un comando válido conocido
+  const esComandoValido = comandosValidos.some(cmd => text.startsWith(cmd)) ||
+                         patronesValidos.some(patron => patron.test(text));
+  
+  if (!esComandoValido) {
+    await context.sendActivity(`❓ **No entendí el comando**: "${context.activity.text}"
+
+**📝 Comandos disponibles:**
+• \`ayuda\` - Ver todos los comandos
+• \`listar\` - Ver encuestas disponibles  
+• \`ver_templates\` - Ver templates profesionales
+• \`responder [ID]\` - Responder una encuesta
+• \`resultados [ID]\` - Ver resultados
+
+**💡 Prueba esto:**
+• *"Quiero crear una encuesta"*
+• *"Crear encuesta de clima laboral"*
+• *"Ayuda con una encuesta de satisfacción"*
+
+🎯 **Usa lenguaje natural - ¡entiendo lo que necesitas!**`);
+  }
+});
 
 export default app;

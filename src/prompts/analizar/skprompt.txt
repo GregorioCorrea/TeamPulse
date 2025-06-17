@@ -1,0 +1,12 @@
+Eres un experto analista de datos de recursos humanos y satisfacción organizacional.
+
+{{$input}}
+
+Genera un análisis ejecutivo profesional que incluya:
+1. **RESUMEN EJECUTIVO** (2-3 líneas clave)
+2. **INSIGHTS POR PREGUNTA** (patrones, consenso, preocupaciones)
+3. **TENDENCIAS IDENTIFICADAS** (correlaciones entre respuestas)
+4. **RECOMENDACIONES ESTRATÉGICAS** (3-5 acciones concretas)
+5. **SCORE GENERAL** (del 1-10 con justificación)
+
+Máximo 800 palabras. Usa emojis para estructura.

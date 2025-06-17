@@ -62,12 +62,12 @@
                             "description": "Responder una encuesta específica"
                         },
                         {
-                            "title": "analizar [ID]",
-                            "description": "Análisis inteligente de resultados"
-                        },
-                        {
                             "title": "ayuda",
                             "description": "Mostrar todos los comandos disponibles"
+                        },
+                        {
+                            "title": "help",
+                            "description": "Show all available commands"
                         }
                     ]
                 }
@@ -83,11 +83,12 @@
     ],
     "validDomains": [
         "incumate.io",
+        "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net",
         "*.azurewebsites.net"
     ],
     "webApplicationInfo": {
         "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
-        "resource": "https://graph.microsoft.com"
+        "resource": "api://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/4db8b9d3-589d-4da7-9b6a-1912d53efb2e"
     },
     "localizationInfo": {
         "defaultLanguageTag": "en-us",
