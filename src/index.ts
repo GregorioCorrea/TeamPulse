@@ -13,6 +13,8 @@ import app from "./app/app";
 // En src/index.ts o donde tengas tu servidor Express
 import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
 
+import { NextFunction } from "express"; 
+
 // Create express application.
 const expressApp = express();
 expressApp.use(express.json());
@@ -21,25 +23,21 @@ const server = expressApp.listen(process.env.port || process.env.PORT || 3978, (
   console.log(`\nAgent started, ${expressApp.name} listening to`, server.address());
 });
 
-// Agregar estas rutas ANTES de server.post("/api/messages"...
-try {
-  const webhookHandler = MarketplaceWebhookHandler;
-  
-  expressApp.post('/api/marketplace/webhook', (req, res) => {
-    webhookHandler;
-  });
-  
-  expressApp.get('/api/marketplace/health', (req, res) => {
-    res.json({ 
-      status: 'healthy', 
-      timestamp: new Date().toISOString(),
-      service: 'TeamPulse Marketplace Webhook'
-    });
-  });
-  
-} catch (error) {
-  console.error('Error al crear MarketplaceWebhookHandler:', error.message || error);
-  
+// Wrapper que ignora el valor devuelto y maneja errores
+expressApp.post(
+  "/api/marketplace/webhook",
+  express.json({ limit: "1mb" }),
+  (req: express.Request, res: express.Response, next: NextFunction) => {
+    // Ejecuta la función y, si falla, pasa el error a Express
+    MarketplaceWebhookHandler(req, res).catch(next);
+  }
+);
+
+// Health genérico
+expressApp.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
   // Fallback si falla el webhook handler
   expressApp.get('/api/marketplace/health', (req, res) => {
     res.json({ 
@@ -48,7 +46,7 @@ try {
       error: 'Webhook handler initialization failed'
     });
   });
-}
+
 /*
 
 // Health check para verificar que funciona

@@ -73,9 +73,9 @@ export async function MarketplaceWebhookHandler(req: Request, res: Response) {
       body: JSON.stringify({ status: "Succeeded" }),
     });
 
-    return res.status(200).end();
+    res.status(200).end();
   } catch (e) {
     console.error("Webhook error:", e);
-    return res.status(500).end();
+    res.status(500).end();
   }
 }
