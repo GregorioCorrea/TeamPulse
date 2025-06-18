@@ -537,6 +537,7 @@ function crearParticipanteAnonimo(userId: string, encuestaId: string): string {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
+    
   return `anon_${Math.abs(hash).toString(36)}`;
 */}
 
