@@ -6,6 +6,7 @@ import { MemoryStorage, CardFactory, MessageFactory, TurnContext } from "botbuil
 import * as path from "path";
 import config from "../config";
 import { AzureTableService } from "../services/azureTableService";
+import { sha256 } from "../utils/hash"; 
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -528,7 +529,8 @@ function generarIdEncuesta(titulo: string): string {
 }
 
 function crearParticipanteAnonimo(userId: string, encuestaId: string): string {
-  const data = userId + encuestaId + "salt_secreto";
+  return sha256(userId.trim().toLowerCase(), encuestaId);
+  /*  const data = userId + encuestaId + "salt_secreto";
   let hash = 0;
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i);
@@ -536,7 +538,7 @@ function crearParticipanteAnonimo(userId: string, encuestaId: string): string {
     hash = hash & hash;
   }
   return `anon_${Math.abs(hash).toString(36)}`;
-}
+*/}
 
 function calcularResumen(resultados: ResultadosEncuesta, encuesta: Encuesta): void {
   resultados.resumen = {};
