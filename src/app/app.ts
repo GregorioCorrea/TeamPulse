@@ -7,6 +7,8 @@ import * as path from "path";
 import config from "../config";
 import { AzureTableService } from "../services/azureTableService";
 import { sha256 } from "../utils/hash"; 
+import { canCreateSurvey, registerSurveyCreation } from "../middleware/planLimiter";
+
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -537,7 +539,7 @@ function crearParticipanteAnonimo(userId: string, encuestaId: string): string {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-    
+
   return `anon_${Math.abs(hash).toString(36)}`;
 */}
 
@@ -975,6 +977,19 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
 
     const encuestaId = generarIdEncuesta(titulo);
     
+    // ─── Control de cupo por plan ─────────────────────────────────────
+    const tenantId = context.activity.channelData?.tenant?.id;
+    if (!tenantId) {
+      await context.sendActivity("❌ No se pudo determinar tu tenant. Creá la encuesta desde Teams en tu organización.");
+      return 'create-survey';
+    }
+
+    if (!(await canCreateSurvey(tenantId))) {
+      await context.sendActivity("🚫 Alcanzaste el límite de 3 encuestas activas para el plan Free. Actualizá a Pro o Ent.");
+      return 'create-survey';
+    }
+// ──────────────────────────────────────────────────────────────────
+
     const encuesta: Encuesta = {
       titulo: titulo.trim(),
       objetivo: objetivo.trim(),
@@ -985,6 +1000,7 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
     };
 
     await guardarEncuestaEnAzure(encuesta);
+    await registerSurveyCreation(tenantId);   // registra 1 encuesta nueva
     
     const resultadosIniciales: ResultadosEncuesta = {
       encuestaId: encuestaId,
@@ -1420,6 +1436,19 @@ app.message(/^confirmar_template\s+(.+)$/i, async (context, state) => {
 
     const encuestaId = generarIdEncuesta(template.nombre);
     
+    // ─── Control de cupo por plan ─────────────────────────────────────
+    const tenantId = context.activity.channelData?.tenant?.id;
+    if (!tenantId) {
+      await context.sendActivity("❌ No se pudo determinar tu tenant. Creá la encuesta desde Teams en tu organización.");
+      return;
+    }
+
+    if (!(await canCreateSurvey(tenantId))) {
+      await context.sendActivity("🚫 Alcanzaste el límite de 3 encuestas activas para el plan Free. Actualizá a Pro o Ent.");
+      return;
+    }
+    // ──────────────────────────────────────────────────────────────────
+
     const preguntasConvertidas: Pregunta[] = (JSON.parse(template.preguntas as string) as any[]).map(p => ({
       pregunta: p.pregunta,
       opciones: p.opciones
@@ -1436,6 +1465,7 @@ app.message(/^confirmar_template\s+(.+)$/i, async (context, state) => {
     };
 
     await guardarEncuestaEnAzure(nuevaEncuesta);
+    await registerSurveyCreation(tenantId);   // registra 1 encuesta nueva
     
     const resultadosIniciales: ResultadosEncuesta = {
       encuestaId: encuestaId,
