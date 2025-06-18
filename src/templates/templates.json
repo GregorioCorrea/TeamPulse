@@ -1,0 +1,408 @@
+[
+  {
+    "nombre": "Clima Laboral Básico",
+    "categoria": "HR",
+    "descripcion": "Evalúa el ambiente de trabajo y satisfacción del equipo",
+    "objetivo": "Medir la satisfacción general y el clima organizacional",
+    "nivelPlan": "free",
+    "tags": "clima,ambiente,satisfacción,hr,básico",
+    "preguntas": [
+      {
+        "pregunta": "¿Cómo calificarías el ambiente de trabajo en general?",
+        "opciones": ["Excelente", "Bueno", "Regular", "Malo"]
+      },
+      {
+        "pregunta": "¿Te sientes valorado/a en tu rol actual?",
+        "opciones": ["Siempre", "Frecuentemente", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Cómo es la comunicación con tu equipo?",
+        "opciones": ["Muy efectiva", "Efectiva", "Puede mejorar", "Deficiente"]
+      },
+      {
+        "pregunta": "¿Recomendarías esta empresa como lugar de trabajo?",
+        "opciones": ["Definitivamente sí", "Probablemente sí", "No estoy seguro/a", "No"]
+      }
+    ]
+  },
+  {
+    "nombre": "NPS Cliente",
+    "categoria": "Customer",
+    "descripcion": "Mide la lealtad y satisfacción del cliente (Net Promoter Score)",
+    "objetivo": "Evaluar la probabilidad de recomendación y satisfacción del cliente",
+    "nivelPlan": "free",
+    "tags": "nps,cliente,satisfacción,customer,lealtad",
+    "preguntas": [
+      {
+        "pregunta": "¿Qué tan probable es que recomiendes nuestro servicio? (0-10)",
+        "opciones": ["9-10 (Promotor)", "7-8 (Neutral)", "0-6 (Detractor)"]
+      },
+      {
+        "pregunta": "¿Cómo calificarías tu experiencia general?",
+        "opciones": ["Excelente", "Buena", "Regular", "Mala"]
+      },
+      {
+        "pregunta": "¿Qué aspecto valoras más de nuestro servicio?",
+        "opciones": ["Calidad", "Precio", "Atención al cliente", "Rapidez"]
+      }
+    ]
+  },
+  {
+    "nombre": "Feedback Capacitación",
+    "categoria": "Training",
+    "descripcion": "Evalúa la efectividad de sesiones de entrenamiento",
+    "objetivo": "Medir el impacto y calidad de las capacitaciones",
+    "nivelPlan": "free",
+    "tags": "capacitación,training,feedback,educación,aprendizaje",
+    "preguntas": [
+      {
+        "pregunta": "¿La capacitación cumplió con tus expectativas?",
+        "opciones": ["Superó expectativas", "Cumplió expectativas", "Parcialmente", "No cumplió"]
+      },
+      {
+        "pregunta": "¿Qué tan aplicable es lo aprendido a tu trabajo?",
+        "opciones": ["Muy aplicable", "Aplicable", "Poco aplicable", "No aplicable"]
+      },
+      {
+        "pregunta": "¿Cómo calificarías al instructor/facilitador?",
+        "opciones": ["Excelente", "Bueno", "Regular", "Deficiente"]
+      },
+      {
+        "pregunta": "¿Recomendarías esta capacitación a otros?",
+        "opciones": ["Definitivamente", "Probablemente", "Tal vez", "No"]
+      }
+    ]
+  },
+  {
+    "nombre": "Evaluación 360°",
+    "categoria": "360",
+    "descripcion": "Evaluación integral de desempeño desde múltiples perspectivas",
+    "objetivo": "Obtener feedback completo sobre el desempeño de un colaborador",
+    "nivelPlan": "professional",
+    "tags": "360,evaluación,desempeño,feedback,profesional",
+    "preguntas": [
+      {
+        "pregunta": "¿Cómo calificarías las habilidades de comunicación?",
+        "opciones": ["Excepcional", "Muy buena", "Adecuada", "Necesita mejorar"]
+      },
+      {
+        "pregunta": "¿Cómo es su capacidad de trabajo en equipo?",
+        "opciones": ["Excelente colaborador", "Buen colaborador", "Colaborador promedio", "Prefiere trabajar solo"]
+      },
+      {
+        "pregunta": "¿Cómo maneja la presión y los plazos?",
+        "opciones": ["Excepcionalmente bien", "Bien", "Con dificultad", "Mal"]
+      },
+      {
+        "pregunta": "¿Demuestra liderazgo en su rol?",
+        "opciones": ["Líder natural", "Muestra potencial", "Ocasionalmente", "No aplica"]
+      },
+      {
+        "pregunta": "¿Cómo es su actitud hacia el aprendizaje?",
+        "opciones": ["Proactivo", "Receptivo", "Pasivo", "Resistente"]
+      }
+    ]
+  },
+  {
+    "nombre": "Encuesta de Satisfacción del Empleado",
+    "categoria": "HR",
+    "descripcion": "Mide la satisfacción general de los empleados con la empresa",
+    "objetivo": "Identificar áreas de mejora en la experiencia del empleado",
+    "nivelPlan": "professional",
+    "tags": "satisfacción,empleado,hr,mejora,experiencia",
+    "preguntas": [
+      {
+        "pregunta": "¿Cómo calificarías tu satisfacción general con la empresa?",
+        "opciones": ["Muy satisfecho", "Satisfecho", "Neutral", "Insatisfecho"]
+      },
+      {
+        "pregunta": "¿Te sientes motivado/a en tu trabajo diario?",
+        "opciones": ["Siempre", "A menudo", "A veces", "Rara vez"]
+      },
+      {
+        "pregunta": "¿Qué tan bien se comunican los objetivos y expectativas?",
+        "opciones": ["Muy bien", "Bien", "Regular", "Mal"]
+      },
+      {
+        "pregunta": "¿Qué mejorarías en tu lugar de trabajo?",
+        "opciones": ["Ambiente físico", "Comunicación", "Reconocimiento", "Oportunidades de desarrollo"]
+      }
+    ]
+  },
+  {
+    "nombre": "Evaluación de Desempeño Anual",
+    "categoria": "Performance",
+    "descripcion": "Evalúa el desempeño anual de los empleados",
+    "objetivo": "Medir logros, áreas de mejora y establecer objetivos futuros",
+    "nivelPlan": "professional",
+    "tags": "desempeño,anual,evaluación,objetivos,profesional",
+    "preguntas": [
+      {
+        "pregunta": "¿Cuáles fueron tus principales logros este año?",
+        "opciones": ["Objetivos cumplidos", "Proyectos exitosos", "Mejora en habilidades", "Otro"]
+      },
+      {
+        "pregunta": "¿Qué áreas consideras que necesitas mejorar?",
+        "opciones": ["Comunicación", "Gestión del tiempo", "Habilidades técnicas", "Otro"]
+      },
+      {
+        "pregunta": "¿Cómo calificarías tu relación con tu supervisor?",
+        "opciones": ["Excelente", "Buena", "Regular", "Mala"]
+      },
+      {
+        "pregunta": "¿Qué objetivos te gustaría establecer para el próximo año?",
+        "opciones": ["Desarrollo profesional", "Mejora de procesos", "Liderazgo", "Otro"]
+      }
+    ]
+  },
+  {
+    "nombre": "Encuesta de Satisfacción del Cliente",
+    "categoria": "Customer",
+    "descripcion": "Mide la satisfacción del cliente con productos o servicios",
+    "objetivo": "Identificar áreas de mejora en la experiencia del cliente",
+    "nivelPlan": "professional",
+    "tags": "satisfacción,cliente,customer,mejora,experiencia",
+    "preguntas": [
+      {
+        "pregunta": "¿Cómo calificarías tu experiencia general con nuestro producto/servicio?",
+        "opciones": ["Excelente", "Buena", "Regular", "Mala"]
+      },
+      {
+        "pregunta": "¿Qué tan probable es que recomiendes nuestro producto/servicio a otros?",
+        "opciones": ["Muy probable", "Probable", "Poco probable", "Nada probable"]
+      },
+      {
+        "pregunta": "¿Qué aspectos valoras más de nuestro producto/servicio?",
+        "opciones": ["Calidad", "Precio", "Atención al cliente", "Facilidad de uso"]
+      },
+      {
+        "pregunta": "¿Qué mejorarías en nuestro producto/servicio?",
+        "opciones": ["Más características", "Mejor soporte", "Precios más competitivos", "Otro"]
+      }
+    ]
+  },
+  {
+    "nombre": "Onboarding Premium",
+    "categoria": "HR",
+    "descripcion": "Evalúa todo el proceso de incorporación de nuevos talentos de forma avanzada",
+    "objetivo": "Obtener feedback profundo sobre la experiencia de onboarding en múltiples áreas",
+    "nivelPlan": "professional",
+    "tags": "onboarding,incorporación,hr,experiencia,premium",
+    "preguntas": [
+      {
+        "pregunta": "¿El proceso de ingreso fue ágil y claro?",
+        "opciones": ["Sí, totalmente", "Sí, pero mejorable", "No"]
+      },
+      {
+        "pregunta": "¿Te sentiste acompañado por tu equipo?",
+        "opciones": ["Siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Recibiste toda la información necesaria sobre la empresa y tu rol?",
+        "opciones": ["Sí", "Parcialmente", "No"]
+      },
+      {
+        "pregunta": "¿Qué sugerencias harías para mejorar el proceso de onboarding?",
+        "opciones": ["Ninguna", "Más acompañamiento", "Mejor comunicación", "Información más clara"]
+      }
+    ]
+  },
+  {
+    "nombre": "Clima de Diversidad e Inclusión",
+    "categoria": "HR",
+    "descripcion": "Mide el ambiente respecto a diversidad, equidad e inclusión",
+    "objetivo": "Evaluar percepciones y propuestas sobre inclusión y respeto a la diversidad",
+    "nivelPlan": "professional",
+    "tags": "diversidad,inclusión,equidad,ambiente,respeto",
+    "preguntas": [
+      {
+        "pregunta": "¿Sentís que la empresa fomenta la diversidad?",
+        "opciones": ["Sí, mucho", "Sí, pero puede mejorar", "No mucho", "Nada"]
+      },
+      {
+        "pregunta": "¿Percibís igualdad de oportunidades para todos?",
+        "opciones": ["Siempre", "A veces", "Pocas veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Te sentís respetado independientemente de tu identidad y origen?",
+        "opciones": ["Siempre", "Generalmente sí", "A veces", "No"]
+      }
+    ]
+  },
+  {
+    "nombre": "Innovación y Mejora Continua",
+    "categoria": "Innovación",
+    "descripcion": "Mide el nivel de cultura innovadora y de mejora continua",
+    "objetivo": "Identificar oportunidades y frenos para la innovación en el equipo",
+    "nivelPlan": "professional",
+    "tags": "innovación,mejora,cultura,ideas,cambio",
+    "preguntas": [
+      {
+        "pregunta": "¿Te sentís incentivado/a a proponer nuevas ideas?",
+        "opciones": ["Siempre", "A veces", "Rara vez", "Nunca"]
+      },
+      {
+        "pregunta": "¿Se premian las iniciativas innovadoras?",
+        "opciones": ["Siempre", "A veces", "Nunca", "No sé"]
+      },
+      {
+        "pregunta": "¿Contás con recursos para innovar?",
+        "opciones": ["Suficientes", "Pocos", "Ninguno", "No sé"]
+      }
+    ]
+  },
+  {
+    "nombre": "Riesgos Operativos",
+    "categoria": "Compliance",
+    "descripcion": "Detecta riesgos y debilidades en procesos operativos",
+    "objetivo": "Prevenir incidentes operativos y fortalecer controles internos",
+    "nivelPlan": "professional",
+    "tags": "riesgos,operaciones,compliance,controles,prevención",
+    "preguntas": [
+      {
+        "pregunta": "¿Conocés los protocolos ante incidentes operativos?",
+        "opciones": ["Totalmente", "Bastante", "Poco", "Nada"]
+      },
+      {
+        "pregunta": "¿Se reportan fácilmente los riesgos detectados?",
+        "opciones": ["Sí, siempre", "A veces", "Nunca", "No sé"]
+      },
+      {
+        "pregunta": "¿Qué tan robustos son los controles internos?",
+        "opciones": ["Muy robustos", "Suficientes", "Débiles", "Inexistentes"]
+      }
+    ]
+  },
+  {
+    "nombre": "Salud y Bienestar Organizacional",
+    "categoria": "Bienestar",
+    "descripcion": "Evalúa el bienestar físico y mental en la organización",
+    "objetivo": "Detectar oportunidades de mejora en salud laboral y clima",
+    "nivelPlan": "professional",
+    "tags": "salud,bienestar,organizacional,clima,mental",
+    "preguntas": [
+      {
+        "pregunta": "¿Considerás que la empresa promueve el bienestar integral?",
+        "opciones": ["Sí, mucho", "Sí, pero puede mejorar", "No mucho", "Nada"]
+      },
+      {
+        "pregunta": "¿Percibís un ambiente sano para hablar de salud mental?",
+        "opciones": ["Totalmente", "A veces", "No", "No sé"]
+      },
+      {
+        "pregunta": "¿Qué acciones mejorarían el bienestar del equipo?",
+        "opciones": ["Más actividades", "Mejor comunicación", "Apoyo profesional", "Nada en especial"]
+      }
+    ]
+  },
+  {
+    "nombre": "Feedback a Liderazgo",
+    "categoria": "Liderazgo",
+    "descripcion": "Evalúa las competencias de liderazgo y la percepción del equipo",
+    "objetivo": "Medir la capacidad de gestión, motivación y escucha activa del líder",
+    "nivelPlan": "professional",
+    "tags": "liderazgo,feedback,competencias,gestión,motivación",
+    "preguntas": [
+      {
+        "pregunta": "¿El líder escucha y tiene en cuenta tu opinión?",
+        "opciones": ["Siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Fomenta el desarrollo profesional del equipo?",
+        "opciones": ["Sí, mucho", "Sí, algo", "Poco", "Nada"]
+      },
+      {
+        "pregunta": "¿Cómo calificarías la comunicación del líder?",
+        "opciones": ["Excelente", "Buena", "Regular", "Mala"]
+      }
+    ]
+  },
+  {
+    "nombre": "Customer Journey & Experiencia",
+    "categoria": "Customer",
+    "descripcion": "Mide cada etapa del recorrido del cliente y su experiencia integral",
+    "objetivo": "Identificar puntos fuertes y oportunidades en la experiencia cliente",
+    "nivelPlan": "professional",
+    "tags": "customer,experiencia,journey,usuario,satisfacción",
+    "preguntas": [
+      {
+        "pregunta": "¿Te resultó fácil interactuar con nosotros en cada etapa?",
+        "opciones": ["Siempre", "Casi siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿En qué punto sentiste la mayor satisfacción?",
+        "opciones": ["Contacto inicial", "Compra", "Soporte", "Otro"]
+      },
+      {
+        "pregunta": "¿Dónde creés que podemos mejorar?",
+        "opciones": ["Comunicación", "Resolución de problemas", "Agilidad", "Nada"]
+      }
+    ]
+  },
+  {
+    "nombre": "Feedback IT y Soporte Técnico",
+    "categoria": "IT",
+    "descripcion": "Evalúa la experiencia de usuarios internos con soporte y sistemas",
+    "objetivo": "Medir la satisfacción con el área de IT y proponer mejoras",
+    "nivelPlan": "professional",
+    "tags": "it,soporte,sistemas,usuario,interno",
+    "preguntas": [
+      {
+        "pregunta": "¿El soporte técnico resuelve tus problemas en tiempo y forma?",
+        "opciones": ["Siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿La comunicación con el área de IT es clara?",
+        "opciones": ["Siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Te sentís acompañado ante incidentes tecnológicos?",
+        "opciones": ["Sí", "A veces", "No"]
+      }
+    ]
+  },
+  {
+    "nombre": "Cumplimiento y Ética Empresarial",
+    "categoria": "Compliance",
+    "descripcion": "Mide el conocimiento y percepción sobre cumplimiento normativo y ética",
+    "objetivo": "Prevenir riesgos legales y promover valores éticos",
+    "nivelPlan": "professional",
+    "tags": "cumplimiento,ética,compliance,normativo,valores",
+    "preguntas": [
+      {
+        "pregunta": "¿Conocés el código de ética de la empresa?",
+        "opciones": ["Sí, claro", "Más o menos", "No lo conozco"]
+      },
+      {
+        "pregunta": "¿Sentís libertad para reportar situaciones poco éticas?",
+        "opciones": ["Siempre", "A veces", "Nunca"]
+      },
+      {
+        "pregunta": "¿Creés que la empresa cumple con la normativa vigente?",
+        "opciones": ["Sí", "En su mayoría", "No siempre", "No"]
+      }
+    ]
+  },
+  {
+    "nombre": "Feedback Trabajo Remoto",
+    "categoria": "Remote",
+    "descripcion": "Evalúa la experiencia de los equipos trabajando en remoto",
+    "objetivo": "Detectar oportunidades y problemas en la modalidad home office",
+    "nivelPlan": "professional",
+    "tags": "remoto,teletrabajo,homeoffice,experiencia,trabajo",
+    "preguntas": [
+      {
+        "pregunta": "¿Contás con las herramientas necesarias para trabajar remoto?",
+        "opciones": ["Sí, totalmente", "Sí, pero faltan cosas", "No"]
+      },
+      {
+        "pregunta": "¿Cómo es tu comunicación con el equipo remoto?",
+        "opciones": ["Muy buena", "Buena", "Mejorable", "Mala"]
+      },
+      {
+        "pregunta": "¿Qué mejorarías del home office?",
+        "opciones": ["Más reuniones", "Menos reuniones", "Más flexibilidad", "Nada"]
+      }
+    ]
+  }
+]

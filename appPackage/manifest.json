@@ -83,8 +83,7 @@
     ],
     "validDomains": [
         "incumate.io",
-        "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net",
-        "*.azurewebsites.net"
+        "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net"
     ],
     "webApplicationInfo": {
         "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",

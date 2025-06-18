@@ -99,9 +99,9 @@ interface TemplateEncuesta {
   nivelPlan: string;      
 }
 
-// ============================
+/* ============================
 // TEMPLATES PREDEFINIDOS
-// ============================
+
 
 const TEMPLATES_PREDEFINIDOS = [
   {
@@ -209,6 +209,8 @@ const TEMPLATES_PREDEFINIDOS = [
     tags: "360,evaluación,desempeño,feedback,profesional"
   }
 ];
+// ============================
+*/
 
 // ============================
 // ADAPTIVE CARDS HANDLERS (MÉTODO CORRECTO)
