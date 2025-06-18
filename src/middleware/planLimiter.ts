@@ -1,62 +1,83 @@
-// src/middleware/planLimiter.ts
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
-// ---------- conexión a Storage ----------
-const account  = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-const key      = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
-const cred     = new AzureNamedKeyCredential(account, key);
+/* ── credenciales Storage (mismo patrón que marketplacewebhook) ── */
+const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
+const key     = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+const cred    = new AzureNamedKeyCredential(account, key);
 
-// Tabla que ya crea el webhook – la usamos para saber el plan
-const subsTable  = new TableClient(
-  `https://${account}.table.core.windows.net`,
-  "Subscriptions",
-  cred
-);
+const subsTable   = new TableClient(`https://${account}.table.core.windows.net`, "Subscriptions", cred);
+const usageTable  = new TableClient(`https://${account}.table.core.windows.net`, "PlanUsage",     cred);
+const respTable   = new TableClient(`https://${account}.table.core.windows.net`, "Responses",    cred);
 
-// Nueva tabla ultra-simple para contar encuestas por tenant
-const usageTable = new TableClient(
-  `https://${account}.table.core.windows.net`,
-  "PlanUsage",
-  cred
-);
+(async () => { try { await usageTable.createTable(); } catch {} })();
 
-// Se crea una sola vez; si existe no pasa nada
-(async () => { try { await usageTable.createTable(); } catch { /* ya existe */ }})();
+/* ── helpers de tiempo ─────────────────────────────────────────── */
+function isoWeek(date = new Date()) {
+  // Copia en UTC sin hora
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 
-// ---------- límites por plan ----------
-const PLAN_LIMITS: Record<string, number> = {
-  free: 3,
-  pro : 50,
-  ent : 999_999     // “ilimitado”
-};
+  // Llevalo al jueves de su semana ISO
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
 
-// ----- helpers que ahora vas a usar desde app.ts -----
-async function getTenantPlan(tenantId: string): Promise<keyof typeof PLAN_LIMITS> {
+  // 1-enero de ese año
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+
+  // Diferencia en milisegundos → días → número de semana
+  const diffMs = d.getTime() - yearStart.getTime();
+  const week    = Math.ceil((diffMs / 86400000 + 1) / 7);
+
+  return `${d.getUTCFullYear()}-${String(week).padStart(2, "0")}`;
+}
+
+/* ── límites por plan ──────────────────────────────────────────── */
+const PLAN_LIMITS = { free: 1, pro: 50, ent: 999_999 } as const;
+
+/* ── obtén plan del tenant ─────────────────────────────────────── */
+async function getPlan(tenantId: string): Promise<keyof typeof PLAN_LIMITS> {
   try {
-    const sub: any = await subsTable.getEntity("sub", tenantId);
-    return (sub.planId as string)?.toLowerCase() as any ?? "free";
+    const row: any = await subsTable.getEntity("sub", tenantId);
+    return (row.planId as string)?.toLowerCase() as any ?? "free";
   } catch {
     return "free";
   }
 }
 
-/** ¿Todavía puede crear otra encuesta? */
-export async function canCreateSurvey(tenantId: string): Promise<boolean> {
-  const plan    = await getTenantPlan(tenantId);
-  const max     = PLAN_LIMITS[plan];
-
-  let actuales = 0;
+/* ── API pública para app.ts ───────────────────────────────────── */
+export async function canCreateSurvey(tenantId: string) {
+  const plan      = await getPlan(tenantId);
+  const max       = PLAN_LIMITS[plan];
+  const thisWeek  = isoWeek();
+  let count = 0;
   for await (const _ of usageTable.listEntities({
-    queryOptions: { filter: `PartitionKey eq '${tenantId}'` }
-  })) actuales++;
-
-  return actuales < max;
+    queryOptions: { filter: `PartitionKey eq '${tenantId}' and weekKey eq '${thisWeek}'` }
+  })) count++;
+  return count < max;
 }
 
-/** Registrar que creó una encuesta nueva (↑1) */
-export async function registerSurveyCreation(tenantId: string): Promise<void> {
+export async function registerSurveyCreation(tenantId: string) {
   await usageTable.createEntity({
     partitionKey: tenantId,
-    rowKey      : Date.now().toString()
+    rowKey      : Date.now().toString(),
+    weekKey     : isoWeek()
   });
+}
+
+export async function checkResponsesLimit(surveyId: string) {
+  let total = 0;
+  for await (const _ of respTable.listEntities({
+    queryOptions: { filter: `surveyId eq '${surveyId}'` }
+  })) total++;
+  return total < 50; // Free: 50 respuestas
+}
+
+export async function getUsageSummary(tenantId: string) {
+  const plan = await getPlan(tenantId);
+  const max  = PLAN_LIMITS[plan];
+  const week = isoWeek();
+  let usados = 0;
+  for await (const _ of usageTable.listEntities({
+    queryOptions: { filter: `PartitionKey eq '${tenantId}' and weekKey eq '${week}'` }
+  })) usados++;
+  const porcentaje = Math.round((usados / max) * 100);
+  return { plan, usados, max, quedan: max - usados, porcentaje };
 }

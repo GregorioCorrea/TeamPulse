@@ -7,7 +7,7 @@ import * as path from "path";
 import config from "../config";
 import { AzureTableService } from "../services/azureTableService";
 import { sha256 } from "../utils/hash"; 
-import { canCreateSurvey, registerSurveyCreation } from "../middleware/planLimiter";
+import { canCreateSurvey, registerSurveyCreation, getUsageSummary, checkResponsesLimit } from "../middleware/planLimiter";
 
 
 // Crear instancia global del servicio Azure
@@ -976,19 +976,14 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
     }
 
     const encuestaId = generarIdEncuesta(titulo);
-    
-    // ─── Control de cupo por plan ─────────────────────────────────────
+        
     const tenantId = context.activity.channelData?.tenant?.id;
-    if (!tenantId) {
-      await context.sendActivity("❌ No se pudo determinar tu tenant. Creá la encuesta desde Teams en tu organización.");
+    if (!tenantId || !(await canCreateSurvey(tenantId))) {
+      await context.sendActivity(
+        "🚫 Límite: 1 encuesta por semana en plan **Free**. Probá la semana próxima o actualizá a Pro."
+      );
       return 'create-survey';
     }
-
-    if (!(await canCreateSurvey(tenantId))) {
-      await context.sendActivity("🚫 Alcanzaste el límite de 3 encuestas activas para el plan Free. Actualizá a Pro o Ent.");
-      return 'create-survey';
-    }
-// ──────────────────────────────────────────────────────────────────
 
     const encuesta: Encuesta = {
       titulo: titulo.trim(),
@@ -1103,15 +1098,35 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
 // ============================
 
 // COMANDO RESPONDER
+/* ────────────────────────────
+   RESPONDER ENCUESTA
+   Límite: 50 respuestas (plan Free)
+──────────────────────────────*/
 app.message(/^responder\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^responder\s+(.+)$/i);
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:**\n`responder [id_encuesta]`");
+    return;
+  }
+
   const encuestaId = match[1].trim();
-  
+
   try {
+    // ─── Límite de 50 respuestas ─────────────────────────────
+    if (!(await checkResponsesLimit(encuestaId))) {
+      await context.sendActivity(
+        "🚫 Esta encuesta alcanzó su límite de **50 respuestas** en plan Free."
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────────
+
     const encuestaEncontrada = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaEncontrada) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
+      await context.sendActivity(
+        `❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`
+      );
       return;
     }
 
@@ -1119,11 +1134,12 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
     await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(responseCard));
 
-  } catch (error) {
-    console.error('❌ Error al mostrar encuesta:', error);
+  } catch (error: any) {
+    console.error("❌ Error al mostrar encuesta:", error);
     await context.sendActivity("❌ Error al cargar la encuesta. Verifica que el ID sea correcto.");
   }
 });
+
 
 // COMANDO LISTAR
 app.message(/^listar$/i, async (context, state) => {
@@ -1222,6 +1238,23 @@ app.message(/^debug_cards$/i, async (context, state) => {
   
   await context.sendActivity("✅ **Card enviada**\n\nSi funciona, verás una respuesta al hacer click.");
 });
+
+// COMANDO PLAN INFO
+// Muestra el estado del plan del usuario
+
+app.message(/^plan_info$/i, async (context) => {
+  const tenantId = context.activity.channelData?.tenant?.id;
+  if (!tenantId) return;
+
+  const info = await getUsageSummary(tenantId);
+  await context.sendActivity(
+    `📊 **Estado de tu plan ${info.plan.toUpperCase()}**\n` +
+    `• Encuestas usadas este mes: **${info.usados}/${info.max}**\n` +
+    `• Te quedan: **${info.quedan}**\n` +
+    `• Uso: **${info.porcentaje}%**`
+  );
+});
+
 
 // COMANDO AYUDA
 app.message(/^ayuda$/i, async (context, state) => {
@@ -1434,12 +1467,15 @@ app.message(/^confirmar_template\s+(.+)$/i, async (context, state) => {
 
     await azureService.incrementarUsoTemplate('TEMPLATE', templateId);
 
+    // 🔍 ENCONTRÁ esta línea (ya la tenés):
     const encuestaId = generarIdEncuesta(template.nombre);
-    
-    // ─── Control de cupo por plan ─────────────────────────────────────
+
+    // ⬇️ Pegá inmediatamente DESPUÉS:
     const tenantId = context.activity.channelData?.tenant?.id;
-    if (!tenantId) {
-      await context.sendActivity("❌ No se pudo determinar tu tenant. Creá la encuesta desde Teams en tu organización.");
+    if (!tenantId || !(await canCreateSurvey(tenantId))) {
+      await context.sendActivity(
+        "🚫 Límite: 1 encuesta por semana en plan **Free**. Probá la semana próxima o actualizá a Pro."
+      );
       return;
     }
 
