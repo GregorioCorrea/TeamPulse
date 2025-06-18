@@ -7,16 +7,24 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import fetch from "node-fetch";
 import { ClientSecretCredential } from "@azure/identity";
-import { TableClient } from "@azure/data-tables";
+import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
+// ---------- Credencial para pedir tokens a Marketplace ----------
 const credential = new ClientSecretCredential(
-  process.env.MP_TENANT_ID!,
-  process.env.MP_CLIENT_ID!,
-  process.env.MP_CLIENT_SECRET!
+  process.env.MP_TENANT_ID!,     // <--- Tenant ID
+  process.env.MP_CLIENT_ID!,     // <--- Client / App ID
+  process.env.MP_CLIENT_SECRET!  // <--- Client Secret
 );
 
-const STORAGE_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING!;
-const subsTable = TableClient.fromConnectionString(STORAGE_CONN, "Subscriptions");
+// --- Usa las MISMAS vars que tu azureTableService.ts ---
+const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
+const key     = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+
+const subsTable = new TableClient(
+  `https://${account}.table.core.windows.net`,
+  "Subscriptions",
+  new AzureNamedKeyCredential(account, key)
+);
 
 /* ---------- Helper para pedir un token cada vez que lo necesitemos ---------- */
 async function getMarketplaceToken(): Promise<string> {
