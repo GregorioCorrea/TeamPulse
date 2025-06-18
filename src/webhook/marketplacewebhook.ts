@@ -26,7 +26,7 @@ async function getMarketplaceToken(): Promise<string> {
 }
 
 /* -------------------------- Express Handler --------------------------------- */
-export async function marketplaceWebhook(req: Request, res: Response) {
+export async function MarketplaceWebhookHandler(req: Request, res: Response) {
   try {
     /* 1) Validar JWT de Microsoft */
     const auth = req.headers.authorization ?? "";
