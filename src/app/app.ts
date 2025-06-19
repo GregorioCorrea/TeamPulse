@@ -8,6 +8,7 @@ import config from "../config";
 import { AzureTableService } from "../services/azureTableService";
 import { sha256 } from "../utils/hash"; 
 import { canCreateSurvey, registerSurveyCreation, getUsageSummary, checkResponsesLimit } from "../middleware/planLimiter";
+import { getPlan } from "../middleware/planLimiter";
 
 
 // Crear instancia global del servicio Azure
@@ -1340,39 +1341,53 @@ app.message(/^seed_templates$/i, async (context, state) => {
 // COMANDO: Ver todos los templates disponibles
 app.message(/^ver_templates|templates|mostrar_templates$/i, async (context, state) => {
   console.log('📋 Listando templates disponibles desde Azure...');
-  
   try {
     await context.sendActivity("📋 **Cargando templates disponibles...** ☁️");
-    
-    const templatesPublicos = await azureService.listarTemplatesPublicos();
-    
+
+    // 1) Obtener todos los templates públicos
+    const allTemplates = await azureService.listarTemplatesPublicos();
+
+    // 2) Determinar plan del tenant
+    const tenantId = context.activity.channelData?.tenant?.id!;
+    const plan     = await getPlan(tenantId);
+
+    // 3) Niveles permitidos según plan
+    let allowedLevels: string[];
+    if (plan === 'free') {
+      allowedLevels = ['free'];
+    } else if (plan === 'pro') {
+      allowedLevels = ['free', 'professional'];
+    } else {
+      allowedLevels = ['free', 'professional', 'enterprise'];
+    }
+
+    // 4) Filtrar templates según nivel
+    const templatesPublicos = allTemplates.filter(t =>
+      allowedLevels.includes(t.nivelPlan)
+    );
+
     if (templatesPublicos.length === 0) {
-      await context.sendActivity("📂 **No hay templates disponibles.**\n\nEjecuta `seed_templates` para cargar templates iniciales.");
+      await context.sendActivity("❌ No hay templates disponibles para tu plan.");
       return;
     }
 
+    // 5) Construir mensaje
     let mensaje = `📋 **Templates Disponibles (${templatesPublicos.length})** ☁️\n\n`;
-
     const categorias = Array.from(new Set(templatesPublicos.map(t => t.categoria)));
-    
     categorias.forEach(categoria => {
-      const templatesCategoria = templatesPublicos.filter(t => t.categoria === categoria);
-      
+      const templatesCat = templatesPublicos.filter(t => t.categoria === categoria);
       mensaje += `### 📂 **${categoria.toUpperCase()}**\n`;
-      
-      templatesCategoria.forEach(template => {
-        const planBadge = template.nivelPlan === 'free' ? '🆓' : 
-                         template.nivelPlan === 'professional' ? '💼' : '🏢';
-        const popularidad = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
-        
-        mensaje += `${planBadge} **${template.nombre}**${popularidad}\n`;
+      templatesCat.forEach(template => {
+        const badge = template.nivelPlan === 'free' ? '🆓' :
+                      template.nivelPlan === 'professional' ? '💼' : '🏢';
+        const pop   = template.vecesUsado > 0 ? ` (${template.vecesUsado} usos)` : '';
+        mensaje += `${badge} **${template.nombre}**${pop}\n`;
         mensaje += `   📝 ${template.descripcion}\n`;
         mensaje += `   🎯 ${template.objetivo}\n`;
         mensaje += `   🏷️ _${template.tags}_\n`;
         mensaje += `   ▶️ **Usar:** \`usar_template ${template.rowKey}\`\n\n`;
       });
     });
-
     mensaje += `💡 **Comandos disponibles:**\n`;
     mensaje += `• \`usar_template [id]\` - Crear encuesta desde template\n`;
     mensaje += `• \`buscar_templates [término]\` - Buscar templates específicos\n`;
@@ -1387,6 +1402,7 @@ app.message(/^ver_templates|templates|mostrar_templates$/i, async (context, stat
     await context.sendActivity("❌ Error al cargar templates desde Azure. Intenta nuevamente.");
   }
 });
+
 
 // COMANDO: Usar template específico
 app.message(/^usar_template\s+(.+)$/i, async (context, state) => {
