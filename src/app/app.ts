@@ -10,6 +10,7 @@ import { sha256 } from "../utils/hash";
 import { canCreateSurvey, registerSurveyCreation, getUsageSummary, checkResponsesLimit } from "../middleware/planLimiter";
 import { getPlan } from "../middleware/planLimiter";
 
+import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -618,7 +619,7 @@ async function listarEncuestasAzure(): Promise<Encuesta[]> {
   }
 }
 
-async function guardarRespuestaIndividualAzure(
+export async function guardarRespuestaIndividualAzure(
   encuestaId: string, 
   userId: string, 
   preguntaIndex: number, 
@@ -626,11 +627,28 @@ async function guardarRespuestaIndividualAzure(
   preguntaTexto: string
 ): Promise<void> {
   try {
+    // 1) Anonimizar participante
     const participanteAnonimo = crearParticipanteAnonimo(userId, encuestaId);
-    await azureService.guardarRespuesta(encuestaId, participanteAnonimo, preguntaIndex, respuesta);
+
+    // 2) Guardar la respuesta en Azure Table “Respuestas”
+    await azureService.guardarRespuesta(
+      encuestaId,
+      participanteAnonimo,
+      preguntaIndex,
+      respuesta
+    );
+
+    // 3) Registrar en tiempo real en la tabla “Resultados”
+    await recordResponse(
+      encuestaId,
+      { [preguntaIndex]: respuesta }
+    );
+
+    // 4) Legacy: actualizar resultados consolidados si existe esa lógica
     await actualizarResultadosConsolidados(encuestaId);
+
   } catch (error) {
-    console.error('❌ Error al guardar respuesta en Azure:', error);
+    console.error("❌ Error al guardar respuesta en Azure:", error);
     throw error;
   }
 }
@@ -1164,39 +1182,44 @@ app.message(/^resultados\s+(.+)$/i, async (context, state) => {
     await context.sendActivity("❌ **Formato incorrecto**. Usa: `resultados [ID]`");
     return;
   }
-  
+
   const encuestaId = match[1].trim();
 
   try {
-    const encuesta = await buscarEncuestaEnAzure(encuestaId);
+    // 1) Cargo la encuesta existente
+    const encuesta = await azureService.cargarEncuesta(encuestaId);
     if (!encuesta) {
-      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`
-
-💡 **Tip**: Usa \`listar\` para ver todas las encuestas disponibles.`);
+      await context.sendActivity(
+        `❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\n💡 Usa \`listar\` para ver todas las encuestas.`
+      );
       return;
     }
 
-    let resultados = await cargarResultadosAzure(encuestaId);
+    // 2) Cargo los resultados ya consolidados
+    let resultados = await azureService.cargarResultados(encuestaId);
+
+    // 3) Si no hay resultados previos, inicializo
     if (!resultados) {
       resultados = {
-        encuestaId: encuestaId,
+        encuestaId,
         titulo: encuesta.titulo,
-        fechaCreacion: new Date(),
-        estado: 'activa',
+        fechaCreacion: new Date(),   // o parsea la fecha de encuesta.fechaCreacion
+        estado: "activa",
         totalParticipantes: 0,
-        respuestas: [],
+        respuestas: [],              // tu modelo acepta array
         resumen: {}
       };
+      // opcional: puedes opcionalmente guardar este registro inicial:
+      // await azureService.guardarResultados(resultados);
     }
 
-    calcularResumen(resultados, encuesta);
-
+    // 4) Armo y envío la tarjeta
     const resultsCard = createResultsCard(encuesta, resultados);
-    await context.sendActivity("🔄 Generando...");
+    await context.sendActivity("🔄 Generando resultados…");
     await context.sendActivity(MessageFactory.attachment(resultsCard));
 
   } catch (error) {
-    console.error('❌ Error mostrando resultados:', error);
+    console.error("❌ Error mostrando resultados:", error);
     await context.sendActivity("❌ Error al cargar resultados. Intenta nuevamente.");
   }
 });
