@@ -22,7 +22,7 @@ const key     = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
 
 const subsTable = new TableClient(
   `https://${account}.table.core.windows.net`,
-  "Subscriptions",
+  "MarketplaceSubscriptions",
   new AzureNamedKeyCredential(account, key)
 );
 

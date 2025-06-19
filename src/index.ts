@@ -7,10 +7,10 @@ import express from "express";
 // This bot's adapter
 import adapter from "./adapter";
 
-// This bot's main dialog.
+// This bot's main dialog
 import app from "./app/app";
 
-// En src/index.ts o donde tengas tu servidor Express
+// This Marketplace webhook handler
 import { MarketplaceWebhookHandler } from './webhook/marketplacewebhook';
 
 import { NextFunction } from "express"; 
