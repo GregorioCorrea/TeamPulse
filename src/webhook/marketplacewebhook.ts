@@ -1,81 +1,112 @@
-/**
- * TeamPulse – Webhook Marketplace (token auto)
- * Variables necesarias (App Service / GitHub Secrets):
- *   MP_TENANT_ID, MP_CLIENT_ID, MP_CLIENT_SECRET
- */
-import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import express, { Request, Response, NextFunction } from "express";
+import jwt, { JwtHeader, SigningKeyCallback } from "jsonwebtoken";
+import JwksClient from "jwks-rsa";
 import fetch from "node-fetch";
 import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
-// ---------- Credencial para pedir tokens a Marketplace ----------
+// ── SP Credentials para llamar al SaaS Fulfillment API
 const credential = new ClientSecretCredential(
-  process.env.MP_TENANT_ID!,     // <--- Tenant ID
-  process.env.MP_CLIENT_ID!,     // <--- Client / App ID
-  process.env.MP_CLIENT_SECRET!  // <--- Client Secret
+  process.env.MP_TENANT_ID!,     
+  process.env.MP_CLIENT_ID!,     
+  process.env.MP_CLIENT_SECRET!  
 );
 
-// --- Usa las MISMAS vars que tu azureTableService.ts ---
+// ── Configuración de la tabla MarketplaceSubscriptions
 const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
 const key     = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
-
 const subsTable = new TableClient(
   `https://${account}.table.core.windows.net`,
   "MarketplaceSubscriptions",
   new AzureNamedKeyCredential(account, key)
 );
 
-/* ---------- Helper para pedir un token cada vez que lo necesitemos ---------- */
+// ── Helper para obtener Bearer token del API
 async function getMarketplaceToken(): Promise<string> {
-  const scope = "https://marketplaceapi.microsoft.com/.default";
-  const { token } = await credential.getToken(scope);
+  const { token } = await credential.getToken("https://marketplaceapi.microsoft.com/.default");
   return token!;
 }
 
-/* -------------------------- Express Handler --------------------------------- */
-export async function MarketplaceWebhookHandler(req: Request, res: Response) {
+// ── JWKS setup para verificar el JWT que envía Microsoft
+const tenantId  = process.env.MP_TENANT_ID!;
+const audience  = process.env.MP_AUDIENCE!;
+const issuer    = process.env.MP_ISSUER!;
+const jwksUri   = `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`;
+const jwks      = JwksClient({ jwksUri, cache: true, rateLimit: true });
+
+function getSigningKey(header: JwtHeader, cb: SigningKeyCallback): void {
+  if (!header.kid) return cb(new Error("JWT sin kid"), undefined as any);
+  jwks.getSigningKey(header.kid, (err, key) => {
+    if (err) return cb(err, undefined as any);
+    cb(null, key.getPublicKey());
+  });
+}
+
+async function verifyJwt(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) {
+    res.sendStatus(401);
+    return;
+  }
+  const token = auth.slice(7);
+  jwt.verify(
+    token,
+    getSigningKey,
+    { algorithms: ["RS256"], audience, issuer },
+    (err) => {
+      if (err) {
+        console.error("JWT inválido:", err.message);
+        res.sendStatus(401);
+      } else {
+        next();
+      }
+    }
+  );
+}
+
+async function marketplaceHandler(req: Request, res: Response): Promise<void> {
   try {
-    /* 1) Validar JWT de Microsoft */
-    const auth = req.headers.authorization ?? "";
-    const [, jwtToken] = auth.split(" ");
-    const decoded: any = jwt.decode(jwtToken, { complete: true });
-    if (!decoded) return res.status(401).end();
-
-    /* 2) Leer payload */
-    const p = req.body as any;
-    const { id, subscriptionId, action } = p;
-
-    /* 3) Confirmar operación en Marketplace */
-    const api = `https://marketplaceapi.microsoft.com/api/saas/subscriptions/${subscriptionId}/operations/${id}?api-version=2022-03-01`;
+    const { id, subscriptionId, action, planId, quantity } = req.body as any;
+    const opUrl = `https://marketplaceapi.microsoft.com/api/saas/subscriptions/${subscriptionId}/operations/${id}?api-version=2022-03-01`;
     const bearer = await getMarketplaceToken();
-    const opRes = await fetch(api, { headers: { Authorization: `Bearer ${bearer}` } });
-    const opJson: any = await opRes.json();
-    if (opJson.status !== "InProgress") return res.status(200).end();
+    
+    // Confirmo que la operación está InProgress
+    const opRes  = await fetch(opUrl, { headers: { Authorization: `Bearer ${bearer}` } });
+    const opJson = await opRes.json();
+    if (opJson.status !== "InProgress") {
+      res.sendStatus(200);
+      return;
+    }
 
-    /* 4) Actualizar Storage */
+    // Upsert en tabla MarketplaceSubscriptions
     await subsTable.upsertEntity({
       partitionKey: "sub",
-      rowKey: subscriptionId,
-      planId: p.planId,
-      quantity: p.quantity,
-      status: action,
+      rowKey:      subscriptionId,
+      planId,
+      quantity,
+      status:      action,
       lastModified: new Date().toISOString(),
     });
 
-    /* 5) Informar éxito a Microsoft */
-    await fetch(api, {
+    // Marco la operación como Succeeded
+    await fetch(opUrl, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${bearer}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({ status: "Succeeded" }),
     });
 
-    res.status(200).end();
+    res.sendStatus(200);
   } catch (e) {
-    console.error("Webhook error:", e);
-    res.status(500).end();
+    console.error("Error en webhook:", e);
+    res.sendStatus(500);
   }
 }
+
+// ── Exporto el router listo para usar en index.ts
+export const marketplaceRouter = express.Router()
+  .use(express.json({ limit: "1mb" }))
+  .use(verifyJwt)
+  .post("/", marketplaceHandler);
