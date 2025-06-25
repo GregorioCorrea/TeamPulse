@@ -5,23 +5,44 @@ dotenv.config({ path: ".env.local" });
 
 import express from "express";
 import adapter from "./adapter";
-import app from "./app/app";
+import appBot from "./app/app";
 import { marketplaceRouter } from "./webhook/marketplacewebhook";
 
-const expressApp = express();
+const app = express();
+app.use(express.json());
 
-// Para parsear JSON en todo el servidor
-expressApp.use(express.json());
+// ── Application Insights (silencioso si falla) ────────────────────
+let telemetryClient: any = { trackEvent: () => {}, trackException: () => {} };
+try {
+  // desactivar los conflictos de opentelemetry
+  process.env.APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = "true";
 
-// ─── Rutas de Marketplace Webhook ────────────────────────────────
-// monta todos los endpoints en /api/marketplace/webhook
-expressApp.use("/api/marketplace/webhook", marketplaceRouter);
+  const ai = require("applicationinsights");
+  if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+    ai
+      .setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
+      .setAutoCollectRequests(true)
+      .setAutoCollectDependencies(true)
+      .setAutoCollectPerformance(true, true)
+      .setAutoCollectExceptions(true)
+      .setAutoDependencyCorrelation(true)
+      .start();
+    telemetryClient = ai.defaultClient;
+  }
+} catch (e) {
+  console.warn("⚠️ AppInsights init failed (se ignora):", e.message || e);
+}
 
-// ─── Health checks ────────────────────────────────────────────────
-expressApp.get("/api/health", (_req, res) => {
+// ── Webhook de Marketplace (JWT + JSON) ───────────────────────────
+app.use("/api/marketplace/webhook", marketplaceRouter);
+
+// ── Health checks ────────────────────────────────────────────────
+app.get("/api/health", (_req, res) => {
+  telemetryClient.trackEvent({ name: "HealthCheck" });
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
-expressApp.get("/api/marketplace/health", (_req, res) => {
+app.get("/api/marketplace/health", (_req, res) => {
+  telemetryClient.trackEvent({ name: "MarketplaceHealthCheck" });
   res.json({
     status: "healthy",
     timestamp: new Date().toISOString(),
@@ -29,15 +50,17 @@ expressApp.get("/api/marketplace/health", (_req, res) => {
   });
 });
 
-// ─── Endpoint Bot Framework ───────────────────────────────────────
-expressApp.post("/api/messages", async (req, res) => {
+// ── Bot Framework endpoint ───────────────────────────────────────
+app.post("/api/messages", async (req, res) => {
+  telemetryClient.trackEvent({ name: "BotMessageReceived" });
   await adapter.process(req, res as any, async (context) => {
-    await app.run(context);
+    await appBot.run(context);
   });
 });
 
-// ─── Levantar servidor ─────────────────────────────────────────────
+// ── Arrancar servidor ─────────────────────────────────────────────
 const port = process.env.PORT || 3978;
-expressApp.listen(port, () => {
+app.listen(port, () => {
+  telemetryClient.trackEvent({ name: "ServerStarted", properties: { port: port.toString() } });
   console.log(`Agent started. Listening on http://localhost:${port}`);
 });
