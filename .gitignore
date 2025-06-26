@@ -16,7 +16,7 @@ node_modules/
 data/
 
 # misc
-.env
+.env.local
 .deployment
 .DS_Store
 *copia*
