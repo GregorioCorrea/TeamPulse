@@ -1,99 +1,98 @@
 {
-  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.21/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.21",
-  "version": "1.0.0",
-  "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
-  "developer": {
-    "name": "INCUBA CONSULTORES",
-    "websiteUrl": "https://incumate.io",
-    "privacyUrl": "https://incumate.io/teampulse/privacy",
-    "termsOfUseUrl": "https://incumate.io/teampulse/terms",
-    "mpnId": "4891338"
-  },
-  "icons": {
-    "color": "color.png",
-    "outline": "outline.png"
-  },
-  "name": {
-    "short": "TeamPulse",
-    "full": "TeamPulse - Smart Survey & Feedback Bot"
-  },
-  "description": {
-    "short": "Smart survey & feedback bot for Teams with AI insights",
-    "full": "TeamPulse revolutionizes team feedback with instant survey creation, real-time response collection, and AI-powered analytics. Create professional surveys from templates (HR, Customer, Training, 360°), gather anonymous responses, and get intelligent insights - all without leaving Microsoft Teams. Features include: • Pre-built professional templates • Anonymous response collection • Real-time analytics with AI insights • Azure cloud storage • Enterprise-grade security • Easy integration with existing workflows. Trusted by organizations worldwide for streamlined feedback management."
-  },
-  "accentColor": "#0078D4",
-  "bots": [
-    {
-      "botId": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
-      "scopes": [
-        "team",
-        "groupChat",
-        "personal"
-      ],
-      "supportsFiles": false,
-      "isNotificationOnly": false,
-      "connectionName": "teampulsebot",
-      "commandLists": [
-        {
-          "scopes": [
-            "personal",
-            "team",
-            "groupChat"
-          ],
-          "commands": [
-            {
-              "title": "crear encuesta",
-              "description": "Crear una nueva encuesta con preguntas personalizadas"
-            },
-            {
-              "title": "ver_templates",
-              "description": "Ver todos los templates disponibles"
-            },
-            {
-              "title": "listar",
-              "description": "Ver todas las encuestas en Azure"
-            },
-            {
-              "title": "resultados [ID]",
-              "description": "Ver resultados de una encuesta específica"
-            },
-            {
-              "title": "responder [ID]",
-              "description": "Responder una encuesta específica"
-            },
-            {
-              "title": "ayuda",
-              "description": "Mostrar todos los comandos disponibles"
-            },
-            {
-              "title": "help",
-              "description": "Show all available commands"
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "composeExtensions": [],
-  "configurableTabs": [],
-  "staticTabs": [],
-  "permissions": [
-    "identity",
-    "messageTeamMembers"
-  ],
-  "validDomains": [
-    "incumate.io",
-    "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net"
-  ],
-  "webApplicationInfo": {
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.21/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.21",
+    "version": "1.0.0",
     "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
-    "resource": "api://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/4db8b9d3-589d-4da7-9b6a-1912d53efb2e"
-  },
-  "localizationInfo": {
-    "defaultLanguageTag": "en-us",
-    "additionalLanguages": []
-  },
-  "showLoadingIndicator": true,
-  "isFullScreen": false
+    "developer": {
+        "name": "INCUBA CONSULTORES",
+        "websiteUrl": "https://incumate.io",
+        "privacyUrl": "https://incumate.io/web/teampulse/privacy",
+        "termsOfUseUrl": "https://incumate.io/web/teampulse/terms",
+        "mpnId": "4891338"
+    },
+    "icons": {
+        "color": "color.png",
+        "outline": "outline.png"
+    },
+    "name": {
+        "short": "TeamPulse",
+        "full": "TeamPulse - Smart Survey & Feedback Bot"
+    },
+    "description": {
+        "short": "Smart survey & feedback bot for Teams with AI insights",
+        "full": "TeamPulse revolutionizes team feedback with instant survey creation, real-time response collection, and AI-powered analytics. Create professional surveys from templates (HR, Customer, Training, 360°), gather anonymous responses, and get intelligent insights - all without leaving Microsoft Teams. Features include: • Pre-built professional templates • Anonymous response collection • Real-time analytics with AI insights • Azure cloud storage • Enterprise-grade security • Easy integration with existing workflows. Trusted by organizations worldwide for streamlined feedback management."
+    },
+    "accentColor": "#0078D4",
+    "bots": [
+        {
+            "botId": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
+            "scopes": [
+                "team",
+                "groupChat", 
+                "personal"
+            ],
+            "supportsFiles": false,
+            "isNotificationOnly": false,
+            "commandLists": [
+                {
+                    "scopes": [
+                        "personal",
+                        "team",
+                        "groupChat"
+                    ],
+                    "commands": [
+                        {
+                            "title": "crear encuesta",
+                            "description": "Crear una nueva encuesta con preguntas personalizadas"
+                        },
+                        {
+                            "title": "ver_templates",
+                            "description": "Ver todos los templates disponibles"
+                        },
+                        {
+                            "title": "listar",
+                            "description": "Ver todas las encuestas en Azure"
+                        },
+                        {
+                            "title": "resultados [ID]",
+                            "description": "Ver resultados de una encuesta específica"
+                        },
+                        {
+                            "title": "responder [ID]",
+                            "description": "Responder una encuesta específica"
+                        },
+                        {
+                            "title": "ayuda",
+                            "description": "Mostrar todos los comandos disponibles"
+                        },
+                        {
+                            "title": "help",
+                            "description": "Show all available commands"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "composeExtensions": [],
+    "configurableTabs": [],
+    "staticTabs": [],
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": [
+        "incumate.io",
+        "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net"
+    ],
+    "webApplicationInfo": {
+        "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
+        "resource": "api://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/4db8b9d3-589d-4da7-9b6a-1912d53efb2e"
+    },
+    "localizationInfo": {
+        "defaultLanguageTag": "en-us",
+        "additionalLanguages": []
+    },
+    "showLoadingIndicator": true,
+    "isFullScreen": false
 }

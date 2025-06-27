@@ -35,7 +35,7 @@ function isoWeek(date = new Date()) {
 }
 
 /* ── límites por plan ──────────────────────────────────────────── */
-const PLAN_LIMITS = { free: 1, pro: 50, ent: 999_999 } as const;
+const PLAN_LIMITS = { free: 1, pro: 999_999, ent: 999_999 } as const;
 
 /* ── obtener plan del tenant ───────────────────────────────────── */
 export async function getPlan(tenantId: string): Promise<keyof typeof PLAN_LIMITS> {

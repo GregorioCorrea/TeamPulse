@@ -1116,6 +1116,75 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
 // COMANDOS DE TEXTO
 // ============================
 
+// COMANDO ANALIZAR
+app.message(/^analizar\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^analizar\s+(.+)$/i);
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:** `analizar [id_encuesta]`");
+    return;
+  }
+
+  const encuestaId = match[1].trim();
+  try {
+    // 1) Cargar encuesta y resultados existentes
+    const encuesta = await azureService.cargarEncuesta(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return;
+    }
+    const resultados = await azureService.cargarResultados(encuestaId);
+    if (!resultados || resultados.totalParticipantes === 0) {
+      await context.sendActivity("📊 Esta encuesta no tiene respuestas suficientes para analizar.");
+      return;
+    }
+
+    // 2) Preparar un resumen breve de resultados para el prompt de IA
+    let resumenTexto = `Encuesta: "${encuesta.titulo}" (Participantes: ${resultados.totalParticipantes})\n`;
+    encuesta.preguntas.forEach((pregunta, idx) => {
+      resumenTexto += `\n**${idx + 1}. ${pregunta.pregunta}**\n`;
+      const opciones = pregunta.opciones;
+      const conteos = resultados.resumen?.[idx] || {};
+      for (const opcion of opciones) {
+        const votos = conteos[opcion] ?? 0;
+        resumenTexto += `- ${opcion}: ${votos} votos\n`;
+      }
+    });
+
+    // 3) Consultar a Azure OpenAI para obtener análisis usando fetch (nativo en Node 20)
+    const openAIUrl = `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeploymentName}/chat/completions?api-version=2023-07-01-preview`;
+
+    const openAIResponse = await fetch(openAIUrl, {
+      method: "POST",
+      headers: {
+        "api-key": config.azureOpenAIKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: "Eres un analista de RRHH..." },
+          { role: "user", content: "Analiza los siguientes resultados...\n\n" + resumenTexto }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      })
+    });
+
+    const data = await openAIResponse.json();
+    const mensajeAI = data.choices?.[0]?.message?.content;
+
+    if (mensajeAI) {
+      // 4) Enviar el insight generado por la IA al usuario
+      await context.sendActivity(`🤖 **Insight de TeamPulse:**\n\n${mensajeAI}`);
+    } else {
+      await context.sendActivity("⚠️ No se pudo generar un análisis en este momento.");
+    }
+
+  } catch (error) {
+    console.error("❌ Error en analizar encuesta:", error);
+    await context.sendActivity("❌ Ocurrió un error al analizar la encuesta. Intenta más tarde.");
+  }
+});
+
 // COMANDO RESPONDER
 /* ────────────────────────────
    RESPONDER ENCUESTA
@@ -1131,8 +1200,12 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
   const encuestaId = match[1].trim();
 
   try {
-    // ─── Límite de 50 respuestas ─────────────────────────────
-    if (!(await checkResponsesLimit(encuestaId))) {
+    // Obtener el plan del tenant actual
+    const tenantId = context.activity.channelData?.tenant?.id;
+    const plan = tenantId ? await getPlan(tenantId) : "free";
+
+    // ─── Aplicar límite de respuestas solo si plan Free ───
+    if (plan === "free" && !(await checkResponsesLimit(encuestaId))) {
       await context.sendActivity(
         "🚫 Esta encuesta alcanzó su límite de **50 respuestas** en plan Free."
       );
@@ -1224,6 +1297,77 @@ app.message(/^resultados\s+(.+)$/i, async (context, state) => {
   }
 });
 
+// COMANDO EXPORTAR
+app.message(/^exportar\s+(.+)$/i, async (context, state) => {
+  const match = context.activity.text.match(/^exportar\s+(.+)$/i);
+  if (!match || !match[1]) {
+    await context.sendActivity("❌ **Uso correcto:** `exportar [id_encuesta]`");
+    return;
+  }
+
+  const encuestaId = match[1].trim();
+  try {
+    // 1) Cargar encuesta y resultados
+    const encuesta = await azureService.cargarEncuesta(encuestaId);
+    if (!encuesta) {
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
+      return;
+    }
+    const resultados = await azureService.cargarResultados(encuestaId);
+    if (!resultados || resultados.totalParticipantes === 0) {
+      await context.sendActivity("📊 Esta encuesta no tiene respuestas para exportar.");
+      return;
+    }
+    
+    /*/ 1.5) Identificar el tenant y su plan
+    const tenantId = context.activity.channelData?.tenant?.id;
+    const plan = tenantId ? await getPlan(tenantId) : "free";
+
+    if (plan === "free") {
+      await context.sendActivity(
+        "⚠️ La exportación a Excel está disponible solo en planes **Professional** y **Enterprise**."
+      );
+      return;   // corta la función para usuarios Free
+    }
+    /*/
+
+    // 2) Generar contenido CSV
+    let csv = `"Encuesta","${encuesta.titulo}"\n`;
+    csv += `"Participantes",${resultados.totalParticipantes}\n\n`;
+    csv += `"Pregunta","Opción","Votos"\n`;
+    encuesta.preguntas.forEach((pregunta, idx) => {
+      const conteos = resultados.resumen?.[idx] || {};
+      const opciones = pregunta.opciones;
+      opciones.forEach(opcion => {
+        const votos = conteos[opcion] ?? 0;
+        // Escapar comillas dobles en texto de pregunta/opción
+        const preguntaTexto = pregunta.pregunta.replace(/\"/g, '""');
+        const opcionTexto = opcion.replace(/\"/g, '""');
+        csv += `"${preguntaTexto}","${opcionTexto}",${votos}\n`;
+      });
+    });
+
+    // 3) Convertir a Base64 y armar attachment
+    const csvBuffer = Buffer.from(csv, "utf-8");
+    const base64 = csvBuffer.toString("base64");
+    const attachment = {
+      name: `${encuesta.titulo.replace(/[\/:*?"<>|]/g, "_") || "resultados"}.csv`,
+      contentType: "text/csv",
+      contentUrl: `data:text/csv;base64,${base64}`
+    };
+
+    // 4) Enviar el archivo al usuario
+    await context.sendActivity({
+      text: "📎 **Exportando resultados...**",  // mensaje opcional
+      attachments: [attachment]
+    });
+    // Al enviarse, Teams mostrará el archivo .csv adjunto para descargar.
+
+  } catch (error) {
+    console.error("❌ Error al exportar resultados:", error);
+    await context.sendActivity("❌ Ocurrió un error al generar la exportación.");
+  }
+});
 
 // COMANDO DEBUG
 app.message(/^debug_cards$/i, async (context, state) => {
@@ -1266,7 +1410,7 @@ app.message(/^debug_cards$/i, async (context, state) => {
 // COMANDO PLAN INFO
 // Muestra el estado del plan del usuario
 
-app.message(/^plan_info$/i, async (context) => {
+app.message(/^plan_info|mi_plan$/i, async (context) => {
   const tenantId = context.activity.channelData?.tenant?.id;
   if (!tenantId) return;
 
@@ -1892,12 +2036,14 @@ function createAvailableCommandsCard(): any {
       },
       {
         "type": "TextBlock",
-        "text": "Estos son los comandos que puedes usar en TeamPulse:",
+        "text": "Usá estos comandos en TeamPulse:",
         "wrap": true
       },
+
+      /* ──────── CREACIÓN ──────── */
       {
         "type": "TextBlock",
-        "text": "📋 **Comandos de Encuestas**",
+        "text": "📝 **Creación de Encuestas**",
         "weight": "Bolder",
         "size": "Medium",
         "spacing": "Medium"
@@ -1905,14 +2051,16 @@ function createAvailableCommandsCard(): any {
       {
         "type": "FactSet",
         "facts": [
-          { "title": "`responder [ID]`", "value": "Responder una encuesta por ID" },
-          { "title": "`listar`", "value": "Ver todas las encuestas disponibles" },
-          { "title": "`resultados [ID]`", "value": "Ver resultados de una encuesta" }
+          { "title": "`crear encuesta`",     "value": "Asistente paso a paso" },
+          { "title": "`usar_template [ID]`", "value": "Nueva encuesta desde template" },
+          { "title": "`confirmar_template [ID]`", "value": "Confirmar creación" }
         ]
       },
+
+      /* ──────── TEMPLATES ──────── */
       {
         "type": "TextBlock",
-        "text": "📋 **Comandos de Templates**",
+        "text": "📂 **Gestión de Templates**",
         "weight": "Bolder",
         "size": "Medium",
         "spacing": "Medium"
@@ -1920,15 +2068,16 @@ function createAvailableCommandsCard(): any {
       {
         "type": "FactSet",
         "facts": [
-          { "title": "`ver_templates`", "value": "Ver todos los templates disponibles" },
-          { "title": "`usar_template [ID]`", "value": "Crear encuesta desde template" },
-          { "title": "`buscar_templates [término]`", "value": "Buscar templates específicos" },
-          { "title": "`seed_templates`", "value": "Cargar templates iniciales (admin)" }
+          { "title": "`ver_templates`",            "value": "Listar todas las plantillas" },
+          { "title": "`buscar_templates [texto]`", "value": "Filtrar templates" },
+          { "title": "`seed_templates`",           "value": "(Admin) cargar ejemplos" }
         ]
       },
+
+      /* ──────── RESULTADOS ──────── */
       {
         "type": "TextBlock",
-        "text": "🛠️ **Otros Comandos**",
+        "text": "📊 **Resultados y Análisis**",
         "weight": "Bolder",
         "size": "Medium",
         "spacing": "Medium"
@@ -1936,15 +2085,50 @@ function createAvailableCommandsCard(): any {
       {
         "type": "FactSet",
         "facts": [
+          { "title": "`responder [ID]`",  "value": "Responder encuesta" },
+          { "title": "`resultados [ID]`", "value": "Ver resultados en vivo" },
+          { "title": "`analizar [ID]`",   "value": "Insights IA (Planes Pro/Enterprise)" },
+          { "title": "`exportar [ID]`",   "value": "Descargar Excel/CSV (Planes Pro/Enterprise)" }
+        ]
+      },
+
+      /* ──────── PLANES ──────── */
+      {
+        "type": "TextBlock",
+        "text": "🔐 **Planes y Cuenta**",
+        "weight": "Bolder",
+        "size": "Medium",
+        "spacing": "Medium"
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          { "title": "`plan_info`", "value": "Ver uso y límites actuales" },
+          { "title": "`mi_plan`",   "value": "Detalles de tu suscripción" }
+        ]
+      },
+
+      /* ──────── OTROS ──────── */
+      {
+        "type": "TextBlock",
+        "text": "ℹ️ **Otros Comandos**",
+        "weight": "Bolder",
+        "size": "Medium",
+        "spacing": "Medium"
+      },
+      {
+        "type": "FactSet",
+        "facts": [
+          { "title": "`listar`", "value": "Todas tus encuestas" },
           { "title": "`debug_cards`", "value": "Probar tarjetas Adaptive" },
-          { "title": "`ayuda`", "value": "Mostrar ayuda general" }
+          { "title": "`ayuda` / `help`", "value": "Mostrar este menú" }
         ]
       }
     ],
     "actions": [
       {
         "type": "Action.Submit",
-        "title": "🔙 Volver al Menú Principal",
+        "title": "🔙 Menú Principal",
         "data": { "verb": "show_help" }
       }
     ]
@@ -1952,5 +2136,6 @@ function createAvailableCommandsCard(): any {
 
   return CardFactory.adaptiveCard(card);
 }
+
 
 export default app;
