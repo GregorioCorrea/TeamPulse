@@ -9,7 +9,7 @@ import { AzureTableService } from "../services/azureTableService";
 import { sha256 } from "../utils/hash"; 
 import { canCreateSurvey, registerSurveyCreation, getUsageSummary, checkResponsesLimit } from "../middleware/planLimiter";
 import { getPlan } from "../middleware/planLimiter";
-
+import { enviarReportePorEmail } from "../services/emailService";  // Envío de correos electrónicos
 import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
 
 // Crear instancia global del servicio Azure
@@ -1423,9 +1423,44 @@ app.message(/^plan_info|mi_plan$/i, async (context) => {
   );
 });
 
+// COMANDO REPORTAR
+app.message(/^reportar\s+([\s\S]+)/i, async (context) => {
+  const match = context.activity.text?.match(/^reportar\s+([\s\S]+)/i);
+  const detalle = match?.[1]?.trim();
+  if (!detalle) {
+    await context.sendActivity("❌ Usa `reportar [detalle]` para describir el problema.");
+    return;
+  }
+
+  await context.sendActivity("✅ ¡Gracias! Tu reporte ha sido registrado.");
+
+  /*
+  // Guarda en Table Storage (si ya tenés la función)
+  await azureService.guardarReporte({
+    tenantId : context.activity.channelData?.tenant?.id ?? "desconocido",
+    user     : context.activity.from?.name ?? "anónimo",
+    mensaje  : detalle,
+    fecha    : new Date().toISOString()
+  });
+  */
+
+  // Enviar correo
+  const asunto = `TeamPulse – Nuevo reporte (${context.activity.from?.name})`;
+  const cuerpo =
+    `Tenant: ${context.activity.channelData?.tenant?.id}\n` +
+    `Usuario: ${context.activity.from?.name}\n` +
+    `Fecha  : ${new Date().toISOString()}\n\n` +
+    `Detalle:\n${detalle}`;
+
+  try {
+    await enviarReportePorEmail(asunto, cuerpo);
+  } catch (e) {
+    console.error("Error enviando correo ACS:", e);
+  }
+});
 
 // COMANDO AYUDA
-app.message(/^ayuda$/i, async (context, state) => {
+app.message(/^ayuda|Ayuda$/i, async (context, state) => {
   const welcomeCard = createWelcomeCard();
   await context.sendActivity("🔄 Generando...");
   await context.sendActivity(MessageFactory.attachment(welcomeCard));
