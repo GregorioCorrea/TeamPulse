@@ -2156,6 +2156,7 @@ function createAvailableCommandsCard(): any {
         "facts": [
           { "title": "`listar`", "value": "Todas tus encuestas" },
           { "title": "`debug_cards`", "value": "Probar tarjetas Adaptive" },
+          { "title": "`reportar {texto del mensaje}`", "value": "Reportar contenido objetable" },          
           { "title": "`ayuda` / `help`", "value": "Mostrar este menú" }
         ]
       }
