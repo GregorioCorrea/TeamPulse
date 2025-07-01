@@ -11,7 +11,7 @@ if (!ACS_CONN_STRING) {
 const emailClient = new EmailClient(ACS_CONN_STRING);
 
 // 3) Datos de correo
-const FROM   = process.env.FROM_EMAIL    || "DoNotReply@teampulse-comm.azureemail.net";
+const FROM   = process.env.FROM_EMAIL    || "DoNotReply@incumate.io";
 const TO     = process.env.SUPPORT_EMAIL || "support@incumate.io";
 
 // 4) Función utilitaria
