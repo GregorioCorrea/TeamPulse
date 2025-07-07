@@ -18,6 +18,7 @@ app.use(
   cors({
     origin: "https://teampulse.incumate.io",
     methods: ["POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
     credentials: false        // dejá en false: no usás cookies
   })
 );
