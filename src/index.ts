@@ -4,12 +4,23 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import express from "express";
+import cors from "cors";
 import adapter from "./adapter";
 import appBot from "./app/app";
 import { marketplaceRouter } from "./webhook/marketplacewebhook";
 
+
 const app = express();
 app.use(express.json());
+
+// CORS – solo tu sitio estático
+app.use(
+  cors({
+    origin: "https://teampulse.incumate.io",
+    methods: ["POST", "OPTIONS"],
+    credentials: false        // dejá en false: no usás cookies
+  })
+);
 
 // ── Application Insights (silencioso si falla) ────────────────────
 let telemetryClient: any = { trackEvent: () => {}, trackException: () => {} };
