@@ -5,9 +5,9 @@
     "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
     "developer": {
         "name": "INCUBA CONSULTORES",
-        "websiteUrl": "https://incumate.io",
-        "privacyUrl": "https://incumate.io/web/teampulse/privacy",
-        "termsOfUseUrl": "https://incumate.io/web/teampulse/terms",
+        "websiteUrl": "https://teampulse.incumate.io",
+        "privacyUrl": "https://teampulse.incumate.io/privacy.html",
+        "termsOfUseUrl": "https://teampulse.incumate.io/terms.html",
         "mpnId": "4891338"
     },
     "icons": {
@@ -20,9 +20,9 @@
     },
     "description": {
       "short": "Bot inteligente de encuestas y feedback para Microsoft Teams con insights de IA", 
-      "full": "TeamPulse revoluciona la recopilación de feedback de equipos con creación instantánea de encuestas, recolección de respuestas en tiempo real y análisis potenciado por IA. Crea encuestas profesionales desde plantillas (RRHH, Clientes, Capacitación, 360°), recopila respuestas anónimas y obtén insights inteligentes — todo sin salir de Microsoft Teams.\n\nCaracterísticas incluyen:\n• Plantillas profesionales preconstruidas\n• Recolección de respuestas anónimas\n• Análisis en tiempo real con insights de IA\n• Almacenamiento en Azure cloud\n• Seguridad de nivel empresarial\n• Fácil integración con flujos de trabajo existentes\n\nConfiado por organizaciones en todo el mundo para gestión simplificada de feedback.\n\n────────────────────────────────────────────────\n🛡️  REPORTAR CONTENIDO OBJETABLE\nSi encuentras información incorrecta, inapropiada u ofensiva —incluido texto generado por IA— avísanos enseguida:\n\n• Correo: security@incumate.io\n• Asunto: \"TeamPulse – reporte de contenido\"\n• Incluye la palabra/frase exacta, la fecha y la captura de pantalla (o ID del mensaje) para que podamos revisarlo.\n\nNuestro equipo revisa y responde en menos de 24 h. Las encuestas pueden moderarse o eliminarse si infringen nuestras políticas de uso aceptable.\n────────────────────────────────────────────────\n\n────────────────────────────────────────────────\n🚀 COMENZAR / REGISTRO\nPara comenzar inmediatamente crea tu cuenta gratuita en:\nhttps://incumate.io/web/teampulse/\n📚 CENTRO DE AYUDA\nGuías paso a paso, FAQs y tutoriales:\nhttps://incumate.io/web/teampulse/support\n✉️ CONTACTO / SOPORTE\nDudas o problemas: support@incumate.io (respondemos <24 h)\n────────────────────────────────────────────────\nThis app is only available in Spanish"
+      "full": "TeamPulse revoluciona la recopilación de feedback de equipos con creación instantánea de encuestas, recolección de respuestas en tiempo real y análisis potenciado por IA. Crea encuestas profesionales desde plantillas (RRHH, Clientes, Capacitación, 360°), recopila respuestas anónimas y obtén insights inteligentes — todo sin salir de Microsoft Teams.\n\nCaracterísticas incluyen:\n• Plantillas profesionales preconstruidas\n• Recolección de respuestas anónimas\n• Análisis en tiempo real con insights de IA\n• Almacenamiento en Azure cloud\n• Seguridad de nivel empresarial\n• Fácil integración con flujos de trabajo existentes\n\nConfiado por organizaciones en todo el mundo para gestión simplificada de feedback.\n\n────────────────────────────────────────────────\n🛡️  REPORTAR CONTENIDO OBJETABLE\nSi encuentras información incorrecta, inapropiada u ofensiva —incluido texto generado por IA— avísanos enseguida:\n\n• Correo: security@incumate.io\n• Asunto: \"TeamPulse – reporte de contenido\"\n• Incluye la palabra/frase exacta, la fecha y la captura de pantalla (o ID del mensaje) para que podamos revisarlo.\n\nNuestro equipo revisa y responde en menos de 24 h. Las encuestas pueden moderarse o eliminarse si infringen nuestras políticas de uso aceptable.\n────────────────────────────────────────────────\n\n────────────────────────────────────────────────\n🚀 COMENZAR / REGISTRO\nPara comenzar inmediatamente crea tu cuenta gratuita en:\nhttps://teampulse.incumate.io/\n📚 CENTRO DE AYUDA\nGuías paso a paso, FAQs y tutoriales:\nhttps://teampulse.incumate.io/support.html\n✉️ CONTACTO / SOPORTE\nDudas o problemas: support@incumate.io (respondemos <24 h)\n────────────────────────────────────────────────\nThis app is only available in Spanish"
     },
-    "accentColor": "#0078D4",
+    "accentColor": "#E91E63",
     "bots": [
         {
             "botId": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
@@ -66,8 +66,8 @@
                             "description": "Mostrar todos los comandos disponibles"
                         },
                         {
-                        "title": "reportar [texto]",
-                        "description": "Reportar contenido objetable (llega a seguridad)"
+                            "title": "reportar [texto]",
+                            "description": "Reportar contenido objetable (llega a cuenta de seguridad)"
                         },
                         {
                             "title": "help",
@@ -87,6 +87,7 @@
     ],
     "validDomains": [
         "incumate.io",
+        "teampulse.incumate.io",
         "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net"
     ],
     "webApplicationInfo": {

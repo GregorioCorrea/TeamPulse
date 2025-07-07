@@ -65,6 +65,8 @@ async function verifyJwt(req: Request, res: Response, next: NextFunction): Promi
 }
 
 async function marketplaceHandler(req: Request, res: Response): Promise<void> {
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
   try {
     const { id, subscriptionId, action, planId, quantity } = req.body as any;
     const opUrl = `https://marketplaceapi.microsoft.com/api/saas/subscriptions/${subscriptionId}/operations/${id}?api-version=2022-03-01`;
@@ -73,30 +75,34 @@ async function marketplaceHandler(req: Request, res: Response): Promise<void> {
     // Confirmo que la operación está InProgress
     const opRes  = await fetch(opUrl, { headers: { Authorization: `Bearer ${bearer}` } });
     const opJson = await opRes.json();
+  console.log("Operación JSON:", opJson);
     if (opJson.status !== "InProgress") {
       res.sendStatus(200);
       return;
     }
 
-    // Upsert en tabla MarketplaceSubscriptions
-    await subsTable.upsertEntity({
-      partitionKey: "sub",
-      rowKey:      subscriptionId,
-      planId,
-      quantity,
-      status:      action,
-      lastModified: new Date().toISOString(),
-    });
+  // Upsert en tabla MarketplaceSubscriptions
+  const entity = {
+    partitionKey: "sub",
+    rowKey:      subscriptionId,
+    planId,
+    quantity,
+    status:      action,
+    lastModified: new Date().toISOString(),
+  };
+  console.log("Upserting entity:", entity);
+  await subsTable.upsertEntity(entity);
 
-    // Marco la operación como Succeeded
-    await fetch(opUrl, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${bearer}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ status: "Succeeded" }),
-    });
+  // Marco la operación como Succeeded
+  console.log("Marcando operación como Succeeded en:", opUrl);
+  await fetch(opUrl, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${bearer}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status: "Succeeded" }),
+  });
 
     res.sendStatus(200);
   } catch (e) {
