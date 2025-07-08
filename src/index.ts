@@ -8,18 +8,18 @@ import cors from "cors";
 import adapter from "./adapter";
 import appBot from "./app/app";
 import { marketplaceRouter } from "./webhook/marketplacewebhook";
-import { landingPageRouter } from "./webhook/landingPageHandler"; // 🆕 Nuevo import
+import { landingPageRouter } from "./webhook/landingPageHandler"; // 🆕 Router actualizado con SSO
 
 const app = express();
 app.use(express.json());
 
-// CORS – solo tu sitio estático
+// CORS – actualizado para SSO
 app.use(
   cors({
-    origin: "https://teampulse.incumate.io",
-    methods: ["POST", "OPTIONS", "GET"], // 🆕 Agregamos GET para health checks
+    origin: ["https://teampulse.incumate.io", "https://login.microsoftonline.com"], // 🆕 Agregar Microsoft login
+    methods: ["POST", "OPTIONS", "GET"], 
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false        // dejá en false: no usás cookies
+    credentials: false        
   })
 );
 
@@ -48,7 +48,7 @@ try {
 // ── Webhook de Marketplace (JWT + JSON) - SIN CAMBIOS ────────────
 app.use("/api/marketplace/webhook", marketplaceRouter);
 
-// ── 🆕 Landing Page Handler (nuevo endpoint) ──────────────────────
+// ── 🆕 Landing Page Handler con SSO (nuevo endpoint) ──────────────
 app.use("/api/marketplace/landing", landingPageRouter);
 
 // ── Health checks ────────────────────────────────────────────────
@@ -66,20 +66,32 @@ app.get("/api/marketplace/health", (_req, res) => {
   });
 });
 
-// 🆕 Health check general para todos los endpoints de marketplace
+// 🆕 Health check para arquitectura completa
 app.get("/api/marketplace/status", (_req, res) => {
-  telemetryClient.trackEvent({ name: "MarketplaceStatusCheck" });
+  telemetryClient.trackEvent({ name: "MarketplaceArchitectureStatus" });
   res.json({
     status: "operational",
     timestamp: new Date().toISOString(),
+    architecture: "Two-app SSO separation",
     services: {
       webhook: "active",
-      landingPage: "active"
+      landingPageSSO: "active"
     },
     endpoints: {
       webhook: "/api/marketplace/webhook",
-      landingPage: "/api/marketplace/landing/activate",
+      landingPageActivate: "/api/marketplace/landing/activate",
+      landingPageSsoConfig: "/api/marketplace/landing/sso-config",
       health: "/api/marketplace/health"
+    },
+    apps: {
+      landingApp: {
+        clientId: process.env.MP_LANDING_CLIENT_ID ? "configured" : "missing",
+        type: "multi-tenant"
+      },
+      apiApp: {
+        clientId: process.env.MP_API_CLIENT_ID ? "configured" : "missing",
+        type: "single-tenant"
+      }
     }
   });
 });
@@ -100,6 +112,9 @@ app.listen(port, () => {
   console.log(`🔗 Endpoints disponibles:`);
   console.log(`   - Bot: http://localhost:${port}/api/messages`);
   console.log(`   - Webhook: http://localhost:${port}/api/marketplace/webhook`);
-  console.log(`   - Landing: http://localhost:${port}/api/marketplace/landing/activate`); // 🆕
+  console.log(`   - Landing SSO: http://localhost:${port}/api/marketplace/landing/activate`); // 🆕
+  console.log(`   - SSO Config: http://localhost:${port}/api/marketplace/landing/sso-config`); // 🆕
   console.log(`   - Health: http://localhost:${port}/api/health`);
+  console.log(`   - Status: http://localhost:${port}/api/marketplace/status`); // 🆕
+  console.log(`🏗️ Arquitectura: Two-app SSO separation (Microsoft compliant)`);
 });
