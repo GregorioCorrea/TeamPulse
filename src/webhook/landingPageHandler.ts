@@ -226,7 +226,7 @@ async function ssoInfoHandler(req: Request, res: Response): Promise<void> {
   console.log("\n🔍 === [SSO INFO] DEBUG ===");
   
   res.status(200).json({
-    landingClientId: process.env.MP_LANDING_CLIENT_ID,
+    landingClientId: process.env.MP_API_CLIENT_ID,
     redirectUri: `${req.protocol}://${req.get('host')}/api/marketplace/landing/callback`,
     tenantId: "common", // Para multi-tenant
     authority: "https://login.microsoftonline.com/common",
@@ -252,12 +252,12 @@ function landingHealthCheck(req: Request, res: Response): void {
     architecture: "Two-app separation",
     apps: {
       landing: {
-        clientId: process.env.MP_LANDING_CLIENT_ID ? "configured" : "missing",
-        type: "multi-tenant"
+        clientId: process.env.MP_API_CLIENT_ID ? "configured" : "missing",
+        type: "single-tenant"
       },
       api: {
-        clientId: process.env.MP_API_CLIENT_ID ? "configured" : "missing", 
-        type: "single-tenant"
+        clientId: process.env.MP_LANDING_CLIENT_ID ? "configured" : "missing", 
+        type: "multi-tenant"
       }
     }
   });
