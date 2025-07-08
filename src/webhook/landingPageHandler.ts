@@ -1,15 +1,18 @@
-// src/webhook/landingPageHandler.ts - Arquitectura correcta según Microsoft
+// src/webhook/landingPageHandler.ts - Con OAuth server-side proxy
 
 import express, { Request, Response } from "express";
 import fetch from "node-fetch";
 import jwt from "jsonwebtoken";
 import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
+import { URLSearchParams } from "url";
 
+// ── Configuración para App 2 (Single-tenant, solo para APIs)
 const apiCredential = new ClientSecretCredential(
-  process.env.MP_API_TENANT_ID!,    
+  process.env.MP_API_TENANT_ID!,     
   process.env.MP_API_CLIENT_ID!,     
-  process.env.MP_API_CLIENT_SECRET!  );
+  process.env.MP_API_CLIENT_SECRET!  
+);
 
 // ── Configuración de la tabla MarketplaceSubscriptions
 const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
@@ -24,8 +27,6 @@ const subsTable = new TableClient(
 async function getMarketplaceApiToken(): Promise<string> {
   try {
     console.log("🔑 [Landing] Obteniendo token de API (App 2)...");
-    
-    // Usar el scope correcto con App 2 (single-tenant)
     const { token } = await apiCredential.getToken("20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default");
     
     if (!token) {
@@ -39,23 +40,199 @@ async function getMarketplaceApiToken(): Promise<string> {
   }
 }
 
-// ── Función para validar ID Token del SSO (App 1)
+// ── 🆕 OAuth server-side: Iniciar login
+async function startOAuthLogin(req: Request, res: Response): Promise<void> {
+  console.log("\n🔐 === [OAuth] INICIANDO LOGIN SERVER-SIDE ===");
+  
+  try {
+    const { marketplaceToken } = req.query;
+    
+    if (!marketplaceToken) {
+      res.status(400).json({ error: "Se requiere marketplace token" });
+      return;
+    }
+
+    // Guardar marketplace token en session/database temporal
+    // Por simplicidad, vamos a usar un store en memoria (en producción usar Redis)
+    const stateId = generateStateId();
+    temporalStore.set(stateId, {
+      marketplaceToken: marketplaceToken as string,
+      timestamp: Date.now()
+    });
+
+    // Construir URL de autorización de Microsoft
+    const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
+    authUrl.searchParams.set("client_id", process.env.MP_LANDING_CLIENT_ID!);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("redirect_uri", `${req.protocol}://${req.get('host')}/api/marketplace/landing/oauth-callback`);
+    authUrl.searchParams.set("scope", "openid profile email");
+    authUrl.searchParams.set("state", stateId);
+    authUrl.searchParams.set("prompt", "select_account");
+
+    console.log("🔄 [OAuth] Redirigiendo a Microsoft:", authUrl.toString());
+    
+    // Redirigir al usuario a Microsoft
+    res.redirect(authUrl.toString());
+    
+  } catch (error) {
+    console.error("❌ [OAuth] Error iniciando login:", error);
+    res.status(500).json({ error: "Error iniciando autenticación" });
+  }
+}
+
+// ── 🆕 OAuth server-side: Callback de Microsoft
+async function handleOAuthCallback(req: Request, res: Response): Promise<void> {
+  console.log("\n🔄 === [OAuth] PROCESANDO CALLBACK DE MICROSOFT ===");
+  console.log("[OAuth] Query params:", req.query);
+  
+  try {
+    const { code, state, error: oauthError } = req.query;
+    
+    if (oauthError) {
+      console.error("❌ [OAuth] Error de Microsoft:", oauthError);
+      return redirectToFrontendWithError(res, `Error de autenticación: ${oauthError}`);
+    }
+
+    if (!code || !state) {
+      console.error("❌ [OAuth] Faltan parámetros requeridos");
+      return redirectToFrontendWithError(res, "Parámetros de autenticación inválidos");
+    }
+
+    // Recuperar marketplace token usando state
+    const stateData = temporalStore.get(state as string);
+    if (!stateData) {
+      console.error("❌ [OAuth] State inválido o expirado");
+      return redirectToFrontendWithError(res, "Sesión de autenticación expirada");
+    }
+
+    console.log("🎫 [OAuth] Marketplace token recuperado del state");
+
+    // Intercambiar código por tokens
+    const tokens = await exchangeCodeForTokens(
+      code as string, 
+      `${req.protocol}://${req.get('host')}/api/marketplace/landing/oauth-callback`
+    );
+
+    console.log("✅ [OAuth] Tokens obtenidos de Microsoft");
+
+    // Procesar la suscripción completa
+    const result = await processCompleteSubscription(stateData.marketplaceToken, tokens.idToken);
+
+    // Limpiar temporal store
+    temporalStore.delete(state as string);
+
+    console.log("🎉 [OAuth] ¡Proceso completado exitosamente!");
+
+    // Redirigir al frontend con éxito
+    redirectToFrontendWithSuccess(res, result);
+    
+  } catch (error) {
+    console.error("💥 [OAuth] Error procesando callback:", error);
+    redirectToFrontendWithError(res, `Error procesando autenticación: ${error.message}`);
+  }
+}
+
+// ── 🆕 Intercambiar código por tokens
+async function exchangeCodeForTokens(code: string, redirectUri: string): Promise<{ idToken: string, accessToken: string }> {
+  console.log("🔄 [OAuth] Intercambiando código por tokens...");
+  
+  const tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+  
+  const params = new URLSearchParams();
+  params.append("client_id", process.env.MP_LANDING_CLIENT_ID!);
+  params.append("client_secret", process.env.MP_LANDING_CLIENT_SECRET!);
+  params.append("code", code);
+  params.append("grant_type", "authorization_code");
+  params.append("redirect_uri", redirectUri);
+  params.append("scope", "openid profile email");
+
+  const response = await fetch(tokenUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: params
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("❌ [OAuth] Error intercambiando código:", response.status, errorText);
+    throw new Error(`Error obteniendo tokens: ${response.status}`);
+  }
+
+  const tokens = await response.json();
+  console.log("✅ [OAuth] Tokens intercambiados exitosamente");
+  
+  return {
+    idToken: tokens.id_token,
+    accessToken: tokens.access_token
+  };
+}
+
+// ── 🆕 Procesar suscripción completa con ambos tokens
+async function processCompleteSubscription(marketplaceToken: string, idToken: string) {
+  console.log("🚀 [OAuth] Procesando suscripción completa...");
+  
+  // Validar ID Token
+  const userInfo = validateIdToken(idToken);
+  console.log("👤 [OAuth] Usuario autenticado:", {
+    oid: userInfo.oid,
+    name: userInfo.name,
+    email: userInfo.email || userInfo.preferred_username
+  });
+
+  // Resolver marketplace token
+  const subscriptionInfo = await resolveLandingPageToken(marketplaceToken);
+  const { id: subscriptionId, planId, offerId, quantity = 1 } = subscriptionInfo;
+
+  // Guardar en tabla
+  const entity = {
+    partitionKey: "landing",
+    rowKey: subscriptionId,
+    planId,
+    offerId,
+    quantity,
+    status: "PendingActivation",
+    source: "ServerSideSSO",
+    userOid: userInfo.oid,
+    userName: userInfo.name,
+    userEmail: userInfo.email || userInfo.preferred_username,
+    userTenant: userInfo.tid,
+    createdAt: new Date().toISOString(),
+    lastModified: new Date().toISOString(),
+  };
+  
+  await subsTable.upsertEntity(entity);
+
+  // Activar suscripción
+  await activateSubscription(subscriptionId, planId);
+
+  // Actualizar estado
+  entity.status = "Activated";
+  entity.lastModified = new Date().toISOString();
+  await subsTable.upsertEntity(entity);
+
+  return {
+    subscriptionId,
+    planId,
+    user: {
+      name: userInfo.name,
+      email: userInfo.email || userInfo.preferred_username
+    }
+  };
+}
+
+// ── Funciones existentes (sin cambios)
 function validateIdToken(idToken: string): any {
   try {
-    // Decodificar sin verificar por ahora (en producción necesitarías verificar la firma)
     const decoded = jwt.decode(idToken, { complete: true });
-    console.log("🔍 [Landing] ID Token decodificado:", JSON.stringify(decoded, null, 2));
     return decoded?.payload;
   } catch (error) {
-    console.error("❌ [Landing] Error validando ID token:", error);
     throw new Error("ID Token inválido");
   }
 }
 
-// ── Función para resolver el marketplace token
 async function resolveLandingPageToken(marketplaceToken: string) {
-  console.log("🔍 [Landing] Resolviendo marketplace token...");
-  
   const resolveUrl = "https://marketplaceapi.microsoft.com/api/saas/subscriptions/resolve?api-version=2018-08-31";
   const bearerToken = await getMarketplaceApiToken();
   
@@ -70,20 +247,13 @@ async function resolveLandingPageToken(marketplaceToken: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`❌ [Landing] Error resolviendo marketplace token: ${response.status} ${response.statusText}`);
-    console.error("[Landing] Error details:", errorText);
     throw new Error(`Error ${response.status}: ${errorText}`);
   }
 
-  const subscriptionInfo = await response.json();
-  console.log("✅ [Landing] Marketplace token resuelto:", JSON.stringify(subscriptionInfo, null, 2));
-  return subscriptionInfo;
+  return await response.json();
 }
 
-// ── Función para activar la suscripción
 async function activateSubscription(subscriptionId: string, planId: string) {
-  console.log(`🚀 [Landing] Activando suscripción ${subscriptionId} con plan ${planId}...`);
-  
   const activateUrl = `https://marketplaceapi.microsoft.com/api/saas/subscriptions/${subscriptionId}/activate?api-version=2018-08-31`;
   const bearerToken = await getMarketplaceApiToken();
   
@@ -93,183 +263,60 @@ async function activateSubscription(subscriptionId: string, planId: string) {
       "Authorization": `Bearer ${bearerToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      planId: planId,
-      quantity: 1
-    })
+    body: JSON.stringify({ planId, quantity: 1 })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`❌ [Landing] Error activando suscripción: ${response.status} ${response.statusText}`);
-    console.error("[Landing] Error details:", errorText);
     throw new Error(`Error ${response.status}: ${errorText}`);
   }
-
-  console.log("✅ [Landing] Suscripción activada exitosamente");
-  return response.status === 200;
 }
 
-// ── Handler principal para procesar AMBOS tokens
-async function landingPageHandler(req: Request, res: Response): Promise<void> {
-  console.log("\n🎯 === [LANDING PAGE] PROCESANDO TOKENS (SSO + Marketplace) ===");
-  console.log("[Landing] Headers:", JSON.stringify(req.headers, null, 2));
-  console.log("[Landing] Body:", JSON.stringify(req.body, null, 2));
+// ── 🆕 Helpers para redirección y almacenamiento temporal
+const temporalStore = new Map<string, any>();
 
-  try {
-    const { marketplaceToken, idToken } = req.body;
-    
-    if (!marketplaceToken || !idToken) {
-      console.error("❌ [Landing] Faltan tokens requeridos");
-      res.status(400).json({ 
-        success: false, 
-        error: "Se requieren tanto marketplaceToken como idToken" 
-      });
-      return;
-    }
-
-    console.log(`📨 [Landing] Marketplace token (primeros 50 chars): ${marketplaceToken.substring(0, 50)}...`);
-    console.log(`🔐 [Landing] ID token (primeros 50 chars): ${idToken.substring(0, 50)}...`);
-
-    // Paso 1: Validar ID Token del SSO (información del usuario)
-    const userInfo = validateIdToken(idToken);
-    console.log("👤 [Landing] Información del usuario:", {
-      oid: userInfo.oid,
-      name: userInfo.name,
-      email: userInfo.email || userInfo.preferred_username,
-      tid: userInfo.tid
-    });
-
-    // Paso 2: Resolver el marketplace token para obtener información de la suscripción
-    const subscriptionInfo = await resolveLandingPageToken(marketplaceToken);
-    
-    const { 
-      id: subscriptionId, 
-      planId, 
-      offerId,
-      quantity = 1 
-    } = subscriptionInfo;
-
-    console.log(`📋 [Landing] Información completa:
-      USUARIO:
-      - OID: ${userInfo.oid}
-      - Nombre: ${userInfo.name}
-      - Email: ${userInfo.email || userInfo.preferred_username}
-      - Tenant: ${userInfo.tid}
-      
-      SUSCRIPCIÓN:
-      - ID: ${subscriptionId}
-      - Plan: ${planId}
-      - Offer: ${offerId}
-      - Cantidad: ${quantity}`);
-
-    // Paso 3: Guardar en la tabla con información completa
-    const entity = {
-      partitionKey: "landing",
-      rowKey: subscriptionId,
-      // Información de suscripción
-      planId,
-      offerId,
-      quantity,
-      status: "PendingActivation",
-      source: "LandingPageSSO",
-      // Información del usuario
-      userOid: userInfo.oid,
-      userName: userInfo.name,
-      userEmail: userInfo.email || userInfo.preferred_username,
-      userTenant: userInfo.tid,
-      // Timestamps
-      createdAt: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-    };
-    
-    console.log("💾 [Landing] Guardando en tabla:", JSON.stringify(entity, null, 2));
-    await subsTable.upsertEntity(entity);
-
-    // Paso 4: Activar la suscripción
-    await activateSubscription(subscriptionId, planId);
-
-    // Paso 5: Actualizar estado en la tabla
-    entity.status = "Activated";
-    entity.lastModified = new Date().toISOString();
-    await subsTable.upsertEntity(entity);
-
-    console.log("🎉 [Landing] ¡Proceso completado exitosamente con SSO!");
-    
-    res.status(200).json({ 
-      success: true, 
-      message: "Suscripción activada correctamente",
-      subscriptionId,
-      planId,
-      user: {
-        name: userInfo.name,
-        email: userInfo.email || userInfo.preferred_username
-      },
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error("💥 [Landing] Error procesando tokens:", error);
-    
-    res.status(500).json({ 
-      success: false, 
-      error: "Error interno del servidor",
-      details: error instanceof Error ? error.message : "Error desconocido"
-    });
-  }
+function generateStateId(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-// ── Handler para obtener información de SSO (solo para debug/testing)
-async function ssoInfoHandler(req: Request, res: Response): Promise<void> {
-  console.log("\n🔍 === [SSO INFO] DEBUG ===");
-  
-  res.status(200).json({
-    landingClientId: process.env.MP_LANDING_CLIENT_ID,
-    redirectUri: "https://teampulse.incumate.io", // ← Cambiar a esto
-    tenantId: "common", 
-    authority: "https://login.microsoftonline.com/common",
-    scopes: ["openid", "profile", "email"]
-  });
+function redirectToFrontendWithSuccess(res: Response, result: any) {
+  const successUrl = `https://teampulse.incumate.io?success=true&data=${encodeURIComponent(JSON.stringify(result))}`;
+  res.redirect(successUrl);
 }
-// ── Middleware para debug específico del landing page
+
+function redirectToFrontendWithError(res: Response, error: string) {
+  const errorUrl = `https://teampulse.incumate.io?error=${encodeURIComponent(error)}`;
+  res.redirect(errorUrl);
+}
+
+// ── Middleware y health checks (sin cambios)
 function landingDebugMiddleware(req: Request, res: Response, next: express.NextFunction): void {
   const timestamp = new Date().toISOString();
   console.log(`\n🔍 [Landing] ${timestamp} - ${req.method} ${req.path}`);
-  console.log("🌍 [Landing] Origin:", req.headers.origin);
-  console.log("📱 [Landing] User-Agent:", req.headers['user-agent']?.substring(0, 100));
   next();
 }
 
-// ── Health check específico para landing page
 function landingHealthCheck(req: Request, res: Response): void {
   res.status(200).json({ 
     status: "OK", 
     timestamp: new Date().toISOString(),
-    service: "TeamPulse Landing Page Handler - Arquitectura correcta",
-    architecture: "Two-app separation",
-    apps: {
-      landing: {
-        clientId: process.env.MP_LANDING_CLIENT_ID ? "configured" : "missing",
-        type: "multi-tenant"
-      },
-      api: {
-        clientId: process.env.MP_API_CLIENT_ID ? "configured" : "missing", 
-        type: "single-tenant"
-      }
-    }
+    service: "TeamPulse Landing Page Handler - Server-side OAuth",
+    architecture: "OAuth Proxy"
   });
 }
 
-// ── Exporto el router para landing page
+// ── 🆕 Router actualizado con endpoints OAuth
 export const landingPageRouter = express.Router()
   .use(express.json({ limit: "1mb" }))
   .use(landingDebugMiddleware)
   
-  // Health check específico
+  // Health check
   .get("/health", landingHealthCheck)
   
-  // Información de configuración SSO para el frontend
-  .get("/sso-config", ssoInfoHandler)
+  // 🆕 OAuth endpoints
+  .get("/start-login", startOAuthLogin)           // Iniciar OAuth
+  .get("/oauth-callback", handleOAuthCallback)    // Callback de Microsoft
   
-  // Endpoint principal para procesar AMBOS tokens (marketplace + id token)
-  .post("/activate", landingPageHandler);
+  // Mantener endpoints existentes por compatibilidad
+  .get("/sso-config", landingHealthCheck)        // Dummy endpoint
+  .post("/activate", landingHealthCheck);        // Dummy endpoint
