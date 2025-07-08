@@ -9,8 +9,8 @@ import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 // ── Configuración para App 2 (Single-tenant, solo para APIs)
 const apiCredential = new ClientSecretCredential(
   process.env.MP_API_TENANT_ID!,     // Tenant de Incuba Consultores
-  process.env.MP_LANDING_CLIENT_ID!,     // App 2 Client ID
-  process.env.MP_LANDING_CLIENT_SECRET!  // App 2 Secret
+  process.env.MP_API_CLIENT_ID!,     // App 2 Client ID
+  process.env.MP_API_CLIENT_SECRET!  // App 2 Secret
 );
 
 // ── Configuración de la tabla MarketplaceSubscriptions
