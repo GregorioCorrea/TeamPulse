@@ -6,12 +6,10 @@ import jwt from "jsonwebtoken";
 import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
-// ── Configuración para App 2 (Single-tenant, solo para APIs)
 const apiCredential = new ClientSecretCredential(
-  process.env.MP_API_TENANT_ID!,     // Tenant de Incuba Consultores
-  process.env.MP_API_CLIENT_ID!,     // App 2 Client ID
-  process.env.MP_API_CLIENT_SECRET!  // App 2 Secret
-);
+  process.env.MP_API_TENANT_ID!,    
+  process.env.MP_API_CLIENT_ID!,     
+  process.env.MP_API_CLIENT_SECRET!  );
 
 // ── Configuración de la tabla MarketplaceSubscriptions
 const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
@@ -227,13 +225,12 @@ async function ssoInfoHandler(req: Request, res: Response): Promise<void> {
   
   res.status(200).json({
     landingClientId: process.env.MP_LANDING_CLIENT_ID,
-    redirectUri: `${req.protocol}://${req.get('host')}/api/marketplace/landing/callback`,
-    tenantId: "common", // Para multi-tenant
+    redirectUri: "https://teampulse.incumate.io", // ← Cambiar a esto
+    tenantId: "common", 
     authority: "https://login.microsoftonline.com/common",
     scopes: ["openid", "profile", "email"]
   });
 }
-
 // ── Middleware para debug específico del landing page
 function landingDebugMiddleware(req: Request, res: Response, next: express.NextFunction): void {
   const timestamp = new Date().toISOString();
