@@ -114,5 +114,5 @@ async function marketplaceHandler(req: Request, res: Response): Promise<void> {
 // ── Exporto el router listo para usar en index.ts
 export const marketplaceRouter = express.Router()
   .use(express.json({ limit: "1mb" }))
-  //.use(verifyJwt)
+  .use(verifyJwt)
   .post("/", marketplaceHandler);
