@@ -64,7 +64,7 @@ async function startOAuthLogin(req: Request, res: Response): Promise<void> {
     const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
     authUrl.searchParams.set("client_id", process.env.MP_LANDING_CLIENT_ID!);
     authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("redirect_uri", `${req.protocol}://${req.get('host')}/api/marketplace/landing/oauth-callback`);
+    authUrl.searchParams.set("redirect_uri", `https://${req.get('host')}/api/marketplace/landing/oauth-callback`);
     authUrl.searchParams.set("scope", "openid profile email");
     authUrl.searchParams.set("state", stateId);
     authUrl.searchParams.set("prompt", "select_account");
