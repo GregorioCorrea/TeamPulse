@@ -7,7 +7,8 @@ import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
 // ── SP Credentials para llamar al SaaS Fulfillment API
 const credential = new ClientSecretCredential(
-  process.env.MP_TENANT_ID!,     
+//  process.env.MP_TENANT_ID!, //esto es si usás un tenant específico
+  "common", // para usar el tenant común de Microsoft   
   process.env.MP_CLIENT_ID!,     
   process.env.MP_CLIENT_SECRET!  
 );
