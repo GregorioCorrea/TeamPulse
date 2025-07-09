@@ -110,7 +110,7 @@ async function handleOAuthCallback(req: Request, res: Response): Promise<void> {
     // Intercambiar código por tokens
     const tokens = await exchangeCodeForTokens(
       code as string, 
-      `${req.protocol}://${req.get('host')}/api/marketplace/landing/oauth-callback`
+      `https://${req.get('host')}/api/marketplace/landing/oauth-callback`
     );
 
     console.log("✅ [OAuth] Tokens obtenidos de Microsoft");
