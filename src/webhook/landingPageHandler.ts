@@ -7,11 +7,11 @@ import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 import { URLSearchParams } from "url";
 
-// ── Configuración para App 2 (Single-tenant, solo para APIs)
+// ✅ CORRECTO: Usar App 1 para todo
 const apiCredential = new ClientSecretCredential(
-  process.env.MP_API_TENANT_ID!,     
-  process.env.MP_API_CLIENT_ID!,     
-  process.env.MP_API_CLIENT_SECRET!  
+  "13f589d5-7606-4f33-94d5-619af04f5fc8",  // Tenant específico  
+  process.env.MP_LANDING_CLIENT_ID!,        // ← App 1 (la del marketplace)
+  process.env.MP_LANDING_CLIENT_SECRET!     // ← App 1 secret
 );
 
 // ── Configuración de la tabla MarketplaceSubscriptions
@@ -66,7 +66,7 @@ async function startOAuthLogin(req: Request, res: Response): Promise<void> {
 
     // Construir URL de autorización de Microsoft
     const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
-    authUrl.searchParams.set("client_id", process.env.MP_API_CLIENT_ID!); //decía MP_LANDING_CLIENT_ID
+    authUrl.searchParams.set("client_id", process.env.MP_LANDING_CLIENT_ID!);
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set("redirect_uri", `https://${req.get('host')}/api/marketplace/landing/oauth-callback`);
     authUrl.searchParams.set("scope", "openid profile email");
@@ -143,8 +143,8 @@ async function exchangeCodeForTokens(code: string, redirectUri: string): Promise
   const tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
   
   const params = new URLSearchParams();
-  params.append("client_id", process.env.MP_API_CLIENT_ID!); //decía MP_LANDING_CLIENT_ID
-  params.append("client_secret", process.env.MP_API_CLIENT_SECRET!); //decía MP_LANDING_CLIENT_SECRET
+  params.append("client_id", process.env.MP_LANDING_CLIENT_ID!);
+  params.append("client_secret", process.env.MP_LANDING_CLIENT_SECRET!);
   params.append("code", code);
   params.append("grant_type", "authorization_code");
   params.append("redirect_uri", redirectUri);
