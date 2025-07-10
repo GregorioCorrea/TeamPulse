@@ -7,13 +7,8 @@ import * as path from "path";
 import config from "../config";
 import { AzureTableService } from "../services/azureTableService";
 import { sha256 } from "../utils/hash"; 
-import { 
-  canCreateSurvey, 
-  registerSurveyCreation, 
-  getUsageSummary, 
-  checkResponsesLimit,
-  getPlan 
-} from "../middleware/planLimiter";
+import { canCreateSurvey, registerSurveyCreation, getUsageSummary, checkResponsesLimit } from "../middleware/planLimiter";
+import { getPlan } from "../middleware/planLimiter";
 import { enviarReportePorEmail } from "../services/emailService";  // Envío de correos electrónicos
 import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
 
@@ -304,7 +299,6 @@ app.adaptiveCards.actionSubmit('survey_response', async (context, state, data) =
     await context.sendActivity("❌ Error al procesar tu respuesta. Intenta nuevamente.");
   }
 });
-
 
 // Handler para ver resultados desde card
 app.adaptiveCards.actionSubmit('view_results', async (context, state, data) => {
@@ -1122,7 +1116,7 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
 // COMANDOS DE TEXTO
 // ============================
 
-// COMANDO ANALIZAR (versión mejorada)
+// COMANDO ANALIZAR
 app.message(/^analizar\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^analizar\s+(.+)$/i);
   if (!match || !match[1]) {
@@ -1132,68 +1126,58 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
 
   const encuestaId = match[1].trim();
   try {
-    // Verificar plan del tenant
-    const tenantId = context.activity.channelData?.tenant?.id;
-    const plan = tenantId ? await getPlan(tenantId) : "free";
-    
-    if (plan === "free") {
-      await context.sendActivity(
-        "⭐ **Característica premium**: El análisis detallado está disponible solo en planes **Professional** y **Enterprise**.\n\nActualiza tu plan para acceder a insights detallados de IA."
-      );
-      return;
-    }
-
-    await context.sendActivity("🧠 **Generando análisis con IA...**");
-
     // 1) Cargar encuesta y resultados existentes
     const encuesta = await azureService.cargarEncuesta(encuestaId);
     if (!encuesta) {
       await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
       return;
     }
-    
     const resultados = await azureService.cargarResultados(encuestaId);
     if (!resultados || resultados.totalParticipantes === 0) {
       await context.sendActivity("📊 Esta encuesta no tiene respuestas suficientes para analizar.");
       return;
     }
 
-    // 2) Importar el servicio de análisis de IA
-    const { obtenerAnalisisDesdeAzure, generarAnalisisIA } = await import("../services/aiInsightsService");
-
-    // 3) Verificar si ya existe un análisis reciente (menos de 24h)
-    let analisis = await obtenerAnalisisDesdeAzure(encuestaId);
-    const ahora = new Date();
-    
-    // Si existe un análisis, verificar si es reciente
-    if (analisis) {
-      const ultimaActualizacion = new Date(analisis.ultimaActualizacion);
-      const horasDesdeActualizacion = Math.abs(ahora.getTime() - ultimaActualizacion.getTime()) / 36e5;
-      
-      // Si el análisis tiene más de 24 horas o hay nuevas respuestas, regenerar
-      if (horasDesdeActualizacion > 24) {
-        analisis = null; // Forzar regeneración
+    // 2) Preparar un resumen breve de resultados para el prompt de IA
+    let resumenTexto = `Encuesta: "${encuesta.titulo}" (Participantes: ${resultados.totalParticipantes})\n`;
+    encuesta.preguntas.forEach((pregunta, idx) => {
+      resumenTexto += `\n**${idx + 1}. ${pregunta.pregunta}**\n`;
+      const opciones = pregunta.opciones;
+      const conteos = resultados.resumen?.[idx] || {};
+      for (const opcion of opciones) {
+        const votos = conteos[opcion] ?? 0;
+        resumenTexto += `- ${opcion}: ${votos} votos\n`;
       }
+    });
+
+    // 3) Consultar a Azure OpenAI para obtener análisis usando fetch (nativo en Node 20)
+    const openAIUrl = `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeploymentName}/chat/completions?api-version=2023-07-01-preview`;
+
+    const openAIResponse = await fetch(openAIUrl, {
+      method: "POST",
+      headers: {
+        "api-key": config.azureOpenAIKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: "Eres un analista de RRHH..." },
+          { role: "user", content: "Analiza los siguientes resultados...\n\n" + resumenTexto }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      })
+    });
+
+    const data = await openAIResponse.json();
+    const mensajeAI = data.choices?.[0]?.message?.content;
+
+    if (mensajeAI) {
+      // 4) Enviar el insight generado por la IA al usuario
+      await context.sendActivity(`🤖 **Insight de TeamPulse:**\n\n${mensajeAI}`);
+    } else {
+      await context.sendActivity("⚠️ No se pudo generar un análisis en este momento.");
     }
-
-    // 4) Si no hay análisis reciente, generarlo
-    if (!analisis) {
-      // Preparar datos para el análisis
-      const datosAnalisis = encuesta.preguntas.map((pregunta, idx) => {
-        return {
-          pregunta: pregunta.pregunta,
-          opciones: pregunta.opciones,
-          resultados: resultados.resumen?.[idx] || {}
-        };
-      });
-
-      // Generar análisis con IA
-      analisis = await generarAnalisisIA(encuestaId, encuesta.titulo, datosAnalisis);
-    }
-
-    // 5) Crear tarjeta de análisis detallado
-    const analysisCard = createAnalysisCard(analisis, encuesta, resultados);
-    await context.sendActivity(MessageFactory.attachment(analysisCard));
 
   } catch (error) {
     console.error("❌ Error en analizar encuesta:", error);
@@ -1385,110 +1369,6 @@ app.message(/^exportar\s+(.+)$/i, async (context, state) => {
   }
 });
 
-// COMANDO DE DIAGNÓSTICO ADMIN
-// Este comando es solo para administradores y permite diagnosticar problemas con los planes
-
-app.message(/^admin_diagnose$/i, async (context) => {
-  try {
-    // Verificar si es administrador - Reemplaza estos IDs con los reales
-    const adminUserIds = [
-      "105af15b-7381-4370-99a0-0cb24dcc6886", // ID de Gregorio Correa en Tenant Incuba
-      // Agrega otros IDs de administradores si es necesario
-    ];
-    
-    const userId = context.activity.from.id;
-    const userName = context.activity.from.name;
-    
-    if (!adminUserIds.includes(userId)) {
-      await context.sendActivity("🔒 Este comando es solo para administradores.");
-      return;
-    }
-    
-    await context.sendActivity("🔍 **Iniciando diagnóstico...**");
-    
-    // Obtener info del tenant actual
-    const tenantId = context.activity.channelData?.tenant?.id;
-    const tenantName = context.activity.channelData?.tenant?.name || "Desconocido";
-    
-    await context.sendActivity(`📊 **Información de contexto:**
-• Usuario: ${userName} (ID: ${userId})
-• Tenant: ${tenantName} (ID: ${tenantId})
-`);
-    
-    // Importar TableClient para diagnóstico
-    const { TableClient, AzureNamedKeyCredential } = await import("@azure/data-tables");
-    
-    const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-    const key = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
-    const cred = new AzureNamedKeyCredential(account, key);
-    
-    const subsTable = new TableClient(
-      `https://${account}.table.core.windows.net`,
-      "MarketplaceSubscriptions",
-      cred
-    );
-    
-    // Buscar todas las suscripciones relacionadas con este tenant
-    let mensaje = `🔍 **Suscripciones para tenant ${tenantId}:**\n\n`;
-    
-    const entities = subsTable.listEntities({
-      queryOptions: {
-        filter: `userTenant eq '${tenantId}'`
-      }
-    });
-    
-    let count = 0;
-    for await (const entity of entities) {
-      count++;
-      mensaje += `**Suscripción ${count}:**\n`;
-      mensaje += `• PartitionKey: \`${entity.partitionKey}\`\n`;
-      mensaje += `• RowKey: \`${entity.rowKey}\`\n`;
-      mensaje += `• PlanId: \`${entity.planId}\`\n`;
-      mensaje += `• Status: \`${entity.status}\`\n`;
-      mensaje += `• UserEmail: \`${entity.userEmail}\`\n`;
-      mensaje += `• UserName: \`${entity.userName}\`\n`;
-      mensaje += `• LastModified: \`${entity.lastModified}\`\n\n`;
-    }
-    
-    if (count === 0) {
-      mensaje += "❌ **No se encontraron suscripciones para este tenant.**\n\n";
-    }
-    
-    // Buscar todas las suscripciones en la tabla (max 10)
-    mensaje += `📋 **Últimas 10 suscripciones en la tabla:**\n\n`;
-    
-    const allEntities = subsTable.listEntities();
-    count = 0;
-    for await (const entity of allEntities) {
-      if (count >= 10) break;
-      count++;
-      
-      mensaje += `**${count}. ${entity.planId || 'Sin planId'}:**\n`;
-      mensaje += `• Tenant: \`${entity.userTenant || 'N/A'}\`\n`;
-      mensaje += `• Status: \`${entity.status || 'N/A'}\`\n`;
-      mensaje += `• UserName: \`${entity.userName || 'N/A'}\`\n\n`;
-    }
-    
-    if (count === 0) {
-      mensaje += "❌ **No se encontraron suscripciones en la tabla.**\n\n";
-    }
-    
-    // Verificar el plan actual según la implementación de getPlan
-    const { getPlan } = await import("../middleware/planLimiter");
-    const planActual = await getPlan(tenantId);
-    
-    mensaje += `🎯 **Plan determinado por getPlan:** \`${planActual}\`\n\n`;
-    
-    mensaje += `✅ **Diagnóstico completado.**`;
-    
-    await context.sendActivity(mensaje);
-    
-  } catch (error) {
-    console.error("❌ Error en diagnóstico admin:", error);
-    await context.sendActivity("❌ Error durante el diagnóstico. Revisa los logs del servidor.");
-  }
-});
-
 // COMANDO DEBUG
 app.message(/^debug_cards$/i, async (context, state) => {
   const testCard = {
@@ -1531,51 +1411,16 @@ app.message(/^debug_cards$/i, async (context, state) => {
 // Muestra el estado del plan del usuario
 
 app.message(/^plan_info|mi_plan$/i, async (context) => {
-  try {
-    const tenantId = context.activity.channelData?.tenant?.id;
-    if (!tenantId) {
-      await context.sendActivity("❌ No se pudo determinar el tenant. Por favor, inténtalo desde Microsoft Teams.");
-      return;
-    }
+  const tenantId = context.activity.channelData?.tenant?.id;
+  if (!tenantId) return;
 
-    console.log(`🔍 Obteniendo información de plan para tenant: ${tenantId}`);
-    
-    // Importar directamente las funciones actualizadas
-    // Esto garantiza que estamos usando la versión más reciente
-    const { getPlan, getUsageSummary } = await import("../middleware/planLimiter");
-    
-    // Obtener información del plan directamente
-    const planType = await getPlan(tenantId);
-    console.log(`✅ Plan detectado: ${planType}`);
-    
-    // Obtener resumen de uso
-    const info = await getUsageSummary(tenantId);
-    
-    // Nombres amigables de los planes
-    const planNames = {
-      "free": "GRATUITO",
-      "pro": "PROFESIONAL",
-      "ent": "ENTERPRISE"
-    };
-    
-    const planName = planNames[info.plan] || info.plan.toUpperCase();
-    
-    // Incluir información de debug
-    console.log(`📊 Información detallada: ${JSON.stringify(info)}`);
-    
-    await context.sendActivity(
-      `📊 **Estado de tu plan ${planName}**\n` +
-      `• Tenant ID: \`${tenantId}\`\n` +
-      `• Plan ID interno: \`${info.planOriginal}\`\n` +
-      `• Encuestas usadas este mes: **${info.usados}/${info.max}**\n` +
-      `• Te quedan: **${info.quedan}**\n` +
-      `• Uso: **${info.porcentaje}%**\n\n` +
-      `_Para actualizar tu plan, visita https://teampulse.incumate.io/pricing_`
-    );
-  } catch (error) {
-    console.error("❌ Error al obtener información del plan:", error);
-    await context.sendActivity("❌ Ocurrió un error al recuperar la información de tu plan. Por favor, intenta nuevamente.");
-  }
+  const info = await getUsageSummary(tenantId);
+  await context.sendActivity(
+    `📊 **Estado de tu plan ${info.plan.toUpperCase()}**\n` +
+    `• Encuestas usadas este mes: **${info.usados}/${info.max}**\n` +
+    `• Te quedan: **${info.quedan}**\n` +
+    `• Uso: **${info.porcentaje}%**`
+  );
 });
 
 // COMANDO REPORTAR
@@ -2328,213 +2173,5 @@ function createAvailableCommandsCard(): any {
   return CardFactory.adaptiveCard(card);
 }
 
-// Función para crear la tarjeta de análisis
-function createAnalysisCard(analisis: any, encuesta: any, resultados: any): any {
-  const participantes = resultados.totalParticipantes || 0;
-  
-  // Elegir el emoji de sentimiento
-  const sentimientoEmoji = 
-    analisis.sentimiento === "positivo" ? "🟢" :
-    analisis.sentimiento === "negativo" ? "🔴" : "🟡";
-  
-  // Crear la tarjeta
-  const card = {
-    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-    "type": "AdaptiveCard",
-    "version": "1.4",
-    "body": [
-      {
-        "type": "Container",
-        "style": "emphasis",
-        "items": [
-          {
-            "type": "ColumnSet",
-            "columns": [
-              {
-                "type": "Column",
-                "width": "stretch",
-                "items": [
-                  {
-                    "type": "TextBlock",
-                    "text": "🧠 Análisis de IA",
-                    "weight": "Bolder",
-                    "size": "Medium",
-                    "color": "Accent"
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": encuesta.titulo,
-                    "size": "Medium",
-                    "weight": "Bolder"
-                  }
-                ]
-              },
-              {
-                "type": "Column",
-                "width": "auto",
-                "items": [
-                  {
-                    "type": "TextBlock",
-                    "text": `👥 ${participantes}`,
-                    "weight": "Bolder",
-                    "horizontalAlignment": "Right"
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": "participantes",
-                    "horizontalAlignment": "Right"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "type": "Container",
-        "style": "default",
-        "items": [
-          {
-            "type": "TextBlock",
-            "text": "📝 **Resumen Ejecutivo**",
-            "weight": "Bolder",
-            "size": "Medium",
-            "color": "Accent"
-          },
-          {
-            "type": "TextBlock",
-            "text": analisis.resumen,
-            "wrap": true
-          }
-        ]
-      },
-      {
-        "type": "Container",
-        "style": "emphasis",
-        "items": [
-          {
-            "type": "ColumnSet",
-            "columns": [
-              {
-                "type": "Column",
-                "width": "stretch",
-                "items": [
-                  {
-                    "type": "TextBlock",
-                    "text": "Sentimiento general",
-                    "weight": "Bolder"
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": `${sentimientoEmoji} ${analisis.sentimiento.toUpperCase()}`
-                  }
-                ]
-              },
-              {
-                "type": "Column",
-                "width": "auto",
-                "items": [
-                  {
-                    "type": "TextBlock",
-                    "text": analisis.puntuacionNPS ? "Puntuación NPS" : " ",
-                    "weight": "Bolder"
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": analisis.puntuacionNPS ? `${analisis.puntuacionNPS}` : " "
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "type": "Container",
-        "style": "default",
-        "items": [
-          {
-            "type": "TextBlock",
-            "text": "🔍 **Insights Clave**",
-            "weight": "Bolder",
-            "size": "Medium",
-            "color": "Accent"
-          },
-          {
-            "type": "TextBlock",
-            "text": analisis.insights.general,
-            "wrap": true
-          }
-        ]
-      },
-      {
-        "type": "Container",
-        "style": "emphasis",
-        "items": [
-          {
-            "type": "TextBlock",
-            "text": "📈 **Tendencias Identificadas**",
-            "weight": "Bolder",
-            "size": "Medium",
-            "color": "Accent"
-          },
-          {
-            "type": "FactSet",
-            "facts": analisis.insights.tendencias.map((t: string, i: number) => ({
-              "title": `${i + 1}.`,
-              "value": t
-            }))
-          }
-        ]
-      },
-      {
-        "type": "Container",
-        "style": "default",
-        "items": [
-          {
-            "type": "TextBlock",
-            "text": "🎯 **Recomendaciones**",
-            "weight": "Bolder",
-            "size": "Medium",
-            "color": "Accent"
-          },
-          {
-            "type": "FactSet",
-            "facts": analisis.insights.recomendaciones.map((r: string, i: number) => ({
-              "title": `${i + 1}.`,
-              "value": r
-            }))
-          }
-        ]
-      },
-      {
-        "type": "TextBlock",
-        "text": `Última actualización: ${new Date(analisis.ultimaActualizacion).toLocaleString()}`,
-        "size": "Small",
-        "isSubtle": true
-      }
-    ],
-    "actions": [
-      {
-        "type": "Action.Submit",
-        "title": "📋 Ver Todas las Encuestas",
-        "data": {
-          "verb": "list_surveys"
-        }
-      },
-      {
-        "type": "Action.Submit",
-        "title": "📊 Ver Resultados",
-        "data": {
-          "verb": "view_survey_results",
-          "encuestaId": encuesta.id,
-          "titulo": encuesta.titulo
-        }
-      }
-    ]
-  };
-
-  return CardFactory.adaptiveCard(card);
-}
 
 export default app;
