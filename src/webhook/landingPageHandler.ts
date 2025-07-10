@@ -27,7 +27,11 @@ const subsTable = new TableClient(
 async function getMarketplaceApiToken(): Promise<string> {
   try {
     console.log("🔑 [Landing] Obteniendo token de API (App 2)...");
-    const { token } = await apiCredential.getToken("20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default");
+    const { token } = await apiCredential.getToken([
+      "20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default"
+    ], {
+      tenantId: process.env.MP_API_TENANT_ID
+    });
     
     if (!token) {
       throw new Error("No se pudo obtener el token de API");
