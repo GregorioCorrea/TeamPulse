@@ -62,6 +62,7 @@ app.get("/admin", (req, res) => {
     path.join(process.cwd(), "admin", "adminPanel.html"),
     path.join(__dirname, "..", "admin", "adminPanel.html"),
     path.join(__dirname, "..", "..", "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "..", "src/admin", "adminPanel.html"),
     path.join(__dirname, "admin", "adminPanel.html")
   ];
 
