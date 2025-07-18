@@ -57,24 +57,26 @@ app.use("/api/admin", adminRouter);
 
 // ── 🆕 SERVE ADMIN PANEL HTML ────────────────────────────────────
 app.get("/admin", (req, res) => {
-  try {
-    const adminPanelPath = path.join(__dirname, "..", "admin", "adminPanel.html");
-    console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);
-    res.sendFile(adminPanelPath);
-  } catch (error) {
-    console.error("❌ Error serving admin panel:", error);
-    res.status(500).send(`
-      <html>
-        <head><title>TeamPulse Admin - Error</title></head>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-          <h1>🚫 Admin Panel Error</h1>
-          <p>No se pudo cargar el panel de administración.</p>
-          <p><strong>Error:</strong> ${error.message}</p>
-          <a href="/" style="color: #0078d4;">← Volver al inicio</a>
-        </body>
-      </html>
-    `);
+  // Múltiples rutas posibles
+  const possiblePaths = [
+    path.join(process.cwd(), "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "admin", "adminPanel.html"),
+    path.join(__dirname, "admin", "adminPanel.html")
+  ];
+
+  for (const filePath of possiblePaths) {
+    try {
+      if (require('fs').existsSync(filePath)) {
+        console.log(`✅ Found admin panel at: ${filePath}`);
+        return res.sendFile(filePath);
+      }
+    } catch (error) {
+      console.log(`❌ Path not found: ${filePath}`);
+    }
   }
+
+  // Si ninguna ruta funciona
+  res.status(404).send("Admin panel not found");
 });
 
 // ── 🆕 ADMIN PANEL ASSETS (if needed) ────────────────────────────
