@@ -58,7 +58,7 @@ app.use("/api/admin", adminRouter);
 // ── 🆕 SERVE ADMIN PANEL HTML ────────────────────────────────────
 app.get("/admin", (req, res) => {
   try {
-    const adminPanelPath = path.join(__dirname, "admin", "adminPanel.html");
+    const adminPanelPath = path.join(__dirname, "..", "admin", "adminPanel.html");
     console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);
     res.sendFile(adminPanelPath);
   } catch (error) {
@@ -78,7 +78,7 @@ app.get("/admin", (req, res) => {
 });
 
 // ── 🆕 ADMIN PANEL ASSETS (if needed) ────────────────────────────
-app.use("/admin/assets", express.static(path.join(__dirname, "admin", "assets")));
+app.use("/admin/assets", express.static(path.join(__dirname, "..", "admin", "assets")));
 
 // ── Webhook de Marketplace (JWT + JSON) - SIN CAMBIOS ────────────
 app.use("/api/marketplace/webhook", marketplaceRouter);
