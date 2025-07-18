@@ -61,6 +61,7 @@ app.get("/admin", (req, res) => {
   const possiblePaths = [
     path.join(process.cwd(), "admin", "adminPanel.html"),
     path.join(__dirname, "..", "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "..", "admin", "adminPanel.html"),
     path.join(__dirname, "admin", "adminPanel.html")
   ];
 
