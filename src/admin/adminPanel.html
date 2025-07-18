@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamPulse - Panel de Administración</title>
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            color: #718096;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.4);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            font-size: 1.2rem;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 2px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(245, 101, 101, 0.4);
+        }
+
+        .main-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .surveys-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .survey-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .survey-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .survey-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.3);
+            border-color: #667eea;
+        }
+
+        .survey-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .survey-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .survey-id {
+            font-family: 'Courier New', monospace;
+            background: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .survey-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .meta-item {
+            text-align: center;
+        }
+
+        .meta-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .meta-label {
+            font-size: 0.8rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .survey-objective {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .survey-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-inactive {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: translateY(-50px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #a0aec0;
+            transition: color 0.3s ease;
+        }
+
+        .close:hover {
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .question-item {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .question-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .options-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .option-tag {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            z-index: 2000;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                min-width: auto;
+            }
+
+            .survey-actions {
+                justify-content: center;
+            }
+
+            .survey-meta {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎯 TeamPulse Admin</h1>
+            <p class="subtitle">Panel de administración de encuestas y análisis</p>
+            
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalSurveys">-</div>
+                    <div class="stat-label">Total Encuestas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="activeSurveys">-</div>
+                    <div class="stat-label">Activas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalResponses">-</div>
+                    <div class="stat-label">Respuestas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgResponseRate">-</div>
+                    <div class="stat-label">Promedio/Encuesta</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="controls-row">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Buscar encuestas...">
+                </div>
+                <button class="btn btn-primary" onclick="showCreateModal()">
+                    ➕ Nueva Encuesta
+                </button>
+                <button class="btn btn-secondary" onclick="refreshData()">
+                    🔄 Actualizar
+                </button>
+                <button class="btn btn-secondary" onclick="exportAllData()">
+                    📊 Exportar Datos
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Cargando encuestas...</p>
+            </div>
+
+            <div id="surveysContainer" class="surveys-grid" style="display: none;">
+                <!-- Surveys will be loaded here -->
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-icon">📋</div>
+                <h3>No hay encuestas disponibles</h3>
+                <p>Crea tu primera encuesta para comenzar</p>
+                <button class="btn btn-primary" onclick="showCreateModal()">
+                    ➕ Crear Primera Encuesta
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Survey Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">✏️ Editar Encuesta</h2>
+                <button class="close" onclick="closeEditModal()">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Título de la Encuesta</label>
+                <input type="text" class="form-input" id="editTitle" placeholder="Ej: Clima Laboral 2024">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Objetivo</label>
+                <textarea class="form-input form-textarea" id="editObjective" placeholder="Describe el objetivo de esta encuesta..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Preguntas</label>
+                <div id="questionsContainer">
+                    <!-- Questions will be loaded here -->
+                </div>
+                <button type="button" class="btn btn-secondary btn-small" onclick="addQuestion()">
+                    ➕ Agregar Pregunta
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveChanges()">💾 Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let microsoftTeams;
+        let authToken = null;
+        let currentSurveyId = null;
+        let surveysData = [];
+
+        // Initialize Teams SDK
+        async function initializeTeams() {
+            try {
+                await microsoftTeams.app.initialize();
+                console.log('✅ Teams SDK initialized');
+                
+                // Get authentication context
+                const context = await microsoftTeams.app.getContext();
+                console.log('✅ Teams context:', context);
+                
+                // Get SSO token
+                try {
+                    authToken = await microsoftTeams.authentication.getAuthToken();
+                    console.log('✅ Auth token obtained');
+                } catch (authError) {
+                    console.warn('⚠️ Could not get auth token:', authError);
+                }
+                
+                // Load initial data
+                await loadSurveys();
+                
+            } catch (error) {
+                console.error('❌ Teams initialization failed:', error);
+                showNotification('Error al inicializar Teams', 'error');
+                // Continue without Teams integration for development
+                await loadSurveys();
+            }
+        }
+
+        // API calls
+        async function makeAPICall(endpoint, options = {}) {
+            const baseURL = window.location.origin;
+            const url = `${baseURL}/api/admin${endpoint}`;
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                }
+            };
+            
+            const finalOptions = { ...defaultOptions, ...options };
+            if (options.body && typeof options.body === 'object') {
+                finalOptions.body = JSON.stringify(options.body);
+            }
+            
+            try {
+                const response = await fetch(url, finalOptions);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return await response.json();
+                } else {
+                    return await response.text();
+                }
+            } catch (error) {
+                console.error(`❌ API call failed: ${endpoint}`, error);
+                throw error;
+            }
+        }
+
+        // Load surveys from backend
+        async function loadSurveys() {
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('surveysContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            try {
+                loading.style.display = 'block';
+                container.style.display = 'none';
+                emptyState.style.display = 'none';
+                
+                // For now, use mock data until backend endpoint is ready
+                const surveys = await getMockSurveys();
+                surveysData = surveys;
+                
+                updateStatistics(surveys);
+                renderSurveys(surveys);
+                
+                loading.style.display = 'none';
+                
+                if (surveys.length === 0) {
+                    emptyState.style.display = 'block';
+                } else {
+                    container.style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading surveys:', error);
+                loading.style.display = 'none';
+                showNotification('Error al cargar encuestas', 'error');
+            }
+        }
+
+        // Mock data for development
+        async function getMockSurveys() {
+            return [
+                {
+                    id: 'clima_123456_abc',
+                    titulo: 'Clima Laboral Q4 2024',
+                    objetivo: 'Evaluar la satisfacción y engagement de los empleados durante el último trimestre',
+                    preguntas: [
+                        {
+                            pregunta: '¿Cómo calificarías el ambiente de trabajo?',
+                            opciones: ['Excelente', 'Bueno', 'Regular', 'Malo']
+                        },
+                        {
+                            pregunta: '¿Te sientes valorado en tu rol?',
+                            opciones: ['Siempre', 'Frecuentemente', 'A veces', 'Nunca']
+                        }
+                    ],
+                    creador: 'Admin',
+                    fechaCreacion: new Date('2024-01-15'),
+                    estado: 'activa',
+                    totalRespuestas: 47,
+                    basadoEnTemplate: 'clima_laboral_v1'
+                },
+                {
+                    id: 'nps_789012_def',
+                    titulo: 'NPS Clientes - Enero 2024',
+                    objetivo: 'Medir la satisfacción del cliente y probabilidad de recomendación',
+                    preguntas: [
+                        {
+                            pregunta: '¿Qué tan probable es que recomiendes nuestro servicio?',
+                            opciones: ['9-10 (Promotor)', '7-8 (Neutral)', '0-6 (Detractor)']
+                        }
+                    ],
+                    creador: 'Marketing Team',
+                    fechaCreacion: new Date('2024-01-10'),
+                    estado: 'activa',
+                    totalRespuestas: 23,
+                    basadoEnTemplate: 'nps_cliente_v1'
+                },
+                {
+                    id: 'training_345678_ghi',
+                    titulo: 'Feedback Capacitación Ventas',
+                    objetivo: 'Evaluar efectividad del entrenamiento en técnicas de venta',
+                    preguntas: [
+                        {
+                            pregunta: '¿La capacitación cumplió tus expectativas?',
+                            opciones: ['Superó expectativas', 'Cumplió expectativas', 'Parcialmente', 'No cumplió']
+                        }
+                    ],
+                    creador: 'HR Department',
+                    fechaCreacion: new Date('2024-01-05'),
+                    estado: 'cerrada',
+                    totalRespuestas: 12,
+                    basadoEnTemplate: 'feedback_capacitacion_v1'
+                }
+            ];
+        }
+
+        // Update statistics
+        function updateStatistics(surveys) {
+            const total = surveys.length;
+            const active = surveys.filter(s => s.estado === 'activa').length;
+            const totalResponses = surveys.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0);
+            const avgResponses = total > 0 ? Math.round(totalResponses / total) : 0;
+            
+            document.getElementById('totalSurveys').textContent = total;
+            document.getElementById('activeSurveys').textContent = active;
+            document.getElementById('totalResponses').textContent = totalResponses;
+            document.getElementById('avgResponseRate').textContent = avgResponses;
+        }
+
+        // Render surveys
+        function renderSurveys(surveys) {
+            const container = document.getElementById('surveysContainer');
+            
+            if (surveys.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const surveysHTML = surveys.map(survey => `
+                <div class="survey-card">
+                    <div class="survey-header">
+                        <div>
+                            <h3 class="survey-title">${survey.titulo}</h3>
+                            <span class="survey-id">ID: ${survey.id}</span>
+                        </div>
+                        <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
+                            ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
+                        </span>
+                    </div>
+                    
+                    <div class="survey-meta">
+                        <div class="meta-item">
+                            <div class="meta-value">${survey.preguntas.length}</div>
+                            <div class="meta-label">Preguntas</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-value">${survey.totalRespuestas || 0}</div>
+                            <div class="meta-label">Respuestas</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-value">${formatDate(survey.fechaCreacion)}</div>
+                            <div class="meta-label">Creada</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-value">${survey.creador}</div>
+                            <div class="meta-label">Creador</div>
+                        </div>
+                    </div>
+                    
+                    <div class="survey-objective">
+                        <strong>📋 Objetivo:</strong> ${survey.objetivo}
+                    </div>
+                    
+                    <div class="survey-actions">
+                        <button class="btn btn-primary btn-small" onclick="editSurvey('${survey.id}')">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="viewResults('${survey.id}')">
+                            📊 Resultados
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="toggleSurveyStatus('${survey.id}')">
+                            ${survey.estado === 'activa' ? '⏸️ Pausar' : '▶️ Activar'}
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="duplicateSurvey('${survey.id}')">
+                            📄 Duplicar
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="deleteSurvey('${survey.id}')">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = surveysHTML;
+        }
+
+        // Survey actions
+        function editSurvey(surveyId) {
+            const survey = surveysData.find(s => s.id === surveyId);
+            if (!survey) return;
+            
+            currentSurveyId = surveyId;
+            
+            document.getElementById('editTitle').value = survey.titulo;
+            document.getElementById('editObjective').value = survey.objetivo;
+            
+            renderQuestions(survey.preguntas);
+            
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function renderQuestions(questions) {
+            const container = document.getElementById('questionsContainer');
+            
+            const questionsHTML = questions.map((question, index) => `
+                <div class="question-item">
+                    <div class="question-header">
+                        <div class="question-number">${index + 1}</div>
+                        <button class="btn btn-danger btn-small" onclick="removeQuestion(${index})">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                    <input type="text" class="form-input" placeholder="Texto de la pregunta" 
+                           value="${question.pregunta}" onchange="updateQuestion(${index}, 'pregunta', this.value)">
+                    <div class="options-list">
+                        ${question.opciones.map((option, optIndex) => `
+                            <div class="option-tag">
+                                <input type="text" value="${option}" 
+                                       onchange="updateQuestionOption(${index}, ${optIndex}, this.value)"
+                                       style="background: none; border: none; width: 100%; color: inherit;">
+                                <button onclick="removeOption(${index}, ${optIndex})" style="margin-left: 8px; background: none; border: none; color: #e53e3e; cursor: pointer;">×</button>
+                            </div>
+                        `).join('')}
+                        <button class="btn btn-secondary btn-small" onclick="addOption(${index})" style="margin-top: 8px;">
+                            ➕ Agregar Opción
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = questionsHTML;
+        }
+
+        function addQuestion() {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.preguntas.push({
+                pregunta: 'Nueva pregunta',
+                opciones: ['Opción 1', 'Opción 2']
+            });
+            
+            renderQuestions(survey.preguntas);
+        }
+
+        function removeQuestion(index) {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.preguntas.splice(index, 1);
+            renderQuestions(survey.preguntas);
+        }
+
+        function updateQuestion(index, field, value) {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.preguntas[index][field] = value;
+        }
+
+        function updateQuestionOption(questionIndex, optionIndex, value) {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.preguntas[questionIndex].opciones[optionIndex] = value;
+        }
+
+        function addOption(questionIndex) {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.preguntas[questionIndex].opciones.push('Nueva opción');
+            renderQuestions(survey.preguntas);
+        }
+
+        function removeOption(questionIndex, optionIndex) {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey || survey.preguntas[questionIndex].opciones.length <= 2) return;
+            
+            survey.preguntas[questionIndex].opciones.splice(optionIndex, 1);
+            renderQuestions(survey.preguntas);
+        }
+
+        async function saveChanges() {
+            const survey = surveysData.find(s => s.id === currentSurveyId);
+            if (!survey) return;
+            
+            survey.titulo = document.getElementById('editTitle').value;
+            survey.objetivo = document.getElementById('editObjective').value;
+            
+            try {
+                // Here we would call the backend API
+                // await makeAPICall(`/surveys/${currentSurveyId}`, {
+                //     method: 'PUT',
+                //     body: survey
+                // });
+                
+                showNotification('Encuesta actualizada exitosamente', 'success');
+                closeEditModal();
+                renderSurveys(surveysData);
+                
+            } catch (error) {
+                console.error('❌ Error saving changes:', error);
+                showNotification('Error al guardar cambios', 'error');
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentSurveyId = null;
+        }
+
+        async function viewResults(surveyId) {
+            const survey = surveysData.find(s => s.id === surveyId);
+            if (!survey) return;
+            
+            try {
+                // Here we would navigate to results view or open in new tab
+                showNotification(`Abriendo resultados de: ${survey.titulo}`, 'success');
+                
+                // For Teams integration, we could use:
+                // await microsoftTeams.pages.navigateToApp({
+                //     appId: "your-app-id",
+                //     pageId: "results",
+                //     subPageId: surveyId
+                // });
+                
+            } catch (error) {
+                console.error('❌ Error viewing results:', error);
+                showNotification('Error al abrir resultados', 'error');
+            }
+        }
+
+        async function toggleSurveyStatus(surveyId) {
+            const survey = surveysData.find(s => s.id === surveyId);
+            if (!survey) return;
+            
+            try {
+                const newStatus = survey.estado === 'activa' ? 'cerrada' : 'activa';
+                
+                // Here we would call the backend API
+                // await makeAPICall(`/surveys/${surveyId}/status`, {
+                //     method: 'PATCH',
+                //     body: { status: newStatus }
+                // });
+                
+                survey.estado = newStatus;
+                
+                showNotification(
+                    `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} exitosamente`, 
+                    'success'
+                );
+                
+                renderSurveys(surveysData);
+                updateStatistics(surveysData);
+                
+            } catch (error) {
+                console.error('❌ Error toggling survey status:', error);
+                showNotification('Error al cambiar estado de la encuesta', 'error');
+            }
+        }
+
+        async function duplicateSurvey(surveyId) {
+            const survey = surveysData.find(s => s.id === surveyId);
+            if (!survey) return;
+            
+            try {
+                const duplicatedSurvey = {
+                    ...survey,
+                    id: `${survey.id}_copy_${Date.now()}`,
+                    titulo: `${survey.titulo} (Copia)`,
+                    fechaCreacion: new Date(),
+                    totalRespuestas: 0,
+                    estado: 'activa'
+                };
+                
+                // Here we would call the backend API
+                // await makeAPICall('/surveys', {
+                //     method: 'POST',
+                //     body: duplicatedSurvey
+                // });
+                
+                surveysData.unshift(duplicatedSurvey);
+                
+                showNotification('Encuesta duplicada exitosamente', 'success');
+                renderSurveys(surveysData);
+                updateStatistics(surveysData);
+                
+            } catch (error) {
+                console.error('❌ Error duplicating survey:', error);
+                showNotification('Error al duplicar encuesta', 'error');
+            }
+        }
+
+        async function deleteSurvey(surveyId) {
+            const survey = surveysData.find(s => s.id === surveyId);
+            if (!survey) return;
+            
+            if (!confirm(`¿Estás seguro de que quieres eliminar "${survey.titulo}"?\n\nEsta acción no se puede deshacer.`)) {
+                return;
+            }
+            
+            try {
+                // Here we would call the backend API
+                // await makeAPICall(`/surveys/${surveyId}`, {
+                //     method: 'DELETE'
+                // });
+                
+                surveysData = surveysData.filter(s => s.id !== surveyId);
+                
+                showNotification('Encuesta eliminada exitosamente', 'success');
+                renderSurveys(surveysData);
+                updateStatistics(surveysData);
+                
+                if (surveysData.length === 0) {
+                    document.getElementById('surveysContainer').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error deleting survey:', error);
+                showNotification('Error al eliminar encuesta', 'error');
+            }
+        }
+
+        function showCreateModal() {
+            // For now, show a simple alert
+            // In the real implementation, this would open a create survey modal
+            alert('Funcionalidad de crear encuesta será implementada próximamente.\n\nPor ahora, usa el bot de Teams con el comando "crear encuesta"');
+        }
+
+        async function refreshData() {
+            await loadSurveys();
+            showNotification('Datos actualizados', 'success');
+        }
+
+        async function exportAllData() {
+            try {
+                const dataToExport = {
+                    surveys: surveysData,
+                    exportDate: new Date().toISOString(),
+                    totalSurveys: surveysData.length,
+                    totalResponses: surveysData.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0)
+                };
+                
+                const dataStr = JSON.stringify(dataToExport, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `teampulse_export_${new Date().toISOString().split('T')[0]}.json`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                URL.revokeObjectURL(url);
+                
+                showNotification('Datos exportados exitosamente', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error exporting data:', error);
+                showNotification('Error al exportar datos', 'error');
+            }
+        }
+
+        // Search functionality
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                
+                if (query === '') {
+                    renderSurveys(surveysData);
+                    return;
+                }
+                
+                const filteredSurveys = surveysData.filter(survey => 
+                    survey.titulo.toLowerCase().includes(query) ||
+                    survey.objetivo.toLowerCase().includes(query) ||
+                    survey.id.toLowerCase().includes(query) ||
+                    survey.creador.toLowerCase().includes(query)
+                );
+                
+                renderSurveys(filteredSurveys);
+                
+                if (filteredSurveys.length === 0) {
+                    document.getElementById('surveysContainer').innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔍</div>
+                            <h3>No se encontraron resultados</h3>
+                            <p>Intenta con otros términos de búsqueda</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // Utility functions
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            
+            const d = new Date(date);
+            const now = new Date();
+            const diffTime = Math.abs(now - d);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) return 'Ayer';
+            if (diffDays < 7) return `${diffDays} días`;
+            if (diffDays < 30) return `${Math.ceil(diffDays / 7)} semanas`;
+            if (diffDays < 365) return `${Math.ceil(diffDays / 30)} meses`;
+            
+            return d.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if we're in Teams context
+            if (window.microsoftTeams) {
+                microsoftTeams = window.microsoftTeams;
+                initializeTeams();
+            } else {
+                console.warn('⚠️ Teams SDK not available, running in standalone mode');
+                loadSurveys();
+            }
+            
+            setupSearch();
+            
+            // Close modal when clicking outside
+            window.onclick = (event) => {
+                const modal = document.getElementById('editModal');
+                if (event.target === modal) {
+                    closeEditModal();
+                }
+            };
+            
+            // Escape key to close modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeEditModal();
+                }
+            });
+        });
+
+        // Auto-refresh data every 5 minutes
+        setInterval(async () => {
+            try {
+                await loadSurveys();
+                console.log('✅ Auto-refresh completed');
+            } catch (error) {
+                console.error('❌ Auto-refresh failed:', error);
+            }
+        }, 5 * 60 * 1000);
+
+        console.log('🎯 TeamPulse Admin Panel loaded successfully');
+    </script>
+</body>
+</html>
