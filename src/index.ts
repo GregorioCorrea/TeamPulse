@@ -63,11 +63,13 @@ app.get("/admin", (req, res) => {
     path.join(__dirname, "..", "admin", "adminPanel.html"),
     path.join(__dirname, "..", "..", "admin", "adminPanel.html"),
     path.join(__dirname, "..", "..", "src/admin", "adminPanel.html"),
+    path.join(__dirname, "..", "src/admin", "adminPanel.html"),
     path.join(__dirname, "admin", "adminPanel.html")
   ];
 
   for (const filePath of possiblePaths) {
     try {
+      console.log(`✅ Testing this path: ${filePath}`);
       if (require('fs').existsSync(filePath)) {
         console.log(`✅ Found admin panel at: ${filePath}`);
         return res.sendFile(filePath);
