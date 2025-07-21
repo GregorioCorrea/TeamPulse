@@ -185,6 +185,53 @@ export class AzureTableService {
     }
   }
 
+  async agregarAdminUser(userId: string, tenantId: string, email: string, name: string, addedBy: string): Promise<void> {
+    try {
+      const entity = {
+        partitionKey: tenantId,
+        rowKey: userId,
+        email: email,
+        name: name,
+        isActive: true,
+        dateAdded: new Date().toISOString(),
+        addedBy: addedBy
+      };
+
+      await this.adminUsersTable.createEntity(entity);
+      console.log(`✅ Admin user added: ${email} in ${tenantId}`);
+    } catch (error) {
+      console.error('❌ Error adding admin user:', error);
+      throw error;
+    }
+  }
+
+  // Agregar este método en AzureTableService:
+  async listarAdminsEnTenant(tenantId: string): Promise<AdminUser[]> {
+    try {
+      const entities = this.adminUsersTable.listEntities({
+        queryOptions: { filter: `PartitionKey eq '${tenantId}'` }
+      });
+
+      const admins = [];
+      for await (const entity of entities) {
+        admins.push({
+          partitionKey: entity.partitionKey as string,
+          rowKey: entity.rowKey as string,
+          email: entity.email as string,
+          name: entity.name as string,
+          isActive: entity.isActive as boolean,
+          dateAdded: entity.dateAdded as string,
+          addedBy: entity.addedBy as string
+        });
+      }
+
+      return admins;
+    } catch (error) {
+      console.error('❌ Error listing tenant admins:', error);
+      return [];
+    }
+  }
+
   // ENCUESTAS
   async guardarEncuesta(encuesta: any): Promise<string> {
     try {
