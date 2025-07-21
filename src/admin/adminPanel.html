@@ -636,12 +636,9 @@
                 const context = await microsoftTeams.app.getContext();
                 console.log('✅ Teams context:', context);
                 
-                // Try to get SSO token with better error handling
+                // Try to get SSO token (sin parámetros extra)
                 try {
-                    authToken = await microsoftTeams.authentication.getAuthToken({
-                        resources: ["https://graph.microsoft.com"],
-                        silent: false
-                    });
+                    authToken = await microsoftTeams.authentication.getAuthToken();
                     console.log('✅ Auth token obtained');
                 } catch (authError) {
                     console.warn('⚠️ Could not get auth token, using development mode:', authError);
@@ -658,7 +655,7 @@
                 await loadSurveys();
             }
         }
-        
+
         // API calls
         async function makeAPICall(endpoint, options = {}) {
             const baseURL = window.location.origin;
