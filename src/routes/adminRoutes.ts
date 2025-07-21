@@ -116,12 +116,7 @@ async function validateJWTToken(token: string): Promise<any> {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       console.log('🔐 [JWT] Token payload preview:', {
-        aud: payload.aud,
-        iss: payload.iss,
-        sub: payload.sub,
-        tid: payload.tid,
-        name: payload.name,
-        email: payload.email || payload.upn
+        payload
       });
       
       const userData = {
@@ -130,6 +125,8 @@ async function validateJWTToken(token: string): Promise<any> {
         userName: payload.name || payload.preferred_username || 'Unknown User',
         email: payload.email || payload.upn || `${payload.sub}@${payload.tid}.onmicrosoft.com`
       };
+
+      console.log('🔐 [JWT] Extracted user data:', userData); // ← Ver datos extraídos
       
       // 🆕 AUTO-AGREGAR como admin si es el primer usuario del tenant
       try {
@@ -167,53 +164,64 @@ async function validateJWTToken(token: string): Promise<any> {
 
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
   try {
-    console.log(`🔍 Checking admin permissions for user: ${userId} in tenant: ${tenantId}`);
+    console.log(`🔍 [ADMIN CHECK] Starting permission check...`);
+    console.log(`🔍 [ADMIN CHECK] User ID: ${userId}`);
+    console.log(`🔍 [ADMIN CHECK] Tenant ID: ${tenantId}`);
     
     // Consultar tabla AdminUsers en Azure Storage
     try {
+      console.log(`🔍 [ADMIN CHECK] Querying AdminUsers table...`);
       const adminUser = await azureService.obtenerAdminUser(userId, tenantId);
+      console.log(`🔍 [ADMIN CHECK] Admin user found:`, adminUser ? 'YES' : 'NO');
       
       if (adminUser && adminUser.isActive) {
-        console.log(`✅ Admin access granted from Azure Storage: ${userId}`);
+        console.log(`✅ [ADMIN CHECK] Admin access granted from Azure Storage: ${userId}`);
         return true;
       }
     } catch (error) {
-      console.warn(`⚠️ Error querying AdminUsers table:`, error);
+      console.error(`❌ [ADMIN CHECK] Error querying AdminUsers table:`, error);
     }
     
-    // 🆕 AUTO-PROMOCIÓN: Si no hay admins en este tenant, hacer admin al primer usuario
+    // AUTO-PROMOCIÓN: Si no hay admins en este tenant, hacer admin al primer usuario
     try {
+      console.log(`🔍 [ADMIN CHECK] Checking for existing admins in tenant...`);
       const existingAdmins = await azureService.listarAdminsEnTenant(tenantId);
+      console.log(`🔍 [ADMIN CHECK] Existing admins count: ${existingAdmins.length}`);
       
       if (existingAdmins.length === 0) {
-        console.log(`🚀 First user in tenant ${tenantId} - auto-promoting to admin: ${userId}`);
+        console.log(`🚀 [ADMIN CHECK] First user in tenant ${tenantId} - auto-promoting to admin: ${userId}`);
         
         await azureService.agregarAdminUser(
           userId,
           tenantId,
-          'auto-generated@tenant.com', // Email temporal
-          'First Admin User',           // Nombre temporal
+          `auto-${userId}@${tenantId}.com`,
+          'Auto Admin User',
           'Auto-promotion System'
         );
         
-        console.log(`✅ Auto-promoted first user to admin: ${userId}`);
+        console.log(`✅ [ADMIN CHECK] Auto-promoted first user to admin: ${userId}`);
         return true;
+      } else {
+        console.log(`🔍 [ADMIN CHECK] Found ${existingAdmins.length} existing admins, no auto-promotion`);
+        existingAdmins.forEach((admin, index) => {
+          console.log(`🔍 [ADMIN CHECK] Admin ${index + 1}: ${admin.email} (${admin.isActive ? 'active' : 'inactive'})`);
+        });
       }
     } catch (autoPromoteError) {
-      console.warn(`⚠️ Auto-promotion failed:`, autoPromoteError);
+      console.error(`❌ [ADMIN CHECK] Auto-promotion failed:`, autoPromoteError);
     }
     
     // En desarrollo, permitir cualquier usuario
     if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ Development mode: Admin access granted to ${userId}`);
+      console.log(`✅ [ADMIN CHECK] Development mode: Admin access granted to ${userId}`);
       return true;
     }
     
-    console.log(`🚫 Admin access denied: ${userId} not found in AdminUsers table`);
+    console.log(`🚫 [ADMIN CHECK] Admin access denied: ${userId} not found in AdminUsers table`);
     return false;
     
   } catch (error) {
-    console.error('❌ Error checking admin permissions:', error);
+    console.error('❌ [ADMIN CHECK] Error checking admin permissions:', error);
     return false;
   }
 }
