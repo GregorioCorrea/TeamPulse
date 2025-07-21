@@ -55,32 +55,25 @@ try {
 // ── 🆕 ADMIN PANEL ROUTES ────────────────────────────────────────
 app.use("/api/admin", adminRouter);
 
-// ── 🆕 SERVE ADMIN PANEL HTML ────────────────────────────────────
+// ── 🆕 SERVE ADMIN PANEL HTML con CSP Headers ─────────────────────
 app.get("/admin", (req, res) => {
-  // Múltiples rutas posibles
-  const possiblePaths = [
-    path.join(process.cwd(), "admin", "adminPanel.html"),
-    path.join(__dirname, "..", "admin", "adminPanel.html"),
-    path.join(__dirname, "..", "..", "admin", "adminPanel.html"),
-    path.join(__dirname, "..", "..", "src/admin", "adminPanel.html"),
-    path.join(__dirname, "..", "src/admin", "adminPanel.html"),
-    path.join(__dirname, "admin", "adminPanel.html")
-  ];
-
-  for (const filePath of possiblePaths) {
-    try {
-      console.log(`✅ Testing this path: ${filePath}`);
-      if (require('fs').existsSync(filePath)) {
-        console.log(`✅ Found admin panel at: ${filePath}`);
-        return res.sendFile(filePath);
-      }
-    } catch (error) {
-      console.log(`❌ Path not found: ${filePath}`);
-    }
+  try {
+    // 🔧 CSP Headers requeridos por Teams
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Content-Security-Policy', 
+      "frame-ancestors teams.microsoft.com *.teams.microsoft.com *.skype.com *.teams.live.com; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' res.cdn.office.net *.office.net *.microsoft.com; " +
+      "connect-src 'self' https: wss: *.microsoft.com *.microsoftonline.com *.office.net; " +
+      "img-src 'self' data: https:;"
+    );
+    
+    const adminPanelPath = path.join(__dirname, "..", "..", "src/admin", "adminPanel.html");
+    console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);
+    res.sendFile(adminPanelPath);
+  } catch (error) {
+    console.error("❌ Error serving admin panel:", error);
+    res.status(500).send("Admin panel error");
   }
-
-  // Si ninguna ruta funciona
-  res.status(404).send("Admin panel not found");
 });
 
 // ── 🆕 ADMIN PANEL ASSETS (if needed) ────────────────────────────
