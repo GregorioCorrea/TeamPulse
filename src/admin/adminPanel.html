@@ -6,6 +6,7 @@
     <title>TeamPulse - Panel de Administración</title>
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
     <style>
+        /* Same styles as before - keeping original design */
         * {
             margin: 0;
             padding: 0;
@@ -491,6 +492,48 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
+        /* 🆕 Auth consent specific styles */
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+
+        .auth-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+            color: #667eea;
+        }
+
+        .auth-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+
+        .auth-description {
+            font-size: 1.1rem;
+            color: #718096;
+            margin-bottom: 32px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .demo-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 12px;
@@ -564,6 +607,20 @@
 
         <!-- Main Content -->
         <div class="main-content">
+            <!-- 🆕 Auth consent state -->
+            <div id="authContainer" class="auth-container" style="display: none;">
+                <div class="demo-badge">MODO DEMOSTRACIÓN</div>
+                <div class="auth-icon">🔐</div>
+                <h2 class="auth-title">Panel de Administración</h2>
+                <p class="auth-description">
+                    El panel está funcionando en modo demostración con datos de ejemplo. 
+                    Para acceso completo con datos reales, se requiere configuración SSO de Microsoft Entra ID.
+                </p>
+                <button class="btn btn-primary" onclick="initializeDemoMode()">
+                    🚀 Continuar con Demo
+                </button>
+            </div>
+
             <div id="loading" class="loading">
                 <div class="loading-spinner"></div>
                 <p>Cargando encuestas...</p>
@@ -584,7 +641,7 @@
         </div>
     </div>
 
-    <!-- Edit Survey Modal -->
+    <!-- Edit Survey Modal (same as before) -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -620,43 +677,90 @@
     </div>
 
     <script>
-        // Global variables
+        // 🆕 Global variables with better organization
         let microsoftTeams;
         let authToken = null;
         let currentSurveyId = null;
         let surveysData = [];
+        let isTeamsContext = false;
+        let authAttempted = false;
 
-        // Initialize Teams SDK
+        // 🆕 Initialize Teams SDK with improved error handling based on MS docs
         async function initializeTeams() {
             try {
+                console.log('🔄 Initializing Teams SDK...');
+                
+                // Step 1: Initialize Teams app context
                 await microsoftTeams.app.initialize();
-                console.log('✅ Teams SDK initialized');
+                console.log('✅ Teams SDK initialized successfully');
+                isTeamsContext = true;
                 
-                // Get authentication context
+                // Step 2: Get Teams context information
                 const context = await microsoftTeams.app.getContext();
-                console.log('✅ Teams context:', context);
+                console.log('✅ Teams context obtained:', {
+                    user: context.user?.id ? 'authenticated' : 'anonymous',
+                    theme: context.app?.theme,
+                    locale: context.app?.locale
+                });
                 
-                // Try to get SSO token (sin parámetros extra)
-                try {
-                    authToken = await microsoftTeams.authentication.getAuthToken();
-                    console.log('✅ Auth token obtained');
-                } catch (authError) {
-                    console.warn('⚠️ Could not get auth token, using development mode:', authError);
-                    // Continue in development mode without token
-                }
-                
-                // Load initial data
-                await loadSurveys();
+                // Step 3: Attempt SSO authentication (following MS docs pattern)
+                await attemptAuthentication();
                 
             } catch (error) {
                 console.error('❌ Teams initialization failed:', error);
-                showNotification('Panel funcionando en modo desarrollo', 'success');
-                // Continue without Teams integration for development
-                await loadSurveys();
+                isTeamsContext = false;
+                showAuthConsentState();
             }
         }
 
-        // API calls
+        // 🆕 Authentication attempt with proper error handling per MS docs
+        async function attemptAuthentication() {
+            if (authAttempted) return;
+            authAttempted = true;
+            
+            try {
+                console.log('🔐 Attempting SSO authentication...');
+                
+                // Use getAuthToken as per official MS documentation
+                authToken = await microsoftTeams.authentication.getAuthToken();
+                console.log('✅ SSO token obtained successfully');
+                
+                // Token validation would happen here in production
+                showNotification('Autenticación exitosa', 'success');
+                await loadSurveys();
+                
+            } catch (authError) {
+                console.warn('⚠️ SSO authentication failed:', authError.message);
+                
+                // Handle specific errors as per MS documentation
+                if (authError.message.includes('invalid_grant') || 
+                    authError.message.includes('interaction_required')) {
+                    console.log('📋 User consent required - showing consent flow');
+                    showAuthConsentState();
+                } else {
+                    console.log('🔧 Falling back to demo mode');
+                    initializeDemoMode();
+                }
+            }
+        }
+
+        // 🆕 Show authentication consent state
+        function showAuthConsentState() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('surveysContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('authContainer').style.display = 'block';
+        }
+
+        // 🆕 Initialize demo mode
+        async function initializeDemoMode() {
+            console.log('🎭 Initializing demo mode with mock data');
+            document.getElementById('authContainer').style.display = 'none';
+            showNotification('Panel iniciado en modo demostración', 'success');
+            await loadSurveys();
+        }
+
+        // 🆕 API calls with better error handling
         async function makeAPICall(endpoint, options = {}) {
             const baseURL = window.location.origin;
             const url = `${baseURL}/api/admin${endpoint}`;
@@ -688,11 +792,18 @@
                 }
             } catch (error) {
                 console.error(`❌ API call failed: ${endpoint}`, error);
+                
+                // In demo mode, continue with mock data
+                if (!authToken && endpoint === '/surveys') {
+                    console.log('🎭 API failed, using mock data for demo');
+                    return { success: true, data: await getMockSurveys() };
+                }
+                
                 throw error;
             }
         }
 
-        // Load surveys from backend
+        // Load surveys from backend or mock data
         async function loadSurveys() {
             const loading = document.getElementById('loading');
             const container = document.getElementById('surveysContainer');
@@ -703,8 +814,16 @@
                 container.style.display = 'none';
                 emptyState.style.display = 'none';
                 
-                // For now, use mock data until backend endpoint is ready
-                const surveys = await getMockSurveys();
+                // Try real API first, fallback to mock data
+                let surveys;
+                try {
+                    const response = await makeAPICall('/surveys');
+                    surveys = response.data || response;
+                } catch (apiError) {
+                    console.log('🎭 Using mock data due to API error:', apiError.message);
+                    surveys = await getMockSurveys();
+                }
+                
                 surveysData = surveys;
                 
                 updateStatistics(surveys);
@@ -725,7 +844,7 @@
             }
         }
 
-        // Mock data for development
+        // Mock data for development (same as before)
         async function getMockSurveys() {
             return [
                 {
@@ -863,7 +982,7 @@
             container.innerHTML = surveysHTML;
         }
 
-        // Survey actions
+        // Survey actions (same as before but with improved error handling)
         function editSurvey(surveyId) {
             const survey = surveysData.find(s => s.id === surveyId);
             if (!survey) return;
@@ -968,11 +1087,19 @@
             survey.objetivo = document.getElementById('editObjective').value;
             
             try {
-                // Here we would call the backend API
-                // await makeAPICall(`/surveys/${currentSurveyId}`, {
-                //     method: 'PUT',
-                //     body: survey
-                // });
+                // In demo mode, just update local data
+                if (!authToken) {
+                    showNotification('Cambios guardados (modo demo)', 'success');
+                    closeEditModal();
+                    renderSurveys(surveysData);
+                    return;
+                }
+                
+                // Real API call for authenticated users
+                await makeAPICall(`/surveys/${currentSurveyId}`, {
+                    method: 'PUT',
+                    body: survey
+                });
                 
                 showNotification('Encuesta actualizada exitosamente', 'success');
                 closeEditModal();
@@ -994,15 +1121,16 @@
             if (!survey) return;
             
             try {
-                // Here we would navigate to results view or open in new tab
                 showNotification(`Abriendo resultados de: ${survey.titulo}`, 'success');
                 
                 // For Teams integration, we could use:
-                // await microsoftTeams.pages.navigateToApp({
-                //     appId: "your-app-id",
-                //     pageId: "results",
-                //     subPageId: surveyId
-                // });
+                if (isTeamsContext && microsoftTeams.pages) {
+                    // await microsoftTeams.pages.navigateToApp({
+                    //     appId: "your-app-id",
+                    //     pageId: "results",
+                    //     subPageId: surveyId
+                    // });
+                }
                 
             } catch (error) {
                 console.error('❌ Error viewing results:', error);
@@ -1017,11 +1145,23 @@
             try {
                 const newStatus = survey.estado === 'activa' ? 'cerrada' : 'activa';
                 
-                // Here we would call the backend API
-                // await makeAPICall(`/surveys/${surveyId}/status`, {
-                //     method: 'PATCH',
-                //     body: { status: newStatus }
-                // });
+                // In demo mode, just update local data
+                if (!authToken) {
+                    survey.estado = newStatus;
+                    showNotification(
+                        `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} (modo demo)`, 
+                        'success'
+                    );
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    return;
+                }
+                
+                // Real API call for authenticated users
+                await makeAPICall(`/surveys/${surveyId}/status`, {
+                    method: 'PATCH',
+                    body: { status: newStatus }
+                });
                 
                 survey.estado = newStatus;
                 
@@ -1053,11 +1193,20 @@
                     estado: 'activa'
                 };
                 
-                // Here we would call the backend API
-                // await makeAPICall('/surveys', {
-                //     method: 'POST',
-                //     body: duplicatedSurvey
-                // });
+                // In demo mode, just update local data
+                if (!authToken) {
+                    surveysData.unshift(duplicatedSurvey);
+                    showNotification('Encuesta duplicada (modo demo)', 'success');
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    return;
+                }
+                
+                // Real API call for authenticated users
+                await makeAPICall('/surveys', {
+                    method: 'POST',
+                    body: duplicatedSurvey
+                });
                 
                 surveysData.unshift(duplicatedSurvey);
                 
@@ -1080,10 +1229,24 @@
             }
             
             try {
-                // Here we would call the backend API
-                // await makeAPICall(`/surveys/${surveyId}`, {
-                //     method: 'DELETE'
-                // });
+                // In demo mode, just update local data
+                if (!authToken) {
+                    surveysData = surveysData.filter(s => s.id !== surveyId);
+                    showNotification('Encuesta eliminada (modo demo)', 'success');
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    
+                    if (surveysData.length === 0) {
+                        document.getElementById('surveysContainer').style.display = 'none';
+                        document.getElementById('emptyState').style.display = 'block';
+                    }
+                    return;
+                }
+                
+                // Real API call for authenticated users
+                await makeAPICall(`/surveys/${surveyId}?confirm=true`, {
+                    method: 'DELETE'
+                });
                 
                 surveysData = surveysData.filter(s => s.id !== surveyId);
                 
@@ -1103,8 +1266,6 @@
         }
 
         function showCreateModal() {
-            // For now, show a simple alert
-            // In the real implementation, this would open a create survey modal
             alert('Funcionalidad de crear encuesta será implementada próximamente.\n\nPor ahora, usa el bot de Teams con el comando "crear encuesta"');
         }
 
@@ -1119,7 +1280,8 @@
                     surveys: surveysData,
                     exportDate: new Date().toISOString(),
                     totalSurveys: surveysData.length,
-                    totalResponses: surveysData.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0)
+                    totalResponses: surveysData.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0),
+                    mode: authToken ? 'authenticated' : 'demo'
                 };
                 
                 const dataStr = JSON.stringify(dataToExport, null, 2);
@@ -1208,20 +1370,26 @@
             setTimeout(() => {
                 notification.style.opacity = '0';
                 setTimeout(() => {
-                    document.body.removeChild(notification);
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
                 }, 300);
             }, 3000);
         }
 
-        // Event listeners
+        // 🆕 Event listeners with improved Teams detection
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 AdminPanel loading...');
+            
             // Check if we're in Teams context
             if (window.microsoftTeams) {
+                console.log('🔍 Teams SDK detected, initializing...');
                 microsoftTeams = window.microsoftTeams;
                 initializeTeams();
             } else {
-                console.warn('⚠️ Teams SDK not available, running in standalone mode');
-                loadSurveys();
+                console.log('⚠️ Teams SDK not available, running in standalone mode');
+                isTeamsContext = false;
+                showAuthConsentState();
             }
             
             setupSearch();
@@ -1242,13 +1410,15 @@
             });
         });
 
-        // Auto-refresh data every 5 minutes
+        // Auto-refresh data every 5 minutes (only if authenticated)
         setInterval(async () => {
-            try {
-                await loadSurveys();
-                console.log('✅ Auto-refresh completed');
-            } catch (error) {
-                console.error('❌ Auto-refresh failed:', error);
+            if (authToken) {
+                try {
+                    await loadSurveys();
+                    console.log('✅ Auto-refresh completed');
+                } catch (error) {
+                    console.error('❌ Auto-refresh failed:', error);
+                }
             }
         }, 5 * 60 * 1000);
 
