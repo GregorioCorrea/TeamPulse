@@ -21,12 +21,17 @@ interface AuthenticatedRequest extends Request {
 // Middleware para validar token SSO de Teams
 async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: any) {
   try {
+    console.log('🔐 [ADMIN AUTH] Starting validation...');
+    
     const authHeader = req.headers.authorization;
+    console.log('🔐 [ADMIN AUTH] Auth header present:', !!authHeader);
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('⚠️ Admin access attempt without proper authorization');
+      console.log('🔐 [ADMIN AUTH] Missing or invalid auth header format');
+      
       // En desarrollo, permitir acceso sin token
       if (process.env.NODE_ENV === 'development') {
+        console.log('🔐 [ADMIN AUTH] Development mode - bypassing auth');
         req.user = {
           userId: 'dev-admin',
           tenantId: 'dev-tenant',
@@ -43,22 +48,33 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
     }
 
     const token = authHeader.substring(7);
+    console.log('🔐 [ADMIN AUTH] Token length:', token.length);
+    console.log('🔐 [ADMIN AUTH] Token preview:', token.substring(0, 50) + '...');
     
-    // Aquí validarías el token JWT con Microsoft Graph
-    // Por ahora, simularemos la validación
+    // Validar token JWT
     const decodedUser = await validateJWTToken(token);
+    console.log('🔐 [ADMIN AUTH] Decoded user:', decodedUser ? 'Success' : 'Failed');
     
     if (!decodedUser) {
+      console.log('🔐 [ADMIN AUTH] Token validation failed');
       return res.status(401).json({ 
         error: 'Invalid token',
         message: 'Teams SSO token is invalid or expired'
       });
     }
 
-    // Verificar si el usuario es administrador
+    console.log('🔐 [ADMIN AUTH] User decoded:', {
+      userId: decodedUser.userId,
+      tenantId: decodedUser.tenantId,
+      name: decodedUser.userName
+    });
+
+    // Verificar permisos de admin
     const isAdmin = await checkAdminPermissions(decodedUser.userId, decodedUser.tenantId);
+    console.log('🔐 [ADMIN AUTH] Admin check result:', isAdmin);
     
     if (!isAdmin) {
+      console.log('🔐 [ADMIN AUTH] Admin permissions denied');
       return res.status(403).json({
         error: 'Insufficient permissions',
         message: 'Admin panel access requires administrator privileges'
@@ -70,9 +86,10 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
       isAdmin: true
     };
 
+    console.log('🔐 [ADMIN AUTH] Validation successful, proceeding...');
     next();
   } catch (error) {
-    console.error('❌ Error validating Teams SSO:', error);
+    console.error('🔐 [ADMIN AUTH] Error during validation:', error);
     res.status(500).json({ 
       error: 'Authentication error',
       message: 'Failed to validate user credentials'
@@ -83,10 +100,10 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
 // Función auxiliar para validar JWT (implementar según necesidades)
 async function validateJWTToken(token: string): Promise<any> {
   try {
-    // Aquí implementarías la validación real del JWT con Microsoft Graph
-    // Por ahora retornamos datos mock para desarrollo
+    console.log('🔐 [JWT] Starting token validation...');
     
     if (process.env.NODE_ENV === 'development') {
+      console.log('🔐 [JWT] Development mode - returning mock user');
       return {
         userId: 'admin-user-123',
         tenantId: 'tenant-456',
@@ -95,19 +112,35 @@ async function validateJWTToken(token: string): Promise<any> {
       };
     }
 
-    // En producción, usar Microsoft Graph para validar:
-    // const response = await fetch('https://graph.microsoft.com/v1.0/me', {
-    //   headers: { 'Authorization': `Bearer ${token}` }
-    // });
-    // return await response.json();
+    // TODO: Implementar validación real del JWT con Microsoft Graph
+    console.log('🔐 [JWT] Production mode - JWT validation not implemented yet');
+    
+    // Por ahora, retornar datos del token sin validar para debug
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log('🔐 [JWT] Token payload preview:', {
+        aud: payload.aud,
+        iss: payload.iss,
+        sub: payload.sub,
+        tid: payload.tid
+      });
+      
+      return {
+        userId: payload.sub || payload.oid,
+        tenantId: payload.tid,
+        userName: payload.name || payload.preferred_username,
+        email: payload.email || payload.upn
+      };
+    } catch (parseError) {
+      console.error('🔐 [JWT] Error parsing token:', parseError);
+      return null;
+    }
 
-    return null;
   } catch (error) {
-    console.error('❌ Error validating JWT:', error);
+    console.error('🔐 [JWT] Error validating JWT:', error);
     return null;
   }
 }
-
 // En adminRoutes.ts, reemplaza la función checkAdminPermissions:
 
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
