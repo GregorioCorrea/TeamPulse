@@ -108,30 +108,33 @@ async function validateJWTToken(token: string): Promise<any> {
   }
 }
 
-// Función auxiliar para verificar permisos de admin
+// En adminRoutes.ts, reemplaza la función checkAdminPermissions:
+
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
   try {
-    // Lista de administradores autorizados
-    const adminUserIds = [
-      '105af15b-7381-4370-99a0-0cb24dcc6886', // Gregorio Correa
-      'admin-user-123', // Development admin
-      // Agregar más IDs de administradores según necesidad
-    ];
-
-    // Verificar si el usuario está en la lista de admins
-    const isInAdminList = adminUserIds.includes(userId);
+    console.log(`🔍 Checking admin permissions for user: ${userId} in tenant: ${tenantId}`);
     
-    if (isInAdminList) {
-      console.log(`✅ Admin access granted to user: ${userId}`);
+    // Consultar tabla AdminUsers en Azure Storage
+    try {
+      const adminUser = await azureService.obtenerAdminUser(userId, tenantId);
+      
+      if (adminUser && adminUser.isActive) {
+        console.log(`✅ Admin access granted from Azure Storage: ${userId}`);
+        return true;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error querying AdminUsers table:`, error);
+    }
+    
+    // En desarrollo, permitir cualquier usuario
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Development mode: Admin access granted to ${userId}`);
       return true;
     }
-
-    // Opcional: También verificar roles en Azure AD
-    // const roles = await getUserRoles(userId, tenantId);
-    // return roles.includes('TeamPulse.Admin');
-
-    console.log(`🚫 Admin access denied to user: ${userId}`);
+    
+    console.log(`🚫 Admin access denied: ${userId} not found in AdminUsers table`);
     return false;
+    
   } catch (error) {
     console.error('❌ Error checking admin permissions:', error);
     return false;

@@ -70,11 +70,22 @@ interface AzureTemplate {
   nivelPlan: string;
 }
 
+interface AdminUser {
+  partitionKey: string; // tenantId
+  rowKey: string;       // userId
+  email: string;
+  name: string;
+  isActive: boolean;
+  dateAdded: string;
+  addedBy: string;
+}
+
 export class AzureTableService {
   private encuestasTable: TableClient;
   private respuestasTable: TableClient;
   private resultadosTable: TableClient;
   private templatesTable: TableClient;
+  private adminUsersTable: TableClient;
 
   constructor() {
     const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
@@ -103,6 +114,12 @@ export class AzureTableService {
     this.templatesTable = new TableClient(
       `https://${accountName}.table.core.windows.net`,
       'Templates',
+      credential
+    );
+
+    this.adminUsersTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'AdminUsers',
       credential
     );
 
@@ -139,9 +156,34 @@ export class AzureTableService {
     } catch (error) {
       // Tabla ya existe
     }
+
+    try {
+      await this.adminUsersTable.createTable();
+      console.log('✅ Tabla AdminUsers inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
   }
 
-  
+  // ADMIN USERS
+  async obtenerAdminUser(userId: string, tenantId: string): Promise<AdminUser | null> {
+    try {
+      const entity = await this.adminUsersTable.getEntity(tenantId, userId);
+      
+      return {
+        partitionKey: entity.partitionKey as string,
+        rowKey: entity.rowKey as string,
+        email: entity.email as string,
+        name: entity.name as string,
+        isActive: entity.isActive as boolean,
+        dateAdded: entity.dateAdded as string,
+        addedBy: entity.addedBy as string
+      };
+    } catch (error) {
+      console.log(`📝 Admin user not found: ${userId} in ${tenantId}`);
+      return null;
+    }
+  }
 
   // ENCUESTAS
   async guardarEncuesta(encuesta: any): Promise<string> {
@@ -307,7 +349,7 @@ export class AzureTableService {
     }
   }
 
-    // ========================
+  // ========================
   // FUNCIONES DE TEMPLATES
   // ========================
 
