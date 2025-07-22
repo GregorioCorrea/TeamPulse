@@ -574,7 +574,7 @@
     </style>
 </head>
 <body>
-    <div class="teams-app-container"></div>
+    <div class="teams-app-container">
         <div class="container">
             <!-- Header -->
             <div class="header">
@@ -688,6 +688,38 @@
                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                     <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
                     <button class="btn btn-primary" onclick="saveChanges()">💾 Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Modal -->
+        <div id="resultsModal" class="modal">
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="resultsModalTitle">📊 Resultados de Encuesta</h2>
+                    <button class="close" onclick="closeResultsModal()">&times;</button>
+                </div>
+                
+                <div id="resultsContent">
+                    <div class="loading" id="resultsLoading">
+                        <div class="loading-spinner"></div>
+                        <p>Cargando resultados...</p>
+                    </div>
+                    
+                    <div id="resultsData" style="display: none;">
+                        <!-- Los resultados se cargarán aquí -->
+                    </div>
+                    
+                    <div id="resultsError" style="display: none;" class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <h3>Error al cargar resultados</h3>
+                        <p id="resultsErrorMessage"></p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <button class="btn btn-secondary" onclick="exportResults()">📁 Exportar CSV</button>
+                    <button class="btn btn-primary" onclick="closeResultsModal()">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -1563,15 +1595,20 @@
                 
                 // Close modal handlers
                 window.onclick = (event) => {
-                    const modal = document.getElementById('editModal');
-                    if (event.target === modal) {
+                    const editModal = document.getElementById('editModal');
+                    const resultsModal = document.getElementById('resultsModal');
+                    if (event.target === editModal) {
                         closeEditModal();
+                    }
+                    if (event.target === resultsModal) {
+                        closeResultsModal();
                     }
                 };
                 
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape') {
                         closeEditModal();
+                        closeResultsModal();
                     }
                 });
                 
@@ -1595,5 +1632,6 @@
             console.log('🎯 TeamPulse Admin Panel loaded successfully');
         </script>
     </div>
+</div>
 </body>
 </html>
