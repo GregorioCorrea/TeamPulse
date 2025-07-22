@@ -20,6 +20,21 @@
             color: #333;
         }
 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        /* Ensure Teams can render properly */
+        .teams-app-container {
+            width: 100%;
+            min-height: 100vh;
+            position: relative;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -559,680 +574,718 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🎯 TeamPulse Admin</h1>
-            <p class="subtitle">Panel de administración de encuestas y análisis</p>
-            
-            <!-- Statistics Cards -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="totalSurveys">-</div>
-                    <div class="stat-label">Total Encuestas</div>
+    <div class="teams-app-container"></div>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>🎯 TeamPulse Admin</h1>
+                <p class="subtitle">Panel de administración de encuestas y análisis</p>
+                
+                <!-- Statistics Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalSurveys">-</div>
+                        <div class="stat-label">Total Encuestas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="activeSurveys">-</div>
+                        <div class="stat-label">Activas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalResponses">-</div>
+                        <div class="stat-label">Respuestas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="avgResponseRate">-</div>
+                        <div class="stat-label">Promedio/Encuesta</div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="activeSurveys">-</div>
-                    <div class="stat-label">Activas</div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div class="controls-row">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar encuestas...">
+                    </div>
+                    <button class="btn btn-primary" onclick="showCreateModal()">
+                        ➕ Nueva Encuesta
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshData()">
+                        🔄 Actualizar
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportAllData()">
+                        📊 Exportar Datos
+                    </button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="totalResponses">-</div>
-                    <div class="stat-label">Respuestas</div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- 🆕 Auth consent state -->
+                <div id="authContainer" class="auth-container" style="display: none;">
+                    <div class="demo-badge">MODO DEMOSTRACIÓN</div>
+                    <div class="auth-icon">🔐</div>
+                    <h2 class="auth-title">Panel de Administración</h2>
+                    <p class="auth-description">
+                        El panel está funcionando en modo demostración con datos de ejemplo. 
+                        Para acceso completo con datos reales, se requiere configuración SSO de Microsoft Entra ID.
+                    </p>
+                    <button class="btn btn-primary" onclick="initializeDemoMode()">
+                        🚀 Continuar con Demo
+                    </button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="avgResponseRate">-</div>
-                    <div class="stat-label">Promedio/Encuesta</div>
+
+                <div id="loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Cargando encuestas...</p>
+                </div>
+
+                <div id="surveysContainer" class="surveys-grid" style="display: none;">
+                    <!-- Surveys will be loaded here -->
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📋</div>
+                    <h3>No hay encuestas disponibles</h3>
+                    <p>Crea tu primera encuesta para comenzar</p>
+                    <button class="btn btn-primary" onclick="showCreateModal()">
+                        ➕ Crear Primera Encuesta
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="controls">
-            <div class="controls-row">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Buscar encuestas...">
+        <!-- Edit Survey Modal (same as before) -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">✏️ Editar Encuesta</h2>
+                    <button class="close" onclick="closeEditModal()">&times;</button>
                 </div>
-                <button class="btn btn-primary" onclick="showCreateModal()">
-                    ➕ Nueva Encuesta
-                </button>
-                <button class="btn btn-secondary" onclick="refreshData()">
-                    🔄 Actualizar
-                </button>
-                <button class="btn btn-secondary" onclick="exportAllData()">
-                    📊 Exportar Datos
-                </button>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- 🆕 Auth consent state -->
-            <div id="authContainer" class="auth-container" style="display: none;">
-                <div class="demo-badge">MODO DEMOSTRACIÓN</div>
-                <div class="auth-icon">🔐</div>
-                <h2 class="auth-title">Panel de Administración</h2>
-                <p class="auth-description">
-                    El panel está funcionando en modo demostración con datos de ejemplo. 
-                    Para acceso completo con datos reales, se requiere configuración SSO de Microsoft Entra ID.
-                </p>
-                <button class="btn btn-primary" onclick="initializeDemoMode()">
-                    🚀 Continuar con Demo
-                </button>
-            </div>
-
-            <div id="loading" class="loading">
-                <div class="loading-spinner"></div>
-                <p>Cargando encuestas...</p>
-            </div>
-
-            <div id="surveysContainer" class="surveys-grid" style="display: none;">
-                <!-- Surveys will be loaded here -->
-            </div>
-
-            <div id="emptyState" class="empty-state" style="display: none;">
-                <div class="empty-icon">📋</div>
-                <h3>No hay encuestas disponibles</h3>
-                <p>Crea tu primera encuesta para comenzar</p>
-                <button class="btn btn-primary" onclick="showCreateModal()">
-                    ➕ Crear Primera Encuesta
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Survey Modal (same as before) -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">✏️ Editar Encuesta</h2>
-                <button class="close" onclick="closeEditModal()">&times;</button>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Título de la Encuesta</label>
-                <input type="text" class="form-input" id="editTitle" placeholder="Ej: Clima Laboral 2024">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Objetivo</label>
-                <textarea class="form-input form-textarea" id="editObjective" placeholder="Describe el objetivo de esta encuesta..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Preguntas</label>
-                <div id="questionsContainer">
-                    <!-- Questions will be loaded here -->
+                
+                <div class="form-group">
+                    <label class="form-label">Título de la Encuesta</label>
+                    <input type="text" class="form-input" id="editTitle" placeholder="Ej: Clima Laboral 2024">
                 </div>
-                <button type="button" class="btn btn-secondary btn-small" onclick="addQuestion()">
-                    ➕ Agregar Pregunta
-                </button>
-            </div>
-            
-            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
-                <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="saveChanges()">💾 Guardar Cambios</button>
+                
+                <div class="form-group">
+                    <label class="form-label">Objetivo</label>
+                    <textarea class="form-input form-textarea" id="editObjective" placeholder="Describe el objetivo de esta encuesta..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Preguntas</label>
+                    <div id="questionsContainer">
+                        <!-- Questions will be loaded here -->
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addQuestion()">
+                        ➕ Agregar Pregunta
+                    </button>
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="saveChanges()">💾 Guardar Cambios</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        // 🆕 Global variables with better organization
-        let microsoftTeams;
-        let authToken = null;
-        let currentSurveyId = null;
-        let surveysData = [];
-        let isTeamsContext = false;
-        let authAttempted = false;
+        <script>
+            // 🆕 Global variables with better organization
+            let microsoftTeams;
+            let authToken = null;
+            let currentSurveyId = null;
+            let surveysData = [];
+            let isTeamsContext = false;
+            let authAttempted = false;
 
-        // 🆕 Initialize Teams SDK with improved error handling based on MS docs
-        async function initializeTeams() {
-            try {
-                console.log('🔄 Initializing Teams SDK...');
-                
-                // Step 1: Initialize Teams app context
-                await microsoftTeams.app.initialize();
-                console.log('✅ Teams SDK initialized successfully');
-                isTeamsContext = true;
-                
-                // Step 2: Get Teams context information
-                const context = await microsoftTeams.app.getContext();
-                console.log('✅ Teams context obtained:', {
-                    user: context.user?.id ? 'authenticated' : 'anonymous',
-                    theme: context.app?.theme,
-                    locale: context.app?.locale
-                });
-                
-                // Step 3: Attempt SSO authentication (following MS docs pattern)
-                await attemptAuthentication();
-                
-            } catch (error) {
-                console.error('❌ Teams initialization failed:', error);
-                isTeamsContext = false;
-                showAuthConsentState();
-            }
-        }
-
-        // 🆕 Authentication attempt with proper error handling per MS docs
-        async function attemptAuthentication() {
-            if (authAttempted) return;
-            authAttempted = true;
-            
-            try {
-                console.log('🔐 Attempting SSO authentication...');
-                
-                // Use getAuthToken as per official MS documentation
-                authToken = await microsoftTeams.authentication.getAuthToken();
-                console.log('✅ SSO token obtained successfully');
-                
-                // Token validation would happen here in production
-                showNotification('Autenticación exitosa', 'success');
-                await loadSurveys();
-                
-            } catch (authError) {
-                console.warn('⚠️ SSO authentication failed:', authError.message);
-                
-                // Handle specific errors as per MS documentation
-                if (authError.message.includes('invalid_grant') || 
-                    authError.message.includes('interaction_required')) {
-                    console.log('📋 User consent required - showing consent flow');
-                    showAuthConsentState();
-                } else {
-                    console.log('🔧 Falling back to demo mode');
-                    initializeDemoMode();
-                }
-            }
-        }
-
-        // 🆕 Show authentication consent state
-        function showAuthConsentState() {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('surveysContainer').style.display = 'none';
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('authContainer').style.display = 'block';
-        }
-
-        // 🆕 Initialize demo mode
-        async function initializeDemoMode() {
-            console.log('🎭 Initializing demo mode with mock data');
-            document.getElementById('authContainer').style.display = 'none';
-            showNotification('Panel iniciado en modo demostración', 'success');
-            await loadSurveys();
-        }
-
-        // 🆕 API calls with better error handling
-        async function makeAPICall(endpoint, options = {}) {
-            const baseURL = window.location.origin;
-            const url = `${baseURL}/api/admin${endpoint}`;
-            
-            const defaultOptions = {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
-                }
-            };
-            
-            const finalOptions = { ...defaultOptions, ...options };
-            if (options.body && typeof options.body === 'object') {
-                finalOptions.body = JSON.stringify(options.body);
-            }
-            
-            try {
-                const response = await fetch(url, finalOptions);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return await response.json();
-                } else {
-                    return await response.text();
-                }
-            } catch (error) {
-                console.error(`❌ API call failed: ${endpoint}`, error);
-                
-                // In demo mode, continue with mock data
-                if (!authToken && endpoint === '/surveys') {
-                    console.log('🎭 API failed, using mock data for demo');
-                    return { success: true, data: await getMockSurveys() };
-                }
-                
-                throw error;
-            }
-        }
-
-        // Load surveys from backend or mock data
-        async function loadSurveys() {
-            const loading = document.getElementById('loading');
-            const container = document.getElementById('surveysContainer');
-            const emptyState = document.getElementById('emptyState');
-            
-            try {
-                loading.style.display = 'block';
-                container.style.display = 'none';
-                emptyState.style.display = 'none';
-                
-                // Try real API first, fallback to mock data
-                let surveys;
+            // 🆕 Initialize Teams SDK with improved error handling based on MS docs
+            async function initializeTeamsApp() {
                 try {
-                    const response = await makeAPICall('/surveys');
-                    surveys = response.data || response;
-                } catch (apiError) {
-                    console.log('🎭 Using mock data due to API error:', apiError.message);
-                    surveys = await getMockSurveys();
-                }
-                
-                surveysData = surveys;
-                
-                updateStatistics(surveys);
-                renderSurveys(surveys);
-                
-                loading.style.display = 'none';
-                
-                if (surveys.length === 0) {
-                    emptyState.style.display = 'block';
-                } else {
-                    container.style.display = 'block';
-                }
-                
-            } catch (error) {
-                console.error('❌ Error loading surveys:', error);
-                loading.style.display = 'none';
-                showNotification('Error al cargar encuestas', 'error');
-            }
-        }
-
-        // Mock data for development (same as before)
-        async function getMockSurveys() {
-            return [
-                {
-                    id: 'clima_123456_abc',
-                    titulo: 'Clima Laboral Q4 2024',
-                    objetivo: 'Evaluar la satisfacción y engagement de los empleados durante el último trimestre',
-                    preguntas: [
-                        {
-                            pregunta: '¿Cómo calificarías el ambiente de trabajo?',
-                            opciones: ['Excelente', 'Bueno', 'Regular', 'Malo']
-                        },
-                        {
-                            pregunta: '¿Te sientes valorado en tu rol?',
-                            opciones: ['Siempre', 'Frecuentemente', 'A veces', 'Nunca']
-                        }
-                    ],
-                    creador: 'Admin',
-                    fechaCreacion: new Date('2024-01-15'),
-                    estado: 'activa',
-                    totalRespuestas: 47,
-                    basadoEnTemplate: 'clima_laboral_v1'
-                },
-                {
-                    id: 'nps_789012_def',
-                    titulo: 'NPS Clientes - Enero 2024',
-                    objetivo: 'Medir la satisfacción del cliente y probabilidad de recomendación',
-                    preguntas: [
-                        {
-                            pregunta: '¿Qué tan probable es que recomiendes nuestro servicio?',
-                            opciones: ['9-10 (Promotor)', '7-8 (Neutral)', '0-6 (Detractor)']
-                        }
-                    ],
-                    creador: 'Marketing Team',
-                    fechaCreacion: new Date('2024-01-10'),
-                    estado: 'activa',
-                    totalRespuestas: 23,
-                    basadoEnTemplate: 'nps_cliente_v1'
-                },
-                {
-                    id: 'training_345678_ghi',
-                    titulo: 'Feedback Capacitación Ventas',
-                    objetivo: 'Evaluar efectividad del entrenamiento en técnicas de venta',
-                    preguntas: [
-                        {
-                            pregunta: '¿La capacitación cumplió tus expectativas?',
-                            opciones: ['Superó expectativas', 'Cumplió expectativas', 'Parcialmente', 'No cumplió']
-                        }
-                    ],
-                    creador: 'HR Department',
-                    fechaCreacion: new Date('2024-01-05'),
-                    estado: 'cerrada',
-                    totalRespuestas: 12,
-                    basadoEnTemplate: 'feedback_capacitacion_v1'
-                }
-            ];
-        }
-
-        // Update statistics
-        function updateStatistics(surveys) {
-            const total = surveys.length;
-            const active = surveys.filter(s => s.estado === 'activa').length;
-            const totalResponses = surveys.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0);
-            const avgResponses = total > 0 ? Math.round(totalResponses / total) : 0;
-            
-            document.getElementById('totalSurveys').textContent = total;
-            document.getElementById('activeSurveys').textContent = active;
-            document.getElementById('totalResponses').textContent = totalResponses;
-            document.getElementById('avgResponseRate').textContent = avgResponses;
-        }
-
-        // Render surveys
-        function renderSurveys(surveys) {
-            const container = document.getElementById('surveysContainer');
-            
-            if (surveys.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-            
-            const surveysHTML = surveys.map(survey => `
-                <div class="survey-card">
-                    <div class="survey-header">
-                        <div>
-                            <h3 class="survey-title">${survey.titulo}</h3>
-                            <span class="survey-id">ID: ${survey.id}</span>
-                        </div>
-                        <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
-                            ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
-                        </span>
-                    </div>
+                    console.log('🔄 Starting Teams app initialization...');
                     
-                    <div class="survey-meta">
-                        <div class="meta-item">
-                            <div class="meta-value">${survey.preguntas.length}</div>
-                            <div class="meta-label">Preguntas</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-value">${survey.totalRespuestas || 0}</div>
-                            <div class="meta-label">Respuestas</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-value">${formatDate(survey.fechaCreacion)}</div>
-                            <div class="meta-label">Creada</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-value">${survey.creador}</div>
-                            <div class="meta-label">Creador</div>
-                        </div>
-                    </div>
+                    // Check if we're in Teams context
+                    if (typeof window.microsoftTeams === 'undefined') {
+                        console.warn('⚠️ Teams SDK not available - running in standalone mode');
+                        setTimeout(() => showAuthConsentState(), 100);
+                        return;
+                    }
                     
-                    <div class="survey-objective">
-                        <strong>📋 Objetivo:</strong> ${survey.objetivo}
-                    </div>
+                    // Step 1: Initialize Teams app context (CRITICAL for Teams)
+                    await window.microsoftTeams.app.initialize();
+                    console.log('✅ Teams app initialized successfully');
                     
-                    <div class="survey-actions">
-                        <button class="btn btn-primary btn-small" onclick="editSurvey('${survey.id}')">
-                            ✏️ Editar
-                        </button>
-                        <button class="btn btn-secondary btn-small" onclick="viewResults('${survey.id}')">
-                            📊 Resultados
-                        </button>
-                        <button class="btn btn-secondary btn-small" onclick="toggleSurveyStatus('${survey.id}')">
-                            ${survey.estado === 'activa' ? '⏸️ Pausar' : '▶️ Activar'}
-                        </button>
-                        <button class="btn btn-secondary btn-small" onclick="duplicateSurvey('${survey.id}')">
-                            📄 Duplicar
-                        </button>
-                        <button class="btn btn-danger btn-small" onclick="deleteSurvey('${survey.id}')">
-                            🗑️ Eliminar
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-            
-            container.innerHTML = surveysHTML;
-        }
-
-        // Survey actions (same as before but with improved error handling)
-        function editSurvey(surveyId) {
-            const survey = surveysData.find(s => s.id === surveyId);
-            if (!survey) return;
-            
-            currentSurveyId = surveyId;
-            
-            document.getElementById('editTitle').value = survey.titulo;
-            document.getElementById('editObjective').value = survey.objetivo;
-            
-            renderQuestions(survey.preguntas);
-            
-            document.getElementById('editModal').style.display = 'block';
-        }
-
-        function renderQuestions(questions) {
-            const container = document.getElementById('questionsContainer');
-            
-            const questionsHTML = questions.map((question, index) => `
-                <div class="question-item">
-                    <div class="question-header">
-                        <div class="question-number">${index + 1}</div>
-                        <button class="btn btn-danger btn-small" onclick="removeQuestion(${index})">
-                            🗑️ Eliminar
-                        </button>
-                    </div>
-                    <input type="text" class="form-input" placeholder="Texto de la pregunta" 
-                           value="${question.pregunta}" onchange="updateQuestion(${index}, 'pregunta', this.value)">
-                    <div class="options-list">
-                        ${question.opciones.map((option, optIndex) => `
-                            <div class="option-tag">
-                                <input type="text" value="${option}" 
-                                       onchange="updateQuestionOption(${index}, ${optIndex}, this.value)"
-                                       style="background: none; border: none; width: 100%; color: inherit;">
-                                <button onclick="removeOption(${index}, ${optIndex})" style="margin-left: 8px; background: none; border: none; color: #e53e3e; cursor: pointer;">×</button>
-                            </div>
-                        `).join('')}
-                        <button class="btn btn-secondary btn-small" onclick="addOption(${index})" style="margin-top: 8px;">
-                            ➕ Agregar Opción
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-            
-            container.innerHTML = questionsHTML;
-        }
-
-        function addQuestion() {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.preguntas.push({
-                pregunta: 'Nueva pregunta',
-                opciones: ['Opción 1', 'Opción 2']
-            });
-            
-            renderQuestions(survey.preguntas);
-        }
-
-        function removeQuestion(index) {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.preguntas.splice(index, 1);
-            renderQuestions(survey.preguntas);
-        }
-
-        function updateQuestion(index, field, value) {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.preguntas[index][field] = value;
-        }
-
-        function updateQuestionOption(questionIndex, optionIndex, value) {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.preguntas[questionIndex].opciones[optionIndex] = value;
-        }
-
-        function addOption(questionIndex) {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.preguntas[questionIndex].opciones.push('Nueva opción');
-            renderQuestions(survey.preguntas);
-        }
-
-        function removeOption(questionIndex, optionIndex) {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey || survey.preguntas[questionIndex].opciones.length <= 2) return;
-            
-            survey.preguntas[questionIndex].opciones.splice(optionIndex, 1);
-            renderQuestions(survey.preguntas);
-        }
-
-        async function saveChanges() {
-            const survey = surveysData.find(s => s.id === currentSurveyId);
-            if (!survey) return;
-            
-            survey.titulo = document.getElementById('editTitle').value;
-            survey.objetivo = document.getElementById('editObjective').value;
-            
-            try {
-                // In demo mode, just update local data
-                if (!authToken) {
-                    showNotification('Cambios guardados (modo demo)', 'success');
-                    closeEditModal();
-                    renderSurveys(surveysData);
-                    return;
+                    // Step 2: Notify Teams that we're ready (CRITICAL)
+                    window.microsoftTeams.app.notifyAppLoaded();
+                    console.log('✅ Teams notified of app load');
+                    
+                    // Step 3: Notify success (CRITICAL)
+                    window.microsoftTeams.app.notifySuccess();
+                    console.log('✅ Teams notified of success');
+                    
+                    // Step 4: Now proceed with our app logic
+                    isTeamsContext = true;
+                    microsoftTeams = window.microsoftTeams;
+                    
+                    // Get Teams context
+                    try {
+                        const context = await window.microsoftTeams.app.getContext();
+                        console.log('✅ Teams context obtained');
+                        
+                        // Attempt SSO
+                        await attemptAuthentication();
+                    } catch (contextError) {
+                        console.warn('⚠️ Context/Auth error:', contextError);
+                        showAuthConsentState();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Teams initialization failed:', error);
+                    
+                    // Fallback for non-Teams environment
+                    setTimeout(() => showAuthConsentState(), 100);
                 }
-                
-                // Real API call for authenticated users
-                await makeAPICall(`/surveys/${currentSurveyId}`, {
-                    method: 'PUT',
-                    body: survey
-                });
-                
-                showNotification('Encuesta actualizada exitosamente', 'success');
-                closeEditModal();
-                renderSurveys(surveysData);
-                
-            } catch (error) {
-                console.error('❌ Error saving changes:', error);
-                showNotification('Error al guardar cambios', 'error');
             }
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').style.display = 'none';
-            currentSurveyId = null;
-        }
-
-        async function viewResults(surveyId) {
-            const survey = surveysData.find(s => s.id === surveyId);
-            if (!survey) return;
-            
-            try {
-                showNotification(`Abriendo resultados de: ${survey.titulo}`, 'success');
+            // 🆕 Authentication attempt with proper error handling per MS docs
+            async function attemptAuthentication() {
+                if (authAttempted) return;
+                authAttempted = true;
                 
-                // For Teams integration, we could use:
-                if (isTeamsContext && microsoftTeams.pages) {
-                    // await microsoftTeams.pages.navigateToApp({
-                    //     appId: "your-app-id",
-                    //     pageId: "results",
-                    //     subPageId: surveyId
-                    // });
+                try {
+                    console.log('🔐 Attempting SSO authentication...');
+                    
+                    // Use getAuthToken as per official MS documentation
+                    authToken = await microsoftTeams.authentication.getAuthToken();
+                    console.log('✅ SSO token obtained successfully');
+                    
+                    // Token validation would happen here in production
+                    showNotification('Autenticación exitosa', 'success');
+                    await loadSurveys();
+                    
+                } catch (authError) {
+                    console.warn('⚠️ SSO authentication failed:', authError.message);
+                    
+                    // Handle specific errors as per MS documentation
+                    if (authError.message.includes('invalid_grant') || 
+                        authError.message.includes('interaction_required')) {
+                        console.log('📋 User consent required - showing consent flow');
+                        showAuthConsentState();
+                    } else {
+                        console.log('🔧 Falling back to demo mode');
+                        initializeDemoMode();
+                    }
                 }
-                
-            } catch (error) {
-                console.error('❌ Error viewing results:', error);
-                showNotification('Error al abrir resultados', 'error');
             }
-        }
 
-        async function toggleSurveyStatus(surveyId) {
-            const survey = surveysData.find(s => s.id === surveyId);
-            if (!survey) return;
-            
-            try {
-                const newStatus = survey.estado === 'activa' ? 'cerrada' : 'activa';
-                
-                // In demo mode, just update local data
-                if (!authToken) {
-                    survey.estado = newStatus;
-                    showNotification(
-                        `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} (modo demo)`, 
-                        'success'
-                    );
-                    renderSurveys(surveysData);
-                    updateStatistics(surveysData);
-                    return;
-                }
-                
-                // Real API call for authenticated users
-                await makeAPICall(`/surveys/${surveyId}/status`, {
-                    method: 'PATCH',
-                    body: { status: newStatus }
-                });
-                
-                survey.estado = newStatus;
-                
-                showNotification(
-                    `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} exitosamente`, 
-                    'success'
-                );
-                
-                renderSurveys(surveysData);
-                updateStatistics(surveysData);
-                
-            } catch (error) {
-                console.error('❌ Error toggling survey status:', error);
-                showNotification('Error al cambiar estado de la encuesta', 'error');
+            // 🆕 Show authentication consent state
+            function showAuthConsentState() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('surveysContainer').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('authContainer').style.display = 'block';
             }
-        }
 
-        async function duplicateSurvey(surveyId) {
-            const survey = surveysData.find(s => s.id === surveyId);
-            if (!survey) return;
-            
-            try {
-                const duplicatedSurvey = {
-                    ...survey,
-                    id: `${survey.id}_copy_${Date.now()}`,
-                    titulo: `${survey.titulo} (Copia)`,
-                    fechaCreacion: new Date(),
-                    totalRespuestas: 0,
-                    estado: 'activa'
+            // 🆕 Initialize demo mode
+            async function initializeDemoMode() {
+                console.log('🎭 Initializing demo mode with mock data');
+                document.getElementById('authContainer').style.display = 'none';
+                showNotification('Panel iniciado en modo demostración', 'success');
+                await loadSurveys();
+            }
+
+            // 🆕 API calls with better error handling
+            async function makeAPICall(endpoint, options = {}) {
+                const baseURL = window.location.origin;
+                const url = `${baseURL}/api/admin${endpoint}`;
+                
+                const defaultOptions = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                    }
                 };
                 
-                // In demo mode, just update local data
-                if (!authToken) {
-                    surveysData.unshift(duplicatedSurvey);
-                    showNotification('Encuesta duplicada (modo demo)', 'success');
-                    renderSurveys(surveysData);
-                    updateStatistics(surveysData);
+                const finalOptions = { ...defaultOptions, ...options };
+                if (options.body && typeof options.body === 'object') {
+                    finalOptions.body = JSON.stringify(options.body);
+                }
+                
+                try {
+                    const response = await fetch(url, finalOptions);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return await response.json();
+                    } else {
+                        return await response.text();
+                    }
+                } catch (error) {
+                    console.error(`❌ API call failed: ${endpoint}`, error);
+                    
+                    // In demo mode, continue with mock data
+                    if (!authToken && endpoint === '/surveys') {
+                        console.log('🎭 API failed, using mock data for demo');
+                        return { success: true, data: await getMockSurveys() };
+                    }
+                    
+                    throw error;
+                }
+            }
+
+            // Load surveys from backend or mock data
+            async function loadSurveys() {
+                const loading = document.getElementById('loading');
+                const container = document.getElementById('surveysContainer');
+                const emptyState = document.getElementById('emptyState');
+                
+                try {
+                    loading.style.display = 'block';
+                    container.style.display = 'none';
+                    emptyState.style.display = 'none';
+                    
+                    // Try real API first, fallback to mock data
+                    let surveys;
+                    try {
+                        const response = await makeAPICall('/surveys');
+                        surveys = response.data || response;
+                    } catch (apiError) {
+                        console.log('🎭 Using mock data due to API error:', apiError.message);
+                        surveys = await getMockSurveys();
+                    }
+                    
+                    surveysData = surveys;
+                    
+                    updateStatistics(surveys);
+                    renderSurveys(surveys);
+                    
+                    loading.style.display = 'none';
+                    
+                    if (surveys.length === 0) {
+                        emptyState.style.display = 'block';
+                    } else {
+                        container.style.display = 'block';
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error loading surveys:', error);
+                    loading.style.display = 'none';
+                    showNotification('Error al cargar encuestas', 'error');
+                }
+            }
+
+            // Mock data for development (same as before)
+            async function getMockSurveys() {
+                return [
+                    {
+                        id: 'clima_123456_abc',
+                        titulo: 'Clima Laboral Q4 2024',
+                        objetivo: 'Evaluar la satisfacción y engagement de los empleados durante el último trimestre',
+                        preguntas: [
+                            {
+                                pregunta: '¿Cómo calificarías el ambiente de trabajo?',
+                                opciones: ['Excelente', 'Bueno', 'Regular', 'Malo']
+                            },
+                            {
+                                pregunta: '¿Te sientes valorado en tu rol?',
+                                opciones: ['Siempre', 'Frecuentemente', 'A veces', 'Nunca']
+                            }
+                        ],
+                        creador: 'Admin',
+                        fechaCreacion: new Date('2024-01-15'),
+                        estado: 'activa',
+                        totalRespuestas: 47,
+                        basadoEnTemplate: 'clima_laboral_v1'
+                    },
+                    {
+                        id: 'nps_789012_def',
+                        titulo: 'NPS Clientes - Enero 2024',
+                        objetivo: 'Medir la satisfacción del cliente y probabilidad de recomendación',
+                        preguntas: [
+                            {
+                                pregunta: '¿Qué tan probable es que recomiendes nuestro servicio?',
+                                opciones: ['9-10 (Promotor)', '7-8 (Neutral)', '0-6 (Detractor)']
+                            }
+                        ],
+                        creador: 'Marketing Team',
+                        fechaCreacion: new Date('2024-01-10'),
+                        estado: 'activa',
+                        totalRespuestas: 23,
+                        basadoEnTemplate: 'nps_cliente_v1'
+                    },
+                    {
+                        id: 'training_345678_ghi',
+                        titulo: 'Feedback Capacitación Ventas',
+                        objetivo: 'Evaluar efectividad del entrenamiento en técnicas de venta',
+                        preguntas: [
+                            {
+                                pregunta: '¿La capacitación cumplió tus expectativas?',
+                                opciones: ['Superó expectativas', 'Cumplió expectativas', 'Parcialmente', 'No cumplió']
+                            }
+                        ],
+                        creador: 'HR Department',
+                        fechaCreacion: new Date('2024-01-05'),
+                        estado: 'cerrada',
+                        totalRespuestas: 12,
+                        basadoEnTemplate: 'feedback_capacitacion_v1'
+                    }
+                ];
+            }
+
+            // Update statistics
+            function updateStatistics(surveys) {
+                const total = surveys.length;
+                const active = surveys.filter(s => s.estado === 'activa').length;
+                const totalResponses = surveys.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0);
+                const avgResponses = total > 0 ? Math.round(totalResponses / total) : 0;
+                
+                document.getElementById('totalSurveys').textContent = total;
+                document.getElementById('activeSurveys').textContent = active;
+                document.getElementById('totalResponses').textContent = totalResponses;
+                document.getElementById('avgResponseRate').textContent = avgResponses;
+            }
+
+            // Render surveys
+            function renderSurveys(surveys) {
+                const container = document.getElementById('surveysContainer');
+                
+                if (surveys.length === 0) {
+                    container.innerHTML = '';
                     return;
                 }
                 
-                // Real API call for authenticated users
-                await makeAPICall('/surveys', {
-                    method: 'POST',
-                    body: duplicatedSurvey
+                const surveysHTML = surveys.map(survey => `
+                    <div class="survey-card">
+                        <div class="survey-header">
+                            <div>
+                                <h3 class="survey-title">${survey.titulo}</h3>
+                                <span class="survey-id">ID: ${survey.id}</span>
+                            </div>
+                            <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
+                                ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
+                            </span>
+                        </div>
+                        
+                        <div class="survey-meta">
+                            <div class="meta-item">
+                                <div class="meta-value">${survey.preguntas.length}</div>
+                                <div class="meta-label">Preguntas</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-value">${survey.totalRespuestas || 0}</div>
+                                <div class="meta-label">Respuestas</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-value">${formatDate(survey.fechaCreacion)}</div>
+                                <div class="meta-label">Creada</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-value">${survey.creador}</div>
+                                <div class="meta-label">Creador</div>
+                            </div>
+                        </div>
+                        
+                        <div class="survey-objective">
+                            <strong>📋 Objetivo:</strong> ${survey.objetivo}
+                        </div>
+                        
+                        <div class="survey-actions">
+                            <button class="btn btn-primary btn-small" onclick="editSurvey('${survey.id}')">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="viewResults('${survey.id}')">
+                                📊 Resultados
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="toggleSurveyStatus('${survey.id}')">
+                                ${survey.estado === 'activa' ? '⏸️ Pausar' : '▶️ Activar'}
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="duplicateSurvey('${survey.id}')">
+                                📄 Duplicar
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteSurvey('${survey.id}')">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = surveysHTML;
+            }
+
+            // Survey actions (same as before but with improved error handling)
+            function editSurvey(surveyId) {
+                const survey = surveysData.find(s => s.id === surveyId);
+                if (!survey) return;
+                
+                currentSurveyId = surveyId;
+                
+                document.getElementById('editTitle').value = survey.titulo;
+                document.getElementById('editObjective').value = survey.objetivo;
+                
+                renderQuestions(survey.preguntas);
+                
+                document.getElementById('editModal').style.display = 'block';
+            }
+
+            function renderQuestions(questions) {
+                const container = document.getElementById('questionsContainer');
+                
+                const questionsHTML = questions.map((question, index) => `
+                    <div class="question-item">
+                        <div class="question-header">
+                            <div class="question-number">${index + 1}</div>
+                            <button class="btn btn-danger btn-small" onclick="removeQuestion(${index})">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                        <input type="text" class="form-input" placeholder="Texto de la pregunta" 
+                            value="${question.pregunta}" onchange="updateQuestion(${index}, 'pregunta', this.value)">
+                        <div class="options-list">
+                            ${question.opciones.map((option, optIndex) => `
+                                <div class="option-tag">
+                                    <input type="text" value="${option}" 
+                                        onchange="updateQuestionOption(${index}, ${optIndex}, this.value)"
+                                        style="background: none; border: none; width: 100%; color: inherit;">
+                                    <button onclick="removeOption(${index}, ${optIndex})" style="margin-left: 8px; background: none; border: none; color: #e53e3e; cursor: pointer;">×</button>
+                                </div>
+                            `).join('')}
+                            <button class="btn btn-secondary btn-small" onclick="addOption(${index})" style="margin-top: 8px;">
+                                ➕ Agregar Opción
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = questionsHTML;
+            }
+
+            function addQuestion() {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.preguntas.push({
+                    pregunta: 'Nueva pregunta',
+                    opciones: ['Opción 1', 'Opción 2']
                 });
                 
-                surveysData.unshift(duplicatedSurvey);
-                
-                showNotification('Encuesta duplicada exitosamente', 'success');
-                renderSurveys(surveysData);
-                updateStatistics(surveysData);
-                
-            } catch (error) {
-                console.error('❌ Error duplicating survey:', error);
-                showNotification('Error al duplicar encuesta', 'error');
+                renderQuestions(survey.preguntas);
             }
-        }
 
-        async function deleteSurvey(surveyId) {
-            const survey = surveysData.find(s => s.id === surveyId);
-            if (!survey) return;
-            
-            if (!confirm(`¿Estás seguro de que quieres eliminar "${survey.titulo}"?\n\nEsta acción no se puede deshacer.`)) {
-                return;
+            function removeQuestion(index) {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.preguntas.splice(index, 1);
+                renderQuestions(survey.preguntas);
             }
-            
-            try {
-                // In demo mode, just update local data
-                if (!authToken) {
+
+            function updateQuestion(index, field, value) {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.preguntas[index][field] = value;
+            }
+
+            function updateQuestionOption(questionIndex, optionIndex, value) {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.preguntas[questionIndex].opciones[optionIndex] = value;
+            }
+
+            function addOption(questionIndex) {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.preguntas[questionIndex].opciones.push('Nueva opción');
+                renderQuestions(survey.preguntas);
+            }
+
+            function removeOption(questionIndex, optionIndex) {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey || survey.preguntas[questionIndex].opciones.length <= 2) return;
+                
+                survey.preguntas[questionIndex].opciones.splice(optionIndex, 1);
+                renderQuestions(survey.preguntas);
+            }
+
+            async function saveChanges() {
+                const survey = surveysData.find(s => s.id === currentSurveyId);
+                if (!survey) return;
+                
+                survey.titulo = document.getElementById('editTitle').value;
+                survey.objetivo = document.getElementById('editObjective').value;
+                
+                try {
+                    // In demo mode, just update local data
+                    if (!authToken) {
+                        showNotification('Cambios guardados (modo demo)', 'success');
+                        closeEditModal();
+                        renderSurveys(surveysData);
+                        return;
+                    }
+                    
+                    // Real API call for authenticated users
+                    await makeAPICall(`/surveys/${currentSurveyId}`, {
+                        method: 'PUT',
+                        body: survey
+                    });
+                    
+                    showNotification('Encuesta actualizada exitosamente', 'success');
+                    closeEditModal();
+                    renderSurveys(surveysData);
+                    
+                } catch (error) {
+                    console.error('❌ Error saving changes:', error);
+                    showNotification('Error al guardar cambios', 'error');
+                }
+            }
+
+            function closeEditModal() {
+                document.getElementById('editModal').style.display = 'none';
+                currentSurveyId = null;
+            }
+
+            async function viewResults(surveyId) {
+                const survey = surveysData.find(s => s.id === surveyId);
+                if (!survey) return;
+                
+                try {
+                    showNotification(`Abriendo resultados de: ${survey.titulo}`, 'success');
+                    
+                    // For Teams integration, we could use:
+                    if (isTeamsContext && microsoftTeams.pages) {
+                        // await microsoftTeams.pages.navigateToApp({
+                        //     appId: "your-app-id",
+                        //     pageId: "results",
+                        //     subPageId: surveyId
+                        // });
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error viewing results:', error);
+                    showNotification('Error al abrir resultados', 'error');
+                }
+            }
+
+            async function toggleSurveyStatus(surveyId) {
+                const survey = surveysData.find(s => s.id === surveyId);
+                if (!survey) return;
+                
+                try {
+                    const newStatus = survey.estado === 'activa' ? 'cerrada' : 'activa';
+                    
+                    // In demo mode, just update local data
+                    if (!authToken) {
+                        survey.estado = newStatus;
+                        showNotification(
+                            `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} (modo demo)`, 
+                            'success'
+                        );
+                        renderSurveys(surveysData);
+                        updateStatistics(surveysData);
+                        return;
+                    }
+                    
+                    // Real API call for authenticated users
+                    await makeAPICall(`/surveys/${surveyId}/status`, {
+                        method: 'PATCH',
+                        body: { status: newStatus }
+                    });
+                    
+                    survey.estado = newStatus;
+                    
+                    showNotification(
+                        `Encuesta ${newStatus === 'activa' ? 'activada' : 'pausada'} exitosamente`, 
+                        'success'
+                    );
+                    
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    
+                } catch (error) {
+                    console.error('❌ Error toggling survey status:', error);
+                    showNotification('Error al cambiar estado de la encuesta', 'error');
+                }
+            }
+
+            async function duplicateSurvey(surveyId) {
+                const survey = surveysData.find(s => s.id === surveyId);
+                if (!survey) return;
+                
+                try {
+                    const duplicatedSurvey = {
+                        ...survey,
+                        id: `${survey.id}_copy_${Date.now()}`,
+                        titulo: `${survey.titulo} (Copia)`,
+                        fechaCreacion: new Date(),
+                        totalRespuestas: 0,
+                        estado: 'activa'
+                    };
+                    
+                    // In demo mode, just update local data
+                    if (!authToken) {
+                        surveysData.unshift(duplicatedSurvey);
+                        showNotification('Encuesta duplicada (modo demo)', 'success');
+                        renderSurveys(surveysData);
+                        updateStatistics(surveysData);
+                        return;
+                    }
+                    
+                    // Real API call for authenticated users
+                    await makeAPICall('/surveys', {
+                        method: 'POST',
+                        body: duplicatedSurvey
+                    });
+                    
+                    surveysData.unshift(duplicatedSurvey);
+                    
+                    showNotification('Encuesta duplicada exitosamente', 'success');
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    
+                } catch (error) {
+                    console.error('❌ Error duplicating survey:', error);
+                    showNotification('Error al duplicar encuesta', 'error');
+                }
+            }
+
+            async function deleteSurvey(surveyId) {
+                const survey = surveysData.find(s => s.id === surveyId);
+                if (!survey) return;
+                
+                if (!confirm(`¿Estás seguro de que quieres eliminar "${survey.titulo}"?\n\nEsta acción no se puede deshacer.`)) {
+                    return;
+                }
+                
+                try {
+                    // In demo mode, just update local data
+                    if (!authToken) {
+                        surveysData = surveysData.filter(s => s.id !== surveyId);
+                        showNotification('Encuesta eliminada (modo demo)', 'success');
+                        renderSurveys(surveysData);
+                        updateStatistics(surveysData);
+                        
+                        if (surveysData.length === 0) {
+                            document.getElementById('surveysContainer').style.display = 'none';
+                            document.getElementById('emptyState').style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Real API call for authenticated users
+                    await makeAPICall(`/surveys/${surveyId}?confirm=true`, {
+                        method: 'DELETE'
+                    });
+                    
                     surveysData = surveysData.filter(s => s.id !== surveyId);
-                    showNotification('Encuesta eliminada (modo demo)', 'success');
+                    
+                    showNotification('Encuesta eliminada exitosamente', 'success');
                     renderSurveys(surveysData);
                     updateStatistics(surveysData);
                     
@@ -1240,189 +1293,164 @@
                         document.getElementById('surveysContainer').style.display = 'none';
                         document.getElementById('emptyState').style.display = 'block';
                     }
-                    return;
+                    
+                } catch (error) {
+                    console.error('❌ Error deleting survey:', error);
+                    showNotification('Error al eliminar encuesta', 'error');
                 }
-                
-                // Real API call for authenticated users
-                await makeAPICall(`/surveys/${surveyId}?confirm=true`, {
-                    method: 'DELETE'
-                });
-                
-                surveysData = surveysData.filter(s => s.id !== surveyId);
-                
-                showNotification('Encuesta eliminada exitosamente', 'success');
-                renderSurveys(surveysData);
-                updateStatistics(surveysData);
-                
-                if (surveysData.length === 0) {
-                    document.getElementById('surveysContainer').style.display = 'none';
-                    document.getElementById('emptyState').style.display = 'block';
-                }
-                
-            } catch (error) {
-                console.error('❌ Error deleting survey:', error);
-                showNotification('Error al eliminar encuesta', 'error');
             }
-        }
 
-        function showCreateModal() {
-            alert('Funcionalidad de crear encuesta será implementada próximamente.\n\nPor ahora, usa el bot de Teams con el comando "crear encuesta"');
-        }
+            function showCreateModal() {
+                alert('Funcionalidad de crear encuesta será implementada próximamente.\n\nPor ahora, usa el bot de Teams con el comando "crear encuesta"');
+            }
 
-        async function refreshData() {
-            await loadSurveys();
-            showNotification('Datos actualizados', 'success');
-        }
+            async function refreshData() {
+                await loadSurveys();
+                showNotification('Datos actualizados', 'success');
+            }
 
-        async function exportAllData() {
-            try {
-                const dataToExport = {
-                    surveys: surveysData,
-                    exportDate: new Date().toISOString(),
-                    totalSurveys: surveysData.length,
-                    totalResponses: surveysData.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0),
-                    mode: authToken ? 'authenticated' : 'demo'
+            async function exportAllData() {
+                try {
+                    const dataToExport = {
+                        surveys: surveysData,
+                        exportDate: new Date().toISOString(),
+                        totalSurveys: surveysData.length,
+                        totalResponses: surveysData.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0),
+                        mode: authToken ? 'authenticated' : 'demo'
+                    };
+                    
+                    const dataStr = JSON.stringify(dataToExport, null, 2);
+                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                    
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `teampulse_export_${new Date().toISOString().split('T')[0]}.json`;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('Datos exportados exitosamente', 'success');
+                    
+                } catch (error) {
+                    console.error('❌ Error exporting data:', error);
+                    showNotification('Error al exportar datos', 'error');
+                }
+            }
+
+            // Search functionality
+            function setupSearch() {
+                const searchInput = document.getElementById('searchInput');
+                
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase().trim();
+                    
+                    if (query === '') {
+                        renderSurveys(surveysData);
+                        return;
+                    }
+                    
+                    const filteredSurveys = surveysData.filter(survey => 
+                        survey.titulo.toLowerCase().includes(query) ||
+                        survey.objetivo.toLowerCase().includes(query) ||
+                        survey.id.toLowerCase().includes(query) ||
+                        survey.creador.toLowerCase().includes(query)
+                    );
+                    
+                    renderSurveys(filteredSurveys);
+                    
+                    if (filteredSurveys.length === 0) {
+                        document.getElementById('surveysContainer').innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-icon">🔍</div>
+                                <h3>No se encontraron resultados</h3>
+                                <p>Intenta con otros términos de búsqueda</p>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            // Utility functions
+            function formatDate(date) {
+                if (!date) return 'N/A';
+                
+                const d = new Date(date);
+                const now = new Date();
+                const diffTime = Math.abs(now - d);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 1) return 'Ayer';
+                if (diffDays < 7) return `${diffDays} días`;
+                if (diffDays < 30) return `${Math.ceil(diffDays / 7)} semanas`;
+                if (diffDays < 365) return `${Math.ceil(diffDays / 30)} meses`;
+                
+                return d.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+
+            function showNotification(message, type = 'success') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        if (document.body.contains(notification)) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+
+            // 🆕 Event listeners with improved Teams detection
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('🚀 AdminPanel DOM loaded, initializing...');
+                
+                setupSearch();
+                
+                // Close modal handlers
+                window.onclick = (event) => {
+                    const modal = document.getElementById('editModal');
+                    if (event.target === modal) {
+                        closeEditModal();
+                    }
                 };
                 
-                const dataStr = JSON.stringify(dataToExport, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                
-                const url = URL.createObjectURL(dataBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `teampulse_export_${new Date().toISOString().split('T')[0]}.json`;
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                URL.revokeObjectURL(url);
-                
-                showNotification('Datos exportados exitosamente', 'success');
-                
-            } catch (error) {
-                console.error('❌ Error exporting data:', error);
-                showNotification('Error al exportar datos', 'error');
-            }
-        }
-
-        // Search functionality
-        function setupSearch() {
-            const searchInput = document.getElementById('searchInput');
-            
-            searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                
-                if (query === '') {
-                    renderSurveys(surveysData);
-                    return;
-                }
-                
-                const filteredSurveys = surveysData.filter(survey => 
-                    survey.titulo.toLowerCase().includes(query) ||
-                    survey.objetivo.toLowerCase().includes(query) ||
-                    survey.id.toLowerCase().includes(query) ||
-                    survey.creador.toLowerCase().includes(query)
-                );
-                
-                renderSurveys(filteredSurveys);
-                
-                if (filteredSurveys.length === 0) {
-                    document.getElementById('surveysContainer').innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-icon">🔍</div>
-                            <h3>No se encontraron resultados</h3>
-                            <p>Intenta con otros términos de búsqueda</p>
-                        </div>
-                    `;
-                }
-            });
-        }
-
-        // Utility functions
-        function formatDate(date) {
-            if (!date) return 'N/A';
-            
-            const d = new Date(date);
-            const now = new Date();
-            const diffTime = Math.abs(now - d);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays === 1) return 'Ayer';
-            if (diffDays < 7) return `${diffDays} días`;
-            if (diffDays < 30) return `${Math.ceil(diffDays / 7)} semanas`;
-            if (diffDays < 365) return `${Math.ceil(diffDays / 30)} meses`;
-            
-            return d.toLocaleDateString('es-ES', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        closeEditModal();
                     }
-                }, 300);
-            }, 3000);
-        }
-
-        // 🆕 Event listeners with improved Teams detection
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 AdminPanel loading...');
-            
-            // Check if we're in Teams context
-            if (window.microsoftTeams) {
-                console.log('🔍 Teams SDK detected, initializing...');
-                microsoftTeams = window.microsoftTeams;
-                initializeTeams();
-            } else {
-                console.log('⚠️ Teams SDK not available, running in standalone mode');
-                isTeamsContext = false;
-                showAuthConsentState();
-            }
-            
-            setupSearch();
-            
-            // Close modal when clicking outside
-            window.onclick = (event) => {
-                const modal = document.getElementById('editModal');
-                if (event.target === modal) {
-                    closeEditModal();
-                }
-            };
-            
-            // Escape key to close modal
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    closeEditModal();
-                }
+                });
+                
+                // 🔥 CRITICAL: Initialize Teams FIRST
+                initializeTeamsApp();
             });
-        });
 
-        // Auto-refresh data every 5 minutes (only if authenticated)
-        setInterval(async () => {
-            if (authToken) {
-                try {
-                    await loadSurveys();
-                    console.log('✅ Auto-refresh completed');
-                } catch (error) {
-                    console.error('❌ Auto-refresh failed:', error);
+    console.log('🎯 TeamPulse Admin Panel script loaded');
+            // Auto-refresh data every 5 minutes (only if authenticated)
+            setInterval(async () => {
+                if (authToken) {
+                    try {
+                        await loadSurveys();
+                        console.log('✅ Auto-refresh completed');
+                    } catch (error) {
+                        console.error('❌ Auto-refresh failed:', error);
+                    }
                 }
-            }
-        }, 5 * 60 * 1000);
+            }, 5 * 60 * 1000);
 
-        console.log('🎯 TeamPulse Admin Panel loaded successfully');
-    </script>
+            console.log('🎯 TeamPulse Admin Panel loaded successfully');
+        </script>
+    </div>
 </body>
 </html>
