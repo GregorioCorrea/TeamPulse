@@ -175,9 +175,9 @@ export class AzureTableService {
         rowKey: entity.rowKey as string,
         email: entity.email as string,
         name: entity.name as string,
-        isActive: entity.isActive as boolean,
+        isActive: (entity.role as string) === 'admin', // 🔧 FIX: usar role en lugar de isActive
         dateAdded: entity.dateAdded as string,
-        addedBy: entity.addedBy as string
+        addedBy: 'System' // Default value
       };
     } catch (error) {
       console.log(`📝 Admin user not found: ${userId} in ${tenantId}`);
@@ -192,19 +192,18 @@ export class AzureTableService {
         rowKey: userId,
         email: email,
         name: name,
-        isActive: true,
-        dateAdded: new Date().toISOString(),
-        addedBy: addedBy
+        role: 'admin', // 🔧 FIX: usar role en lugar de isActive
+        tenantId: tenantId,
+        dateAdded: new Date().toISOString()
       };
 
-      await this.adminUsersTable.createEntity(entity);
+      await this.adminUsersTable.upsertEntity(entity); // upsert en lugar de create
       console.log(`✅ Admin user added: ${email} in ${tenantId}`);
     } catch (error) {
       console.error('❌ Error adding admin user:', error);
       throw error;
     }
   }
-
   // Agregar este método en AzureTableService:
   async listarAdminsEnTenant(tenantId: string): Promise<AdminUser[]> {
     try {
@@ -219,13 +218,13 @@ export class AzureTableService {
           rowKey: entity.rowKey as string,
           email: entity.email as string,
           name: entity.name as string,
-          isActive: entity.isActive as boolean,
+          isActive: (entity.role as string) === 'admin', // 🔧 FIX: usar role
           dateAdded: entity.dateAdded as string,
-          addedBy: entity.addedBy as string
+          addedBy: 'System'
         });
       }
 
-      return admins;
+      return admins.filter(admin => admin.isActive); // Solo retornar admins activos
     } catch (error) {
       console.error('❌ Error listing tenant admins:', error);
       return [];
