@@ -743,9 +743,23 @@ router.get('/surveys/:id/responses', validateTeamsSSO, async (req: Authenticated
       return;
     }
 
-    // Obtener respuestas
+        // Obtener respuestas
     const tenantId = req.user?.tenantId;
-    const respuestas = await azureService.cargarRespuestasEncuesta(id, tenantId);
+    if (!tenantId) {
+    res.status(400).json({ error: 'Tenant ID required' });
+    return;
+    }
+
+    const hasAccess = await azureService.verificarOwnershipEncuesta(id, tenantId);
+    if (!hasAccess) {
+    res.status(403).json({ 
+        error: 'Access denied',
+        message: 'No tienes permisos para ver las respuestas de esta encuesta'
+    });
+    return;
+    }
+
+    const respuestas = await azureService.cargarRespuestasEncuesta(id);
     const resultados = await azureService.cargarResultados(id);
 
     // Calcular estadísticas
