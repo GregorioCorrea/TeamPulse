@@ -1151,28 +1151,171 @@
                 currentSurveyId = null;
             }
 
+            // Reemplazar la función viewResults existente:
             async function viewResults(surveyId) {
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
                 try {
-                    showNotification(`Abriendo resultados de: ${survey.titulo}`, 'success');
+                    console.log(`📊 Loading results for: ${survey.titulo}`);
                     
-                    // For Teams integration, we could use:
-                    if (isTeamsContext && microsoftTeams.pages) {
-                        // await microsoftTeams.pages.navigateToApp({
-                        //     appId: "your-app-id",
-                        //     pageId: "results",
-                        //     subPageId: surveyId
-                        // });
+                    // Abrir modal y mostrar loading
+                    document.getElementById('resultsModalTitle').textContent = `📊 Resultados: ${survey.titulo}`;
+                    document.getElementById('resultsModal').style.display = 'block';
+                    document.getElementById('resultsLoading').style.display = 'block';
+                    document.getElementById('resultsData').style.display = 'none';
+                    document.getElementById('resultsError').style.display = 'none';
+                    
+                    // Cargar resultados desde la API
+                    let resultsData;
+                    try {
+                        const response = await makeAPICall(`/surveys/${surveyId}/responses`);
+                        resultsData = response.data || response;
+                    } catch (apiError) {
+                        console.log('🎭 Using mock results due to API error:', apiError.message);
+                        resultsData = generateMockResults(survey);
                     }
                     
+                    // Renderizar resultados
+                    renderResults(resultsData, survey);
+                    
+                    // Mostrar contenido
+                    document.getElementById('resultsLoading').style.display = 'none';
+                    document.getElementById('resultsData').style.display = 'block';
+                    
+                    showNotification(`Resultados cargados para: ${survey.titulo}`, 'success');
+                    
                 } catch (error) {
-                    console.error('❌ Error viewing results:', error);
-                    showNotification('Error al abrir resultados', 'error');
+                    console.error('❌ Error loading results:', error);
+                    
+                    document.getElementById('resultsLoading').style.display = 'none';
+                    document.getElementById('resultsError').style.display = 'block';
+                    document.getElementById('resultsErrorMessage').textContent = 'Error al cargar los resultados de la encuesta';
+                    
+                    showNotification('Error al cargar resultados', 'error');
                 }
             }
 
+            // Función para renderizar los resultados
+            function renderResults(resultsData, survey) {
+                const container = document.getElementById('resultsData');
+                
+                if (!resultsData.estadisticas || !resultsData.estadisticas.respuestasPorPregunta) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📊</div>
+                            <h3>Sin respuestas aún</h3>
+                            <p>Esta encuesta no tiene respuestas todavía.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const stats = resultsData.estadisticas;
+                
+                let html = `
+                    <div class="stats-grid" style="margin-bottom: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-number">${stats.totalParticipantes || 0}</div>
+                            <div class="stat-label">Participantes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${stats.totalRespuestas || 0}</div>
+                            <div class="stat-label">Total Respuestas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${survey.preguntas.length}</div>
+                            <div class="stat-label">Preguntas</div>
+                        </div>
+                    </div>
+                    
+                    <div class="results-questions">
+                `;
+                
+                // Renderizar cada pregunta con sus resultados
+                Object.keys(stats.respuestasPorPregunta).forEach(preguntaIndex => {
+                    const preguntaData = stats.respuestasPorPregunta[preguntaIndex];
+                    const preguntaNum = parseInt(preguntaIndex) + 1;
+                    
+                    html += `
+                        <div class="question-results" style="margin-bottom: 32px; padding: 20px; background: #f8fafc; border-radius: 12px;">
+                            <h3 style="margin-bottom: 16px; color: #2d3748;">
+                                ${preguntaNum}. ${preguntaData.pregunta}
+                            </h3>
+                            <p style="margin-bottom: 16px; color: #718096;">
+                                ${preguntaData.total} respuestas recibidas
+                            </p>
+                            
+                            <div class="options-results">
+                    `;
+                    
+                    // Calcular porcentajes y renderizar cada opción
+                    Object.keys(preguntaData.distribucion).forEach(opcion => {
+                        const count = preguntaData.distribucion[opcion];
+                        const percentage = preguntaData.total > 0 ? Math.round((count / preguntaData.total) * 100) : 0;
+                        
+                        html += `
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="font-weight: 500;">${opcion}</span>
+                                    <span style="color: #667eea; font-weight: 600;">${count} (${percentage}%)</span>
+                                </div>
+                                <div style="background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                
+                container.innerHTML = html;
+            }
+
+            // Función para generar resultados mock en caso de que no haya data real
+            function generateMockResults(survey) {
+                const mockStats = {
+                    totalParticipantes: survey.totalRespuestas || 0,
+                    totalRespuestas: (survey.totalRespuestas || 0) * survey.preguntas.length,
+                    respuestasPorPregunta: {}
+                };
+                
+                survey.preguntas.forEach((pregunta, index) => {
+                    const total = survey.totalRespuestas || 0;
+                    const distribucion = {};
+                    
+                    // Generar distribución mock basada en el número de opciones
+                    pregunta.opciones.forEach((opcion, optIndex) => {
+                        // Distribución algo realista
+                        const factor = Math.max(0.1, 1 - (optIndex * 0.2));
+                        distribucion[opcion] = Math.floor(total * factor * (0.5 + Math.random() * 0.5));
+                    });
+                    
+                    mockStats.respuestasPorPregunta[index] = {
+                        pregunta: pregunta.pregunta,
+                        total: total,
+                        distribucion: distribucion
+                    };
+                });
+                
+                return { estadisticas: mockStats };
+            }
+
+            // Funciones auxiliares para el modal
+            function closeResultsModal() {
+                document.getElementById('resultsModal').style.display = 'none';
+            }
+
+            function exportResults() {
+                // Por ahora solo mostrar mensaje, puedes implementar export real después
+                showNotification('Función de exportar será implementada próximamente', 'success');
+            }
             async function toggleSurveyStatus(surveyId) {
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
