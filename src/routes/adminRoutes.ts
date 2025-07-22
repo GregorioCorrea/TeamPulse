@@ -434,15 +434,22 @@ router.put('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest, r
 
     // Actualizar encuesta
     const encuestaActualizada = {
-      ...encuestaExistente,
-      titulo: titulo.trim(),
-      objetivo: objetivo.trim(),
-      preguntas: preguntas.map(p => ({
+    ...encuestaExistente,
+    titulo: titulo.trim(),
+    objetivo: objetivo.trim(),
+    preguntas: preguntas.map(p => ({
         pregunta: p.pregunta.trim(),
         opciones: p.opciones.map((opt: string) => opt.trim())
-      })),
-      ultimaModificacion: new Date(),
-      modificadoPor: req.user?.userName || 'Admin'
+    })),
+    fechaCreacion: (() => {
+        // 🔧 FIX: Mantener fechaCreacion original como string
+        if (!encuestaExistente.fechaCreacion) return new Date().toISOString();
+        if (encuestaExistente.fechaCreacion instanceof Date) return encuestaExistente.fechaCreacion.toISOString();
+        if (typeof encuestaExistente.fechaCreacion === 'string') return encuestaExistente.fechaCreacion;
+        return new Date().toISOString();
+    })(),
+    ultimaModificacion: new Date(), // Date object OK aquí
+    modificadoPor: req.user?.userName || 'Admin'
     };
 
     // Guardar en Azure
@@ -622,12 +629,20 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
       console.log(`⚠️ Deleting survey ${id} with ${respuestas.length} responses`);
     }
 
-    // TODO: Implementar eliminación real en Azure Tables
-    // Por ahora, solo marcar como eliminada
+    // 🔧 FIX: Manejar fechaCreacion correctamente
+    const fechaCreacion = (() => {
+      if (!encuesta.fechaCreacion) return new Date().toISOString();
+      if (encuesta.fechaCreacion instanceof Date) return encuesta.fechaCreacion;
+      if (typeof encuesta.fechaCreacion === 'string') return encuesta.fechaCreacion;
+      return new Date().toISOString();
+    })();
+
+    // Marcar como eliminada
     const encuestaEliminada = {
       ...encuesta,
+      fechaCreacion: fechaCreacion, // 🔧 FIX: Asegurar que sea string
       estado: 'eliminada',
-      fechaEliminacion: new Date(),
+      fechaEliminacion: new Date(), // Date object está OK aquí
       eliminadaPor: req.user?.userName || 'Admin'
     };
 
@@ -645,7 +660,7 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
 
   } catch (error) {
     console.error('❌ Error deleting survey:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       error: 'Failed to delete survey',
       message: 'Error al eliminar la encuesta'
     });

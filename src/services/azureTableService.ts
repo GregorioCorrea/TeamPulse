@@ -241,7 +241,13 @@ export class AzureTableService {
         objetivo: encuesta.objetivo,
         preguntas: JSON.stringify(encuesta.preguntas),
         creador: encuesta.creador || 'Usuario',
-        fechaCreacion: encuesta.fechaCreacion ? encuesta.fechaCreacion.toISOString() : new Date().toISOString(),
+        fechaCreacion: (() => {
+          // 🔧 Fix para fechas que pueden ser string o Date
+          if (!encuesta.fechaCreacion) return new Date().toISOString();
+          if (encuesta.fechaCreacion instanceof Date) return encuesta.fechaCreacion.toISOString();
+          if (typeof encuesta.fechaCreacion === 'string') return encuesta.fechaCreacion;
+          return new Date().toISOString();
+        })(),
         estado: 'activa'
       };
 
