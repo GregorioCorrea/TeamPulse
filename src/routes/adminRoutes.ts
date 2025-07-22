@@ -231,12 +231,19 @@ async function checkAdminPermissions(userId: string, tenantId: string): Promise<
 // ────────────────────────────────────────────────────────────
 
 // 📊 GET /api/admin/stats - Estadísticas del dashboard
-router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     console.log(`📊 Admin stats requested by: ${req.user?.userName}`);
 
     // Obtener todas las encuestas
-    const encuestas = await azureService.listarEncuestas();
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    const encuestas = await azureService.listarEncuestas(tenantId);
+
     
     // Calcular estadísticas
     const totalSurveys = encuestas.length;
@@ -282,6 +289,7 @@ router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Re
       timestamp: new Date().toISOString(),
       requestedBy: req.user?.userName
     });
+    return;
 
   } catch (error) {
     console.error('❌ Error getting admin stats:', error);
@@ -289,6 +297,7 @@ router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Re
       error: 'Failed to get statistics',
       message: 'Error al obtener estadísticas del dashboard'
     });
+    return;
   }
 });
 
@@ -300,7 +309,13 @@ router.get('/surveys', validateTeamsSSO, async (req: AuthenticatedRequest, res: 
     const { search, status, creator, limit = 50, offset = 0 } = req.query;
 
     // Obtener todas las encuestas
-    let encuestas = await azureService.listarEncuestas();
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    let encuestas = await azureService.listarEncuestas(tenantId);
 
     // Enriquecer cada encuesta con datos de respuestas
     const encuestasEnriquecidas = await Promise.all(
@@ -394,6 +409,19 @@ router.put('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest, r
     console.log(`📝 Survey update requested for ${id} by: ${req.user?.userName}`);
 
     // Validaciones
+    
+    // 🆕 Verificar ownership antes de actualizar
+    const tenantId = req.user?.tenantId;
+    const hasAccess = await azureService.verificarOwnershipEncuesta(id, tenantId);
+
+    if (!hasAccess) {
+      res.status(403).json({ 
+        error: 'Access denied',
+        message: 'No tienes permisos para editar esta encuesta'
+      });
+      return;
+    }
+
     if (!titulo || !objetivo || !preguntas || !Array.isArray(preguntas)) {
       res.status(400).json({
         error: 'Invalid data',
@@ -479,6 +507,21 @@ router.patch('/surveys/:id/status', validateTeamsSSO, async (req: AuthenticatedR
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+    res.status(400).json({ error: 'Tenant ID required' });
+    return;
+    }
+
+    const hasAccess = await azureService.verificarOwnershipEncuesta(id, tenantId);
+    if (!hasAccess) {
+    res.status(403).json({ 
+        error: 'Access denied',
+        message: 'No tienes permisos para modificar esta encuesta'
+    });
+    return;
+    }
 
     console.log(`⏸️ Survey status change requested for ${id} to ${status} by: ${req.user?.userName}`);
 
@@ -605,6 +648,21 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
 
     console.log(`🗑️ Survey deletion requested for ${id} by: ${req.user?.userName}`);
 
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+    res.status(400).json({ error: 'Tenant ID required' });
+    return;
+    }
+
+    const hasAccess = await azureService.verificarOwnershipEncuesta(id, tenantId);
+    if (!hasAccess) {
+    res.status(403).json({ 
+        error: 'Access denied',
+        message: 'No tienes permisos para eliminar esta encuesta'
+    });
+    return;
+    }
+    
     if (confirm !== 'true') {
       res.status(400).json({
         error: 'Confirmation required',
@@ -668,7 +726,7 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
 });
 
 // 📊 GET /api/admin/surveys/:id/responses - Ver respuestas detalladas
-router.get('/surveys/:id/responses', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/surveys/:id/responses', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { format = 'json' } = req.query;
@@ -686,7 +744,8 @@ router.get('/surveys/:id/responses', validateTeamsSSO, async (req: Authenticated
     }
 
     // Obtener respuestas
-    const respuestas = await azureService.cargarRespuestasEncuesta(id);
+    const tenantId = req.user?.tenantId;
+    const respuestas = await azureService.cargarRespuestasEncuesta(id, tenantId);
     const resultados = await azureService.cargarResultados(id);
 
     // Calcular estadísticas

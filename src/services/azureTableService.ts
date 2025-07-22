@@ -4,14 +4,15 @@ import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
 // Interfaces
 interface AzureEncuesta {
-  partitionKey: string;
-  rowKey: string;
-  titulo: string;
-  objetivo: string;
+  partitionKey: string; // "ENCUESTA"
+  rowKey: string; // ID único de la encuesta
+  titulo: string; // Título de la encuesta
+  objetivo: string; // Objetivo de la encuesta
   preguntas: string; // JSON stringified
-  creador: string;
-  fechaCreacion: string;
-  estado: string;
+  creador: string; // Usuario que creó la encuesta
+  fechaCreacion: string; // ISO timestamp
+  estado: string;   // "activa", "cerrada", "archivada"
+  tenantId: string; // ID del tenant
 }
 
 interface AzureRespuesta {
@@ -248,7 +249,8 @@ export class AzureTableService {
           if (typeof encuesta.fechaCreacion === 'string') return encuesta.fechaCreacion;
           return new Date().toISOString();
         })(),
-        estado: 'activa'
+        estado: encuesta.estado || 'activa',
+        tenantId: encuesta.tenantId || 'default_tenant' // Asegurar tenantId
       };
 
       await this.encuestasTable.upsertEntity(entity);
@@ -270,7 +272,9 @@ export class AzureTableService {
         objetivo: entity.objetivo,
         preguntas: JSON.parse(entity.preguntas as string),
         creador: entity.creador,
-        fechaCreacion: entity.fechaCreacion
+        fechaCreacion: entity.fechaCreacion,
+        estado: entity.estado, // 🆕 Agregar
+        tenantId: entity.tenantId // 🆕 Agregar
       };
     } catch (error) {
       console.log(`📝 Encuesta no encontrada en Azure: ${encuestaId}`);
@@ -278,10 +282,28 @@ export class AzureTableService {
     }
   }
 
-  async listarEncuestas(): Promise<any[]> {
+  // 🆕 Verificar si encuesta pertenece al tenant
+  async verificarOwnershipEncuesta(encuestaId: string, tenantId: string): Promise<boolean> {
     try {
+      const encuesta = await this.cargarEncuesta(encuestaId);
+      return encuesta && encuesta.tenantId === tenantId;
+    } catch (error) {
+      console.error('❌ Error verificando ownership:', error);
+      return false;
+    }
+  }
+
+  async listarEncuestas(tenantId?: string): Promise<any[]> {
+    try {
+      let filter = "PartitionKey eq 'ENCUESTA'";
+      
+      // 🆕 Agregar filtro por tenant si se proporciona
+      if (tenantId) {
+        filter += ` and tenantId eq '${tenantId}'`;
+      }
+      
       const entities = this.encuestasTable.listEntities({
-        queryOptions: { filter: "PartitionKey eq 'ENCUESTA'" }
+        queryOptions: { filter: filter }
       });
 
       const encuestas = [];
@@ -292,7 +314,10 @@ export class AzureTableService {
           objetivo: entity.objetivo,
           preguntas: JSON.parse(entity.preguntas as string),
           creador: entity.creador,
-          fechaCreacion: entity.fechaCreacion
+          fechaCreacion: entity.fechaCreacion,
+          estado: entity.estado, // 🔧 Agregar estado que faltaba
+          tenantId: entity.tenantId, // 🔧 Agregar tenantId que faltaba
+          totalRespuestas: 0 // Por ahora, se puede calcular después
         });
       }
 
