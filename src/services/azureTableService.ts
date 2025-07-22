@@ -251,7 +251,7 @@ export class AzureTableService {
         estado: 'activa'
       };
 
-      await this.encuestasTable.createEntity(entity);
+      await this.encuestasTable.upsertEntity(entity);
       console.log(`✅ Encuesta guardada en Azure: ${encuesta.id}`);
       return encuesta.id;
     } catch (error) {
