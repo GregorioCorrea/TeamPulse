@@ -403,8 +403,17 @@ export class AzureTableService {
     }
   }
 
-  async cargarRespuestasEncuesta(encuestaId: string): Promise<any[]> {
+  async cargarRespuestasEncuesta(encuestaId: string, tenantId?: string): Promise<any[]> {
     try {
+      // 🔧 Verificar ownership si se proporciona tenantId
+      if (tenantId) {
+        const hasAccess = await this.verificarOwnershipEncuesta(encuestaId, tenantId);
+        if (!hasAccess) {
+          console.warn(`⚠️ Tenant ${tenantId} no tiene acceso a encuesta ${encuestaId}`);
+          return [];
+        }
+      }
+      
       const entities = this.respuestasTable.listEntities({
         queryOptions: { filter: `PartitionKey eq '${encuestaId}'` }
       });

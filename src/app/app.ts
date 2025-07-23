@@ -69,6 +69,7 @@ interface Encuesta {
   fechaCreacion?: Date;
   id?: string;
   basadoEnTemplate?: string;
+  tenantId?: string; // ID del tenant para multitenancy
 }
 
 interface Respuesta {
@@ -360,7 +361,8 @@ app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
   console.log('📋 Ver todas las encuestas desde card');
   
   try {
-    const encuestas = await listarEncuestasAzure();
+    const tenantId = context.activity.channelData?.tenant?.id;
+    const encuestas = await listarEncuestasAzure(tenantId);
     
     const listCard = await createListSurveysCardAsync(encuestas);
     await context.sendActivity("🔄 Generando...");
@@ -616,9 +618,9 @@ async function buscarEncuestaEnAzure(encuestaId: string): Promise<Encuesta | nul
   }
 }
 
-async function listarEncuestasAzure(): Promise<Encuesta[]> {
+async function listarEncuestasAzure(tenantId?: string): Promise<Encuesta[]> {
   try {
-    return await azureService.listarEncuestas();
+    return await azureService.listarEncuestas(tenantId);
   } catch (error) {
     console.error('❌ Error listando encuestas desde Azure:', error);
     return [];
@@ -1017,6 +1019,7 @@ app.ai.action('crear_encuesta', async (context, state, data) => {
       creador: context.activity.from.name || 'Usuario desconocido',
       id: encuestaId,
       fechaCreacion: new Date(),
+      tenantId: tenantId,
     };
 
     await guardarEncuestaEnAzure(encuesta);
@@ -1069,7 +1072,8 @@ app.ai.action('buscar_encuestas', async (context, state, data) => {
 
   const keywords = rawKeywords.map(k => k.toLowerCase());
 
-  const encuestas = await listarEncuestasAzure();
+  const tenantId = context.activity.channelData?.tenant?.id;
+  const encuestas = await listarEncuestasAzure(tenantId);
 
   const coincidencias = encuestas.filter(e =>
     keywords.some(k =>
@@ -1101,7 +1105,9 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
     return 'responder_por_nombre';
   }
 
-  const encuestas = await listarEncuestasAzure();
+  const tenantId = context.activity.channelData?.tenant?.id;
+  const encuestas = await listarEncuestasAzure(tenantId);
+  
   const coincidencia = encuestas.find(e =>
     typeof e.titulo === 'string' && e.titulo.toLowerCase().includes(titulo)
   );
@@ -1252,7 +1258,13 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
 // COMANDO LISTAR
 app.message(/^listar$/i, async (context, state) => {
   try {
-    const encuestas = await listarEncuestasAzure();
+    const tenantId = context.activity.channelData?.tenant?.id;
+    if (!tenantId) {
+      await context.sendActivity("❌ Error: No se pudo identificar el tenant.");
+      return;
+    }
+    
+    const encuestas = await listarEncuestasAzure(tenantId);
     
     const listCard = await createListSurveysCardAsync(encuestas);
     await context.sendActivity("🔄 Generando...");
@@ -1486,6 +1498,102 @@ app.message(/^admin_diagnose$/i, async (context) => {
   } catch (error) {
     console.error("❌ Error en diagnóstico admin:", error);
     await context.sendActivity("❌ Error durante el diagnóstico. Revisa los logs del servidor.");
+  }
+});
+
+// COMANDO MAKE_ME_ADMIN CON VALIDACIONES - Más seguro
+app.message(/^make_me_admin$/i, async (context, state) => {
+  try {
+    console.log('👑 Usuario solicitando convertirse en admin...');
+    
+    const userId = context.activity.from.id;
+    const userName = context.activity.from.name || 'Admin User';
+    const tenantId = context.activity.channelData?.tenant?.id || 'default-tenant';
+    
+    console.log(`👑 Usuario ${userId} del tenant ${tenantId} solicitando convertirse en admin...`);
+
+    // Validaciones básicas
+    if (!tenantId || !userId) {
+      await context.sendActivity("❌ **Error:** Información de usuario o tenant incompleta.");
+      console.log(`👑 Buscamos usuario ${userId} y tenant ${tenantId} ...`);
+      return;
+    }
+    
+    await context.sendActivity("👑 **Verificando permisos...**");
+    
+    // Verificar si hay otros admins en el tenant
+    const existingAdmins = await azureService.listarAdminsEnTenant(tenantId);
+    
+    // Si ya hay admins, requerir confirmación especial
+    if (existingAdmins.length > 0) {
+      await context.sendActivity(`⚠️ **Este tenant ya tiene ${existingAdmins.length} administrador(es).**
+
+**Admins existentes:**
+${existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n')}
+
+**Para convertirte en admin adicional, usa:** \`force_make_me_admin\`
+
+⚠️ **Nota:** Solo usa este comando si tienes autorización del administrador actual.`);
+      return;
+    }
+    
+    // Si no hay admins, proceder automáticamente (primer admin)
+    const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
+    
+    await azureService.agregarAdminUser(
+      userId,
+      tenantId, 
+      userEmail,
+      userName,
+      'First admin - auto-promotion via make_me_admin'
+    );
+    
+    await context.sendActivity(`🎉 **¡Eres el primer administrador de este tenant!** 👑
+
+✅ **Acceso de administrador concedido**
+📧 **Email:** ${userEmail}
+🏢 **Tenant:** \`${tenantId}\`
+
+🎯 **Ahora puedes:**
+- Acceder al panel de administración
+- Gestionar todas las encuestas del tenant
+- Agregar otros administradores
+- Ver estadísticas completas
+
+🚀 **¡Tu tenant está listo para usar TeamPulse!**`);
+
+  } catch (error) {
+    console.error('❌ Error en make_me_admin:', error);
+    await context.sendActivity("❌ Error al procesar la solicitud. Intenta nuevamente.");
+  }
+});
+
+// COMANDO FORCE - Para casos especiales
+app.message(/^force_make_me_admin$/i, async (context, state) => {
+  try {
+    const userId = context.activity.from.id;
+    const userName = context.activity.from.name || 'Admin User';
+    const tenantId = context.activity.channelData?.tenant?.id;
+    const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
+    
+    await azureService.agregarAdminUser(
+      userId,
+      tenantId, 
+      userEmail,
+      userName,
+      'Forced admin promotion'
+    );
+    
+    await context.sendActivity(`⚡ **¡Administrador agregado por fuerza!** 👑
+
+✅ **Acceso concedido a:** ${userName}
+📧 **Email:** ${userEmail}
+
+⚠️ **Nota:** Este comando debe usarse solo con autorización apropiada.`);
+
+  } catch (error) {
+    console.error('❌ Error en force_make_me_admin:', error);
+    await context.sendActivity("❌ Error al forzar promoción a administrador.");
   }
 });
 
