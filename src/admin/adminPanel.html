@@ -917,16 +917,15 @@
                 console.log('🎭 Initializing demo mode with mock data');
                 document.getElementById('authContainer').style.display = 'none';
                 showNotification('Panel iniciado en modo demostración', 'success');
+                // 🔧 VERIFICAR ANTES DE USAR
+                const planText = document.getElementById('planText');
+                const planBadge = document.getElementById('planBadge');
+                
+                if (planText) planText.textContent = 'Plan Free';
+                if (planBadge) planBadge.className = 'plan-badge plan-free';
                 await loadSurveys();
             }
 
-            // 🆕 Mostrar plan FREE en demo
-            document.getElementById('currentPlan').textContent = 'FREE';
-            const planCard = document.querySelector('.plan-card');
-            if (planCard) {
-                planCard.className = 'stat-card plan-card plan-free';
-            }
-            
             // 🆕 API calls with better error handling
             async function makeAPICall(endpoint, options = {}) {
                 const baseURL = window.location.origin;
@@ -1033,6 +1032,7 @@
                     surveysData = surveys;
                     
                     updateStatistics(surveys);
+                    await updatePlanInfo();
                     renderSurveys(surveys);
                     
                     loading.style.display = 'none';
