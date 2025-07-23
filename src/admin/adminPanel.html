@@ -64,6 +64,92 @@
             margin-bottom: 16px;
         }
 
+        /* 🆕 Header layout improvements */
+        .header-main {
+            margin-bottom: 20px;
+        }
+
+        .header-subtitle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .subtitle {
+            margin: 0;
+            flex: 1;
+        }
+
+        /* 🆕 Plan badge styles */
+        .plan-badge {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .plan-text {
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #4a5568;
+        }
+
+        /* Plan-specific colors */
+        .plan-badge.plan-free {
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+            border-color: #68d391;
+            color: #22543d;
+        }
+
+        .plan-badge.plan-free .plan-text {
+            color: #22543d;
+        }
+
+        .plan-badge.plan-pro {
+            background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%);
+            border-color: #4299e1;
+            color: #2a4365;
+        }
+
+        .plan-badge.plan-pro .plan-text {
+            color: #2a4365;
+        }
+
+        .plan-badge.plan-enterprise {
+            background: linear-gradient(135deg, #faf089 0%, #f6e05e 100%);
+            border-color: #d69e2e;
+            color: #744210;
+        }
+
+        .plan-badge.plan-enterprise .plan-text {
+            color: #744210;
+        }
+
+        .plan-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .header-subtitle-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .plan-badge {
+                align-self: flex-end;
+            }
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -578,9 +664,16 @@
         <div class="container">
             <!-- Header -->
             <div class="header">
-                <h1>🎯 TeamPulse Admin</h1>
-                <p class="subtitle">Panel de administración de encuestas y análisis</p>
-                
+                <div class="header-main">
+                    <h1>🎯 TeamPulse Admin</h1>
+                    <div class="header-subtitle-row">
+                        <p class="subtitle">Panel de administración de encuestas y análisis</p>
+                        <!-- 🆕 PLAN BADGE -->
+                        <div class="plan-badge" id="planBadge">
+                            <span class="plan-text" id="planText">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
                 <!-- Statistics Cards -->
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -827,6 +920,13 @@
                 await loadSurveys();
             }
 
+            // 🆕 Mostrar plan FREE en demo
+            document.getElementById('currentPlan').textContent = 'FREE';
+            const planCard = document.querySelector('.plan-card');
+            if (planCard) {
+                planCard.className = 'stat-card plan-card plan-free';
+            }
+            
             // 🆕 API calls with better error handling
             async function makeAPICall(endpoint, options = {}) {
                 const baseURL = window.location.origin;
@@ -867,6 +967,45 @@
                     }
                     
                     throw error;
+                }
+            }
+
+            // 🆕 Actualizar información del plan en el badge
+            async function updatePlanInfo() {
+                try {
+                    const planBadge = document.getElementById('planBadge');
+                    const planText = document.getElementById('planText');
+                    
+                    if (!authToken) {
+                        // En modo demo, mostrar plan free
+                        planText.textContent = 'Plan Free';
+                        planBadge.className = 'plan-badge plan-free';
+                        return;
+                    }
+
+                    // En modo autenticado, obtener plan real
+                    const response = await makeAPICall('/plan-info');
+                    const planData = response.data || response;
+                    
+                    const planNames = {
+                        'free': 'Plan Free',
+                        'pro': 'Plan Pro',
+                        'enterprise': 'Plan Enterprise'
+                    };
+                    
+                    const planName = planNames[planData.plan] || 'Plan Free';
+                    planText.textContent = planName;
+                    
+                    // Aplicar clase de estilo según el plan
+                    planBadge.className = `plan-badge plan-${planData.plan}`;
+                    
+                    console.log(`✅ Plan badge actualizado: ${planName}`);
+                    
+                } catch (error) {
+                    console.error('❌ Error obteniendo info del plan:', error);
+                    // Fallback
+                    document.getElementById('planText').textContent = 'Plan Free';
+                    document.getElementById('planBadge').className = 'plan-badge plan-free';
                 }
             }
 

@@ -825,6 +825,41 @@ router.get('/surveys/:id/responses', validateTeamsSSO, async (req: Authenticated
   }
 });
 
+// 📊 GET /api/admin/plan-info - Información del plan actual
+router.get('/plan-info', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.user?.tenantId;
+    
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+    
+    // Importar función de plan
+    const { getPlan, getUsageSummary } = await import("../middleware/planLimiter");
+    
+    const planType = await getPlan(tenantId);
+    const usageInfo = await getUsageSummary(tenantId);
+    
+    res.json({
+      success: true,
+      data: {
+        plan: planType,
+        usage: usageInfo,
+        tenant: tenantId
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error getting plan info:', error);
+    res.status(500).json({
+      error: 'Failed to get plan info',
+      message: 'Error al obtener información del plan'
+    });
+  }
+});
+
 // ────────────────────────────────────────────────────────────
 // FUNCIONES AUXILIARES
 // ────────────────────────────────────────────────────────────
