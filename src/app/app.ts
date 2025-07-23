@@ -16,6 +16,7 @@ import {
 } from "../middleware/planLimiter";
 import { enviarReportePorEmail } from "../services/emailService";  // Envío de correos electrónicos
 import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
+import { EncuestaAnalisis } from "../services/aiInsightsService"; // ── Modelo de análisis de encuesta
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -1128,7 +1129,7 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
 // COMANDOS DE TEXTO
 // ============================
 
-// COMANDO ANALIZAR (versión mejorada)
+// COMANDO ANALIZAR (versión con AI Insights Service /src/services/aiInsightsService.ts)
 app.message(/^analizar\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^analizar\s+(.+)$/i);
   if (!match || !match[1]) {
@@ -1168,7 +1169,7 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
     const { obtenerAnalisisDesdeAzure, generarAnalisisIA } = await import("../services/aiInsightsService");
 
     // 3) Verificar si ya existe un análisis reciente (menos de 24h)
-    let analisis = await obtenerAnalisisDesdeAzure(encuestaId);
+    let analisis = await obtenerAnalisisDesdeAzure(encuestaId, tenantId);
     const ahora = new Date();
     
     // Si existe un análisis, verificar si es reciente
@@ -1176,7 +1177,7 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       const ultimaActualizacion = new Date(analisis.ultimaActualizacion);
       const horasDesdeActualizacion = Math.abs(ahora.getTime() - ultimaActualizacion.getTime()) / 36e5;
       
-      // Si el análisis tiene más de 24 horas o hay nuevas respuestas, regenerar
+      // Si el análisis tiene más de 24 horas, regenerar
       if (horasDesdeActualizacion > 24) {
         analisis = null; // Forzar regeneración
       }
@@ -1194,7 +1195,7 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
       });
 
       // Generar análisis con IA
-      analisis = await generarAnalisisIA(encuestaId, encuesta.titulo, datosAnalisis);
+      analisis = await generarAnalisisIA(encuestaId, encuesta.titulo, datosAnalisis, tenantId);
     }
 
     // 5) Crear tarjeta de análisis detallado
@@ -1508,14 +1509,14 @@ app.message(/^make_me_admin$/i, async (context, state) => {
     
     const userId = context.activity.from.id;
     const userName = context.activity.from.name || 'Admin User';
-    const tenantId = context.activity.channelData?.tenant?.id || 'default-tenant';
+    const tenantId = context.activity.channelData?.tenant?.id;
     
     console.log(`👑 Usuario ${userId} del tenant ${tenantId} solicitando convertirse en admin...`);
 
     // Validaciones básicas
     if (!tenantId || !userId) {
       await context.sendActivity("❌ **Error:** Información de usuario o tenant incompleta.");
-      console.log(`👑 Buscamos usuario ${userId} y tenant ${tenantId} ...`);
+      console.log(`👑 Buscamos usuario ${userId} y tenant ${tenantId} solicitando convertirse en admin...`);
       return;
     }
     
@@ -2437,7 +2438,7 @@ function createAvailableCommandsCard(): any {
 }
 
 // Función para crear la tarjeta de análisis
-function createAnalysisCard(analisis: any, encuesta: any, resultados: any): any {
+function createAnalysisCard(analisis: EncuestaAnalisis, encuesta: any, resultados: any): any {
   const participantes = resultados.totalParticipantes || 0;
   
   // Elegir el emoji de sentimiento
@@ -2471,7 +2472,7 @@ function createAnalysisCard(analisis: any, encuesta: any, resultados: any): any 
                   },
                   {
                     "type": "TextBlock",
-                    "text": encuesta.titulo,
+                    "text": analisis.titulo,
                     "size": "Medium",
                     "weight": "Bolder"
                   }
