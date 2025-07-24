@@ -364,8 +364,8 @@ app.adaptiveCards.actionSubmit('list_surveys', async (context, state, data) => {
   try {
     const tenantId = context.activity.channelData?.tenant?.id;
     const encuestas = await listarEncuestasAzure(tenantId);
-    
-    const listCard = await createListSurveysCardAsync(encuestas);
+    const userId = context.activity.from.id; // Obtener ID del usuario
+    const listCard = await createListSurveysCardAsync(encuestas, userId);
     await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(listCard));
 
@@ -411,6 +411,21 @@ app.adaptiveCards.actionSubmit('view_survey_results', async (context, state, dat
     console.error('❌ Error mostrando resultados:', error);
     await context.sendActivity("❌ Error al cargar resultados");
   }
+});
+
+// Handler para cuando intentan acceder a encuesta cerrada
+app.adaptiveCards.actionSubmit('survey_closed_info', async (context, state, data) => {
+  const { encuestaId } = data;
+  
+  await context.sendActivity(`🔒 **Encuesta cerrada**
+
+La encuesta \`${encuestaId}\` ya no está disponible para responder.
+
+💡 **Puedes:**
+- Ver los resultados finales: \`resultados ${encuestaId}\`
+- Ver otras encuestas disponibles: \`listar\`
+
+🎯 **¿Necesitas crear una nueva encuesta?** Solo dime qué tipo quieres.`);
 });
 
 // Handler para debug
@@ -948,7 +963,43 @@ function createResultsCard(encuesta: Encuesta, resultados: ResultadosEncuesta): 
   return CardFactory.adaptiveCard(card);
 }
 
-
+// 🔒 Validar acceso a encuesta
+function validateSurveyAccess(encuesta: any, hasResponded: boolean): {
+  status: 'can_respond' | 'already_responded' | 'survey_closed';
+  buttonText: string;
+  buttonIcon: string;
+  statusText: string;
+  statusIcon: string;
+} {
+  
+  if (encuesta.estado === 'cerrada' || encuesta.estado === 'eliminada') {
+    return {
+      status: 'survey_closed',
+      buttonText: 'Encuesta Cerrada',
+      buttonIcon: '🔒',
+      statusText: 'Cerrada',
+      statusIcon: '🔴'
+    };
+  }
+  
+  if (hasResponded) {
+    return {
+      status: 'already_responded', 
+      buttonText: 'Cambiar Respuesta',
+      buttonIcon: '✏️',
+      statusText: 'Ya respondiste',
+      statusIcon: '✅'
+    };
+  }
+  
+  return {
+    status: 'can_respond',
+    buttonText: 'Responder',
+    buttonIcon: '📝',
+    statusText: 'Pendiente',
+    statusIcon: '⏳'
+  };
+}
 
 // ============================
 // AI ACTION - CREAR ENCUESTA
@@ -1075,7 +1126,7 @@ app.ai.action('buscar_encuestas', async (context, state, data) => {
 
   const tenantId = context.activity.channelData?.tenant?.id;
   const encuestas = await listarEncuestasAzure(tenantId);
-
+  const userId = context.activity.from.id; // Obtener ID del usuario
   const coincidencias = encuestas.filter(e =>
     keywords.some(k =>
       (typeof e.titulo === 'string' && e.titulo.toLowerCase().includes(k)) ||
@@ -1086,7 +1137,7 @@ app.ai.action('buscar_encuestas', async (context, state, data) => {
   if (coincidencias.length === 0) {
     await context.sendActivity("🔍 No se encontraron encuestas que coincidan con esas palabras.");
   } else {
-    const card = await createListSurveysCardAsync(coincidencias);
+    const card = await createListSurveysCardAsync(coincidencias, userId);
     await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(card));
   }
@@ -1266,8 +1317,8 @@ app.message(/^listar$/i, async (context, state) => {
     }
     
     const encuestas = await listarEncuestasAzure(tenantId);
-    
-    const listCard = await createListSurveysCardAsync(encuestas);
+    const userId = context.activity.from.id; // ID del usuario que envía el mensaje
+    const listCard = await createListSurveysCardAsync(encuestas, userId);
     await context.sendActivity("🔄 Generando...");
     await context.sendActivity(MessageFactory.attachment(listCard));
 
@@ -2091,10 +2142,10 @@ app.error(async (context, error) => {
 // FUNCIÓN PARA CREAR CARD DE LISTA DE ENCUESTAS
 // ============================
 
-async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
+async function createListSurveysCardAsync(encuestas: Encuesta[], userId?: string): Promise<any> {
   const card: any = {
     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-    "type": "AdaptiveCard",
+    "type": "AdaptiveCard", 
     "version": "1.4",
     "body": [
       {
@@ -2105,7 +2156,7 @@ async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
             "type": "TextBlock",
             "text": "🎯 TeamPulse",
             "weight": "Bolder",
-            "size": "Medium",
+            "size": "Medium", 
             "color": "Accent"
           },
           {
@@ -2136,16 +2187,30 @@ async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
     return CardFactory.adaptiveCard(card);
   }
 
+  // 🆕 Procesar cada encuesta con estado del usuario
   for (const encuesta of encuestas.slice(0, 5)) {
     const fecha = encuesta.fechaCreacion
       ? new Date(encuesta.fechaCreacion).toLocaleDateString('es-ES', {
           weekday: 'long',
-          year: 'numeric',
+          year: 'numeric', 
           month: 'long',
           day: 'numeric'
         })
       : 'Fecha no disponible';
 
+    // 🆕 Verificar si el usuario ya respondió
+    let hasResponded = false;
+    if (userId) {
+      try {
+        hasResponded = await azureService.checkUserResponse(encuesta.id!, userId);
+      } catch (error) {
+        console.error('⚠️ Error checking user response:', error);
+      }
+    }
+
+    // 🆕 Obtener estado y textos dinámicos
+    const accessInfo = validateSurveyAccess(encuesta, hasResponded);
+    
     let estadoTexto = '🔴 Sin respuestas';
     try {
       const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!);
@@ -2171,32 +2236,76 @@ async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
           "size": "Medium"
         },
         {
-          "type": "TextBlock",
+          "type": "TextBlock", 
           "text": `🎯 ${encuesta.objetivo || "Sin objetivo"}`,
           "size": "Small",
           "wrap": true
         },
         {
-          "type": "TextBlock",
-          "text": `🗓️ ${fecha} | ${estadoTexto}`,
+          "type": "TextBlock", 
+          "text": `ID de la encuesta: ${encuesta.id}`,
           "size": "Small",
-          "color": "Good"
+          "wrap": true
+        },
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": `🗓️ ${fecha}`,
+                  "size": "Small",
+                  "color": "Good"
+                }
+              ]
+            },
+            {
+              "type": "Column", 
+              "width": "auto",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": `${accessInfo.statusIcon} ${accessInfo.statusText}`,
+                  "size": "Small",
+                  "weight": "Bolder",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "TextBlock",
+          "text": estadoTexto,
+          "size": "Small",
+          "color": "Accent"
         },
         {
           "type": "ActionSet",
           "actions": [
-            {
+            // 🆕 Botón dinámico según estado
+            accessInfo.status !== 'survey_closed' ? {
               "type": "Action.Submit",
-              "title": "📝 Responder",
+              "title": `${accessInfo.buttonIcon} ${accessInfo.buttonText}`,
               "data": {
                 "verb": "start_survey",
                 "encuestaId": encuesta.id,
                 "titulo": encuesta.titulo
               }
+            } : {
+              "type": "Action.Submit", 
+              "title": `${accessInfo.buttonIcon} ${accessInfo.buttonText}`,
+              "data": {
+                "verb": "survey_closed_info",
+                "encuestaId": encuesta.id
+              }
             },
             {
               "type": "Action.Submit",
-              "title": "📊 Ver Resultados",
+              "title": "📊 Ver Resultados", 
               "data": {
                 "verb": "view_survey_results",
                 "encuestaId": encuesta.id,
@@ -2233,6 +2342,7 @@ async function createListSurveysCardAsync(encuestas: Encuesta[]): Promise<any> {
 
   return CardFactory.adaptiveCard(card);
 }
+
 // ============================
 // FUNCIÓN PARA CREAR CARD DE BIENVENIDA
 // ============================

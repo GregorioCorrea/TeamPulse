@@ -1,6 +1,7 @@
 // CREAR ARCHIVO: src/services/azureTableService.ts
 
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
+import { sha256 } from "../utils/hash";
 
 // Interfaces
 interface AzureEncuesta {
@@ -166,6 +167,30 @@ export class AzureTableService {
     }
   }
 
+  // 👤 Verificar si un usuario ya respondió una encuesta
+  async  checkUserResponse(encuestaId: string, userId: string): Promise<boolean> {
+    try {
+      // Crear ID anónimo consistente para buscar
+      const participanteAnonimo = sha256(userId.trim().toLowerCase(), encuestaId);
+      
+      // Buscar respuestas del usuario en esta encuesta
+      const entities = this.respuestasTable.listEntities({
+        queryOptions: { 
+          filter: `PartitionKey eq '${encuestaId}' and participanteId eq '${participanteAnonimo}'`
+        }
+      });
+
+      // Si encontramos al menos una respuesta, ya respondió
+      for await (const entity of entities) {
+        return true; // Ya respondió
+      }
+      
+      return false; // No ha respondido
+    } catch (error) {
+      console.error('❌ Error checking user response:', error);
+      return false; // En caso de error, asumir que no respondió
+    }
+  }
   // ADMIN USERS
   async obtenerAdminUser(userId: string, tenantId: string): Promise<AdminUser | null> {
     try {
@@ -810,7 +835,6 @@ async crearTemplatesSeed(): Promise<void> {
 }
 
 }
-
 
 // MIGRACIÓN UTILITY - Ejecutar una sola vez
 export async function migrarDatosJSON() {
