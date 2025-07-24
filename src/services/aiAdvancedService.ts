@@ -270,7 +270,7 @@ RESPONDE EN JSON VÁLIDO con esta estructura EXACTA:
     ]
   },
   "alertas": [
-    {"tipo": "riesgo", "severidad": "alta", "mensaje": "Descripción", "accion": "Qué hacer"}
+    {"tipo": "riesgo", "severidad": "alta", "mensaje": "Descripción", "accionRecomendada": "Qué hacer"}
   ],
   "metricas_seguimiento": ["Métrica 1", "Métrica 2", "Métrica 3"]
 }

@@ -2880,7 +2880,7 @@ function createAdvancedAnalysisCard(
           },
           ...alertasCriticas.map(alerta => ({
             "type": "TextBlock",
-            "text": `⚠️ **${alerta.mensaje}**\n💡 *${alerta.accionRecomendada}*`,
+            "text": `⚠️ **${alerta.mensaje}**\n💡 *${alerta.accionRecomendada || 'Revisar con el líder'}*`,
             "wrap": true,
             "spacing": "Small"
           }))
