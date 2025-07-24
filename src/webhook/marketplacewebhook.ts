@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import jwt, { JwtHeader, SigningKeyCallback } from "jsonwebtoken";
 import JwksClient from "jwks-rsa";
-import fetch from "node-fetch";
 import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
 
@@ -75,7 +74,7 @@ async function marketplaceHandler(req: Request, res: Response): Promise<void> {
     
     // Confirmo que la operación está InProgress
     const opRes  = await fetch(opUrl, { headers: { Authorization: `Bearer ${bearer}` } });
-    const opJson = await opRes.json();
+    const opJson = await opRes.json() as any;
   console.log("Operación JSON:", opJson);
     if (opJson.status !== "InProgress") {
       res.sendStatus(200);

@@ -82,12 +82,58 @@ interface AdminUser {
   addedBy: string;
 }
 
+// 🧠 Análisis avanzado por encuesta
+interface AnalisisAvanzado {
+  partitionKey: string;    // tenantId
+  rowKey: string;          // encuestaId_timestamp
+  encuestaId: string;
+  tenantId: string;
+  sentimentoDetallado: string; // JSON: {positivo: 85, neutral: 10, negativo: 5, confianza: 92}
+  patronesIdentificados: string; // JSON array
+  riesgosDetectados: string; // JSON array  
+  recomendacionesPriorizadas: string; // JSON array
+  alertas: string; // JSON array
+  benchmarkComparison: string; // JSON object
+  fechaAnalisis: string;
+  ultimaActualizacion: string;
+  modeloUsado: string; // "gpt-4-mini"
+  confiabilidad: number; // 0-100
+}
+
+// 📊 Benchmarks por industria
+interface Benchmark {
+  partitionKey: string;    // industria (HR, Tech, Healthcare, etc)
+  rowKey: string;          // metrica (satisfaction_rate, engagement_score)
+  metrica: string;
+  promedio: number;
+  percentil25: number;
+  percentil50: number;
+  percentil75: number;
+  percentil90: number;
+  muestras: number; // cantidad de datos usados
+  fechaActualizacion: string;
+}
+
+// 📈 Historial de métricas por tenant
+interface HistorialMetricas {
+  partitionKey: string;    // tenantId
+  rowKey: string;          // fecha_metrica (2024-01-satisfaction)
+  encuestaId: string;
+  metrica: string; // satisfaction, engagement, nps, etc
+  valor: number;
+  fecha: string;
+  participantes: number;
+}
+
 export class AzureTableService {
   private encuestasTable: TableClient;
   private respuestasTable: TableClient;
   private resultadosTable: TableClient;
   private templatesTable: TableClient;
   private adminUsersTable: TableClient;
+  private analisisAvanzadoTable: TableClient;
+  private benchmarksTable: TableClient;
+  private historialMetricasTable: TableClient;
 
   constructor() {
     const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
@@ -122,6 +168,26 @@ export class AzureTableService {
     this.adminUsersTable = new TableClient(
       `https://${accountName}.table.core.windows.net`,
       'AdminUsers',
+      credential
+    );
+
+
+    // 🆕 Nuevas tablas para análisis avanzado
+    this.analisisAvanzadoTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'AnalisisAvanzado',
+      credential
+    );
+    
+    this.benchmarksTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'Benchmarks', 
+      credential
+    );
+    
+    this.historialMetricasTable = new TableClient(
+      `https://${accountName}.table.core.windows.net`,
+      'HistorialMetricas',
       credential
     );
 
@@ -162,6 +228,27 @@ export class AzureTableService {
     try {
       await this.adminUsersTable.createTable();
       console.log('✅ Tabla AdminUsers inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+    try {
+      await this.analisisAvanzadoTable.createTable();
+      console.log('✅ Tabla AnalisisAvanzado inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+    try {
+      await this.benchmarksTable.createTable();
+      console.log('✅ Tabla Benchmarks inicializada');
+    } catch (error) {
+      // Tabla ya existe
+    }
+
+    try {
+      await this.historialMetricasTable.createTable();
+      console.log('✅ Tabla HistorialMetricas inicializada');
     } catch (error) {
       // Tabla ya existe
     }

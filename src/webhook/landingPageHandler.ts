@@ -1,7 +1,6 @@
 // src/webhook/landingPageHandler.ts - Con OAuth server-side proxy
 
 import express, { Request, Response } from "express";
-import fetch from "node-fetch";
 import jwt from "jsonwebtoken";
 import { ClientSecretCredential } from "@azure/identity";
 import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";

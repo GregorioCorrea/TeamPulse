@@ -17,6 +17,7 @@ import {
 import { enviarReportePorEmail } from "../services/emailService";  // Envío de correos electrónicos
 import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
 import { EncuestaAnalisis } from "../services/aiInsightsService"; // ── Modelo de análisis de encuesta
+import { AdvancedAnalysisService, AdvancedAnalysisResult } from "../services/aiAdvancedService"; // ── Análisis avanzado de encuestas
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -1203,6 +1204,7 @@ app.ai.action('responder_por_nombre', async (context, state, data) => {
 // ============================
 
 // COMANDO ANALIZAR (versión con AI Insights Service /src/services/aiInsightsService.ts)
+// REEMPLAZAR comando analizar existente con:
 app.message(/^analizar\s+(.+)$/i, async (context, state) => {
   const match = context.activity.text.match(/^analizar\s+(.+)$/i);
   if (!match || !match[1]) {
@@ -1212,20 +1214,19 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
 
   const encuestaId = match[1].trim();
   try {
-    // Verificar plan del tenant
     const tenantId = context.activity.channelData?.tenant?.id;
     const plan = tenantId ? await getPlan(tenantId) : "free";
     
     if (plan === "free") {
       await context.sendActivity(
-        "⭐ **Característica premium**: El análisis detallado está disponible solo en planes **Professional** y **Enterprise**.\n\nActualiza tu plan para acceder a insights detallados de IA."
+        "⭐ **Análisis avanzado disponible en planes Professional y Enterprise**\n\nActualiza tu plan para acceder a insights estratégicos con IA.\n\n🚀 **Upgrade:** https://teampulse.incumate.io/pricing"
       );
       return;
     }
 
-    await context.sendActivity("🧠 **Generando análisis con IA...**");
+    await context.sendActivity("🧠 **Generando análisis estratégico con IA...**\n\n⏱️ *Esto puede tomar 30-60 segundos*");
 
-    // 1) Cargar encuesta y resultados existentes
+    // 1) Cargar encuesta y resultados
     const encuesta = await azureService.cargarEncuesta(encuestaId);
     if (!encuesta) {
       await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
@@ -1234,50 +1235,39 @@ app.message(/^analizar\s+(.+)$/i, async (context, state) => {
     
     const resultados = await azureService.cargarResultados(encuestaId);
     if (!resultados || resultados.totalParticipantes === 0) {
-      await context.sendActivity("📊 Esta encuesta no tiene respuestas suficientes para analizar.");
+      await context.sendActivity("📊 Esta encuesta necesita al menos 5 respuestas para análisis estratégico.");
       return;
     }
 
-    // 2) Importar el servicio de análisis de IA
-    const { obtenerAnalisisDesdeAzure, generarAnalisisIA } = await import("../services/aiInsightsService");
+    // 2) Usar servicio de análisis avanzado
+    const { AdvancedAnalysisService } = await import("../services/aiAdvancedService");
+    const advancedService = new AdvancedAnalysisService();
 
-    // 3) Verificar si ya existe un análisis reciente (menos de 24h)
-    let analisis = await obtenerAnalisisDesdeAzure(encuestaId, tenantId);
-    const ahora = new Date();
-    
-    // Si existe un análisis, verificar si es reciente
-    if (analisis) {
-      const ultimaActualizacion = new Date(analisis.ultimaActualizacion);
-      const horasDesdeActualizacion = Math.abs(ahora.getTime() - ultimaActualizacion.getTime()) / 36e5;
-      
-      // Si el análisis tiene más de 24 horas, regenerar
-      if (horasDesdeActualizacion > 24) {
-        analisis = null; // Forzar regeneración
-      }
-    }
+    // 3) Preparar datos para análisis
+    const datosAnalisis = encuesta.preguntas.map((pregunta, idx) => {
+      return {
+        pregunta: pregunta.pregunta,
+        opciones: pregunta.opciones,
+        resultados: resultados.resumen?.[idx] || {}
+      };
+    });
 
-    // 4) Si no hay análisis reciente, generarlo
-    if (!analisis) {
-      // Preparar datos para el análisis
-      const datosAnalisis = encuesta.preguntas.map((pregunta, idx) => {
-        return {
-          pregunta: pregunta.pregunta,
-          opciones: pregunta.opciones,
-          resultados: resultados.resumen?.[idx] || {}
-        };
-      });
+    // 4) Generar análisis avanzado
+    const analisisAvanzado = await advancedService.generateAdvancedAnalysis(
+      encuestaId,
+      encuesta.titulo,
+      datosAnalisis,
+      tenantId,
+      resultados.totalParticipantes
+    );
 
-      // Generar análisis con IA
-      analisis = await generarAnalisisIA(encuestaId, encuesta.titulo, datosAnalisis, tenantId);
-    }
-
-    // 5) Crear tarjeta de análisis detallado
-    const analysisCard = createAnalysisCard(analisis, encuesta, resultados);
-    await context.sendActivity(MessageFactory.attachment(analysisCard));
+    // 5) Crear tarjeta avanzada
+    const advancedCard = createAdvancedAnalysisCard(analisisAvanzado, encuesta, resultados);
+    await context.sendActivity(MessageFactory.attachment(advancedCard));
 
   } catch (error) {
-    console.error("❌ Error en analizar encuesta:", error);
-    await context.sendActivity("❌ Ocurrió un error al analizar la encuesta. Intenta más tarde.");
+    console.error("❌ Error en análisis avanzado:", error);
+    await context.sendActivity("❌ Error generando análisis estratégico. Intenta nuevamente en unos minutos.");
   }
 });
 
@@ -2791,6 +2781,325 @@ function createAnalysisCard(analisis: EncuestaAnalisis, encuesta: any, resultado
           "verb": "view_survey_results",
           "encuestaId": encuesta.id,
           "titulo": encuesta.titulo
+        }
+      }
+    ]
+  };
+
+  return CardFactory.adaptiveCard(card);
+}
+
+// 🧠 Crear tarjeta de análisis avanzado
+function createAdvancedAnalysisCard(
+  analisis: AdvancedAnalysisResult, 
+  encuesta: any, 
+  resultados: any
+): any {
+  
+  const participantes = resultados.totalParticipantes || 0;
+  
+  // Emojis dinámicos según sentimiento y severidad
+  const sentimientoEmoji = 
+    analisis.sentimiento.general === "positivo" ? "🟢" :
+    analisis.sentimiento.general === "negativo" ? "🔴" : "🟡";
+    
+  const confiabilidadEmoji = 
+    analisis.confiabilidad >= 80 ? "🎯" :
+    analisis.confiabilidad >= 60 ? "📊" : "⚠️";
+    
+  // Alertas críticas para mostrar arriba
+  const alertasCriticas = analisis.alertas.filter(a => a.severidad === 'alta');
+  
+  const card = {
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "type": "AdaptiveCard",
+    "version": "1.4",
+    "body": [
+      // 🎯 Header Principal
+      {
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "ColumnSet",
+            "columns": [
+              {
+                "type": "Column",
+                "width": "stretch",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "🧠 Análisis Estratégico con IA",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "color": "Accent"
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": encuesta.titulo,
+                    "size": "Medium",
+                    "weight": "Bolder"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": "auto",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": `${confiabilidadEmoji} ${analisis.confiabilidad}%`,
+                    "weight": "Bolder",
+                    "horizontalAlignment": "Right",
+                    "size": "Small"
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": "Confiabilidad",
+                    "horizontalAlignment": "Right",
+                    "size": "Small",
+                    "isSubtle": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      
+      // 🚨 Alertas Críticas (si las hay)
+      ...(alertasCriticas.length > 0 ? [{
+        "type": "Container",
+        "style": "attention",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "🚨 **ALERTAS CRÍTICAS**",
+            "weight": "Bolder",
+            "color": "Attention"
+          },
+          ...alertasCriticas.map(alerta => ({
+            "type": "TextBlock",
+            "text": `⚠️ **${alerta.mensaje}**\n💡 *${alerta.accionRecomendada}*`,
+            "wrap": true,
+            "spacing": "Small"
+          }))
+        ]
+      }] : []),
+      
+      // 📊 Sentimiento y Métricas
+      {
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "ColumnSet",
+            "columns": [
+              {
+                "type": "Column",
+                "width": "stretch",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Sentimiento Organizacional",
+                    "weight": "Bolder"
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": `${sentimientoEmoji} ${analisis.sentimiento.general.toUpperCase()}`
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": `${analisis.sentimiento.scores.positivo}% Positivo | ${analisis.sentimiento.scores.negativo}% Negativo`,
+                    "size": "Small",
+                    "isSubtle": true
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": "auto",
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": `👥 ${participantes}`,
+                    "weight": "Bolder",
+                    "horizontalAlignment": "Right"
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": "Participantes",
+                    "horizontalAlignment": "Right",
+                    "size": "Small"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      
+      // 🔍 Patrones Estratégicos
+      {
+        "type": "Container",
+        "style": "default",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "🔍 **Patrones Estratégicos Identificados**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Accent"
+          },
+          {
+            "type": "FactSet",
+            "facts": analisis.insights.patronesClave.slice(0, 4).map((patron, i) => ({
+              "title": `${i + 1}.`,
+              "value": patron
+            }))
+          }
+        ]
+      },
+      
+      // ⚠️ Riesgos Críticos
+      ...(analisis.insights.riesgosIdentificados.length > 0 ? [{
+        "type": "Container",
+        "style": "attention",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "⚠️ **Riesgos Organizacionales**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Attention"
+          },
+          {
+            "type": "FactSet",
+            "facts": analisis.insights.riesgosIdentificados.slice(0, 3).map((riesgo, i) => ({
+              "title": `⚠️`,
+              "value": riesgo
+            }))
+          }
+        ]
+      }] : []),
+      
+      // 🚀 Recomendaciones Críticas
+      {
+        "type": "Container",
+        "style": "good",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "🚀 **Acciones Inmediatas (1-2 semanas)**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Good"
+          },
+          {
+            "type": "FactSet",
+            "facts": analisis.recomendaciones.criticas.slice(0, 3).map((rec, i) => ({
+              "title": `${i + 1}.`,
+              "value": `**${rec.accion}** (${rec.plazo}) → ${rec.impacto}`
+            }))
+          }
+        ]
+      },
+      
+      // 💼 Recomendaciones Importantes
+      ...(analisis.recomendaciones.importantes.length > 0 ? [{
+        "type": "Container",
+        "style": "default",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "💼 **Iniciativas Importantes (1-3 meses)**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Accent"
+          },
+          {
+            "type": "FactSet",
+            "facts": analisis.recomendaciones.importantes.slice(0, 2).map((rec, i) => ({
+              "title": `${i + 1}.`,
+              "value": `**${rec.accion}** → ${rec.impacto}`
+            }))
+          }
+        ]
+      }] : []),
+      
+      // 🏆 Benchmark (si disponible)
+      ...(analisis.benchmark ? [{
+        "type": "Container",
+        "style": "emphasis",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "🏆 **Comparación con Industria**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Accent"
+          },
+          {
+            "type": "TextBlock",
+            "text": `📊 **Posición:** ${analisis.benchmark.posicionRelativo.toUpperCase()} (Percentil ${analisis.benchmark.percentil})`,
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": analisis.benchmark.mensaje,
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          }
+        ]
+      }] : []),
+      
+      // 💎 Fortalezas Detectadas
+      ...(analisis.insights.fortalezasDetectadas.length > 0 ? [{
+        "type": "Container",
+        "style": "good",
+        "items": [
+          {
+            "type": "TextBlock",
+            "text": "💎 **Fortalezas Organizacionales**",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Good"
+          },
+          {
+            "type": "FactSet",
+            "facts": analisis.insights.fortalezasDetectadas.slice(0, 3).map((fortaleza, i) => ({
+              "title": `💎`,
+              "value": fortaleza
+            }))
+          }
+        ]
+      }] : []),
+      
+      // 📅 Metadatos
+      {
+        "type": "TextBlock",
+        "text": `🤖 Análisis generado con ${analisis.modeloUsado} | ${new Date(analisis.fechaAnalisis).toLocaleString()} | ${analisis.participantes} participantes`,
+        "size": "Small",
+        "isSubtle": true,
+        "wrap": true
+      }
+    ],
+    "actions": [
+      {
+        "type": "Action.Submit",
+        "title": "📊 Ver Resultados Básicos",
+        "data": {
+          "verb": "view_survey_results",
+          "encuestaId": encuesta.id,
+          "titulo": encuesta.titulo
+        }
+      },
+      {
+        "type": "Action.Submit",
+        "title": "📋 Todas las Encuestas",
+        "data": {
+          "verb": "list_surveys"
         }
       }
     ]
