@@ -445,16 +445,38 @@ app.adaptiveCards.actionSubmit('debug_test', async (context, state, data) => {
 // ============================
 
 // Handler para iniciar encuesta desde card
+// Handler para iniciar encuesta desde card
 app.adaptiveCards.actionSubmit('start_survey', async (context, state, data) => {
   console.log('📝 Iniciar encuesta desde card:', data);
   
   const { encuestaId, titulo } = data;
+  const userId = context.activity.from.id; // 🆕
   
   try {
     const encuesta = await buscarEncuestaEnAzure(encuestaId);
     if (!encuesta) {
       await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\``);
       return;
+    }
+
+    // 🆕 Verificar estado
+    const hasResponded = await azureService.checkUserResponse(encuestaId, userId);
+    const accessInfo = validateSurveyAccess(encuesta, hasResponded);
+
+    if (accessInfo.status === 'survey_closed') {
+      await context.sendActivity(`🔒 **Encuesta cerrada**
+
+"${titulo}" ya no está disponible para responder.
+
+💡 **Ver resultados:** \`resultados ${encuestaId}\``);
+      return;
+    }
+
+    // 🆕 Mensaje personalizado
+    if (accessInfo.status === 'already_responded') {
+      await context.sendActivity(`🔄 **Cambiando respuesta**: "${titulo}"`);
+    } else {
+      await context.sendActivity(`📝 **Iniciando**: "${titulo}"`);
     }
 
     const responseCard = createSurveyResponseCard(encuesta, 0);
@@ -1272,28 +1294,50 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
   }
 
   const encuestaId = match[1].trim();
+  const userId = context.activity.from.id; // 🆕
 
   try {
-    // Obtener el plan del tenant actual
     const tenantId = context.activity.channelData?.tenant?.id;
     const plan = tenantId ? await getPlan(tenantId) : "free";
 
-    // ─── Aplicar límite de respuestas solo si plan Free ───
     if (plan === "free" && !(await checkResponsesLimit(encuestaId))) {
-      await context.sendActivity(
-        "🚫 Esta encuesta alcanzó su límite de **50 respuestas** en plan Free."
-      );
+      await context.sendActivity("🚫 Esta encuesta alcanzó su límite de **50 respuestas** en plan Free.");
       return;
     }
-    // ─────────────────────────────────────────────────────────
 
     const encuestaEncontrada = await buscarEncuestaEnAzure(encuestaId);
 
     if (!encuestaEncontrada) {
-      await context.sendActivity(
-        `❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`
-      );
+      await context.sendActivity(`❌ **Encuesta no encontrada**: \`${encuestaId}\`\n\nUsa \`listar\` para ver encuestas disponibles.`);
       return;
+    }
+
+    // 🆕 Verificar estado de la encuesta y del usuario
+    const hasResponded = await azureService.checkUserResponse(encuestaId, userId);
+    const accessInfo = validateSurveyAccess(encuestaEncontrada, hasResponded);
+
+    if (accessInfo.status === 'survey_closed') {
+      await context.sendActivity(`🔒 **Encuesta cerrada**
+
+La encuesta "${encuestaEncontrada.titulo}" ya no está disponible para responder.
+
+💡 **Puedes:**
+- Ver los resultados: \`resultados ${encuestaId}\`
+- Ver otras encuestas: \`listar\`
+
+🎯 **¿Necesitas crear una nueva encuesta?** Solo dime qué tipo quieres.`);
+      return;
+    }
+
+    // 🆕 Mostrar mensaje personalizado según estado
+    if (accessInfo.status === 'already_responded') {
+      await context.sendActivity(`✅ **Ya respondiste esta encuesta**
+
+🔄 **Cambiando tu respuesta para**: "${encuestaEncontrada.titulo}"
+
+⚠️ **Nota:** Tus respuestas anteriores serán reemplazadas por las nuevas.`);
+    } else {
+      await context.sendActivity(`📝 **Iniciando encuesta**: "${encuestaEncontrada.titulo}"`);
     }
 
     const responseCard = createSurveyResponseCard(encuestaEncontrada, 0);
@@ -1305,7 +1349,6 @@ app.message(/^responder\s+(.+)$/i, async (context, state) => {
     await context.sendActivity("❌ Error al cargar la encuesta. Verifica que el ID sea correcto.");
   }
 });
-
 
 // COMANDO LISTAR
 app.message(/^listar$/i, async (context, state) => {
@@ -2243,7 +2286,7 @@ async function createListSurveysCardAsync(encuestas: Encuesta[], userId?: string
         },
         {
           "type": "TextBlock", 
-          "text": `ID de la encuesta: ${encuesta.id}`,
+          "text": `ID: ${encuesta.id}`,
           "size": "Small",
           "wrap": true
         },
