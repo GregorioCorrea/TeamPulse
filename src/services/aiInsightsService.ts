@@ -204,7 +204,7 @@ export async function generarAnalisisIA(
       })
     });
 
-    const data = await openAIResponse.json();
+    const data = await openAIResponse.json() as any;
     
     if (!data.choices || !data.choices[0]?.message?.content) {
       throw new Error("Respuesta inválida de Azure OpenAI");
