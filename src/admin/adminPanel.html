@@ -2136,184 +2136,205 @@
             let performanceChart = null;
             let dashboardRefreshInterval = null;
 
-            // 🎯 Inicializar Dashboard
-// 🎯 Inicializar Dashboard - CON DEBUGS COMPLETOS
-async function initializeDashboard() {
-  console.log('📊 [DASHBOARD] Inicializando Dashboard Ejecutivo...');
-  console.log('📊 [DASHBOARD] authToken:', authToken ? 'Present' : 'Null');
-  console.log('📊 [DASHBOARD] Timestamp:', new Date().toISOString());
-  
-  try {
-    // Verificar que las funciones mock existen
-    console.log('📊 [DASHBOARD] Verificando funciones mock...');
-    console.log('📊 [DASHBOARD] getMockDashboardMetrics existe:', typeof getMockDashboardMetrics === 'function');
-    console.log('📊 [DASHBOARD] getMockDashboardCharts existe:', typeof getMockDashboardCharts === 'function');
-    console.log('📊 [DASHBOARD] makeAPICall existe:', typeof makeAPICall === 'function');
-    
-    // Cargar Chart.js desde CDN
-    if (!window.Chart) {
-      console.log('📊 [DASHBOARD] Chart.js no disponible, cargando desde CDN...');
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
-      script.onload = () => {
-        console.log('📊 [DASHBOARD] Chart.js cargado exitosamente desde CDN');
-        console.log('📊 [DASHBOARD] window.Chart disponible:', !!window.Chart);
-        setupDashboard();
-      };
-      script.onerror = () => {
-        console.error('❌ [DASHBOARD] Error cargando Chart.js desde CDN');
-        console.log('📊 [DASHBOARD] Intentando configurar dashboard sin Chart.js...');
-        setupDashboard();
-      };
-      document.head.appendChild(script);
-      console.log('📊 [DASHBOARD] Script de Chart.js agregado al DOM');
-    } else {
-      console.log('📊 [DASHBOARD] Chart.js ya disponible');
-      console.log('📊 [DASHBOARD] Chart version:', window.Chart.version || 'Unknown');
-      setupDashboard();
-    }
-  } catch (error) {
-    console.error('❌ [DASHBOARD] Error inicializando dashboard:', error);
-    console.error('❌ [DASHBOARD] Error stack:', error.stack);
-  }
-}
 
-// 🚀 Configurar Dashboard - CON DEBUGS COMPLETOS
-async function setupDashboard() {
-  console.log('📊 [DASHBOARD] === INICIANDO SETUP DASHBOARD ===');
-  console.log('📊 [DASHBOARD] authToken presente:', !!authToken);
-  console.log('📊 [DASHBOARD] Chart.js disponible:', !!window.Chart);
-  
-  try {
-    // Mostrar sección dashboard
-    const dashboardSection = document.getElementById('dashboardSection');
-    console.log('📊 [DASHBOARD] dashboardSection encontrado:', !!dashboardSection);
-    
-    if (dashboardSection) {
-      console.log('📊 [DASHBOARD] Mostrando sección dashboard...');
-      dashboardSection.style.display = 'block';
-      console.log('📊 [DASHBOARD] dashboardSection.style.display:', dashboardSection.style.display);
-    } else {
-      console.error('❌ [DASHBOARD] dashboardSection no encontrado en DOM');
-      return;
-    }
-    
-    // Cargar métricas iniciales
-    console.log('📊 [DASHBOARD] === CARGANDO MÉTRICAS ===');
-    try {
-      await loadDashboardMetrics();
-      console.log('✅ [DASHBOARD] Métricas cargadas exitosamente');
-    } catch (metricsError) {
-      console.error('❌ [DASHBOARD] Error en loadDashboardMetrics:', metricsError);
-      console.error('❌ [DASHBOARD] Metrics error stack:', metricsError.stack);
-    }
-    
-    // Cargar datos de gráficos
-    console.log('📊 [DASHBOARD] === CARGANDO GRÁFICOS ===');
-    try {
-      await loadDashboardCharts();
-      console.log('✅ [DASHBOARD] Gráficos cargados exitosamente');
-    } catch (chartsError) {
-      console.error('❌ [DASHBOARD] Error en loadDashboardCharts:', chartsError);
-      console.error('❌ [DASHBOARD] Charts error stack:', chartsError.stack);
-    }
-    
-    // Configurar auto-refresh cada 5 minutos
-    console.log('📊 [DASHBOARD] Configurando auto-refresh...');
-    dashboardRefreshInterval = setInterval(async () => {
-      console.log('🔄 [DASHBOARD] Auto-refresh dashboard...');
-      try {
-        await loadDashboardMetrics();
-      } catch (refreshError) {
-        console.error('❌ [DASHBOARD] Error en auto-refresh:', refreshError);
-      }
-    }, 5 * 60 * 1000);
-    console.log('📊 [DASHBOARD] Auto-refresh configurado con ID:', dashboardRefreshInterval);
-    
-    console.log('✅ [DASHBOARD] === SETUP DASHBOARD COMPLETADO ===');
-    
-  } catch (error) {
-    console.error('❌ [DASHBOARD] Error configurando dashboard:', error);
-    console.error('❌ [DASHBOARD] Setup error stack:', error.stack);
-    showNotification('Error configurando dashboard', 'error');
-  }
-}
+            // 🎯 Inicializar Dashboard - VERSIÓN MODULE + DEFER
+            async function initializeDashboard() {
+            console.log('📊 [DASHBOARD] Inicializando Dashboard Ejecutivo...');
+            console.log('📊 [DASHBOARD] authToken:', authToken ? 'Present' : 'Null');
+            
+            try {
+                if (!window.Chart) {
+                console.log('📊 [DASHBOARD] Cargando Chart.js como module con defer...');
+                
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.type = 'module';
+                    script.defer = true;
+                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                    
+                    script.onload = () => {
+                    console.log('✅ [DASHBOARD] Chart.js module cargado');
+                    console.log('📊 [DASHBOARD] window.Chart disponible:', !!window.Chart);
+                    
+                    // Esperar un poco más para que se registre globalmente
+                    setTimeout(() => {
+                        console.log('📊 [DASHBOARD] window.Chart después de timeout:', !!window.Chart);
+                        resolve(true);
+                    }, 500);
+                    };
+                    
+                    script.onerror = (error) => {
+                    console.error('❌ [DASHBOARD] Error cargando Chart.js module:', error);
+                    reject(error);
+                    };
+                    
+                    // Timeout de 15 segundos
+                    setTimeout(() => {
+                    if (!window.Chart) {
+                        console.warn('⏰ [DASHBOARD] Timeout cargando Chart.js module');
+                        reject(new Error('Timeout loading Chart.js'));
+                    }
+                    }, 15000);
+                    
+                    document.head.appendChild(script);
+                    console.log('📊 [DASHBOARD] Script Chart.js module agregado al DOM');
+                });
+                
+                } else {
+                console.log('📊 [DASHBOARD] Chart.js ya disponible');
+                }
+                
+                // Verificar que Chart está realmente disponible
+                if (window.Chart) {
+                console.log('📊 [DASHBOARD] Chart.js confirmado, configurando dashboard...');
+                await setupDashboard();
+                } else {
+                console.error('❌ [DASHBOARD] Chart.js no está disponible después de la carga');
+                await setupDashboardWithoutCharts();
+                }
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error inicializando dashboard:', error);
+                console.log('📊 [DASHBOARD] Fallback: configurando dashboard sin gráficos...');
+                await setupDashboardWithoutCharts();
+            }
+            }
+            // 🚀 Configurar Dashboard - CON DEBUGS COMPLETOS
+            async function setupDashboard() {
+            console.log('📊 [DASHBOARD] === INICIANDO SETUP DASHBOARD ===');
+            console.log('📊 [DASHBOARD] authToken presente:', !!authToken);
+            console.log('📊 [DASHBOARD] Chart.js disponible:', !!window.Chart);
+            
+            try {
+                // Mostrar sección dashboard
+                const dashboardSection = document.getElementById('dashboardSection');
+                console.log('📊 [DASHBOARD] dashboardSection encontrado:', !!dashboardSection);
+                
+                if (dashboardSection) {
+                console.log('📊 [DASHBOARD] Mostrando sección dashboard...');
+                dashboardSection.style.display = 'block';
+                console.log('📊 [DASHBOARD] dashboardSection.style.display:', dashboardSection.style.display);
+                } else {
+                console.error('❌ [DASHBOARD] dashboardSection no encontrado en DOM');
+                return;
+                }
+                
+                // Cargar métricas iniciales
+                console.log('📊 [DASHBOARD] === CARGANDO MÉTRICAS ===');
+                try {
+                await loadDashboardMetrics();
+                console.log('✅ [DASHBOARD] Métricas cargadas exitosamente');
+                } catch (metricsError) {
+                console.error('❌ [DASHBOARD] Error en loadDashboardMetrics:', metricsError);
+                console.error('❌ [DASHBOARD] Metrics error stack:', metricsError.stack);
+                }
+                
+                // Cargar datos de gráficos
+                console.log('📊 [DASHBOARD] === CARGANDO GRÁFICOS ===');
+                try {
+                await loadDashboardCharts();
+                console.log('✅ [DASHBOARD] Gráficos cargados exitosamente');
+                } catch (chartsError) {
+                console.error('❌ [DASHBOARD] Error en loadDashboardCharts:', chartsError);
+                console.error('❌ [DASHBOARD] Charts error stack:', chartsError.stack);
+                }
+                
+                // Configurar auto-refresh cada 5 minutos
+                console.log('📊 [DASHBOARD] Configurando auto-refresh...');
+                dashboardRefreshInterval = setInterval(async () => {
+                console.log('🔄 [DASHBOARD] Auto-refresh dashboard...');
+                try {
+                    await loadDashboardMetrics();
+                } catch (refreshError) {
+                    console.error('❌ [DASHBOARD] Error en auto-refresh:', refreshError);
+                }
+                }, 5 * 60 * 1000);
+                console.log('📊 [DASHBOARD] Auto-refresh configurado con ID:', dashboardRefreshInterval);
+                
+                console.log('✅ [DASHBOARD] === SETUP DASHBOARD COMPLETADO ===');
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error configurando dashboard:', error);
+                console.error('❌ [DASHBOARD] Setup error stack:', error.stack);
+                showNotification('Error configurando dashboard', 'error');
+            }
+            }
 
-// 📈 Cargar Métricas KPI - CON DEBUGS COMPLETOS
-async function loadDashboardMetrics() {
-  console.log('📈 [DASHBOARD] === CARGANDO MÉTRICAS KPI ===');
-  console.log('📈 [DASHBOARD] authToken estado:', authToken ? 'Autenticado' : 'Demo mode');
-  
-  try {
-    let response;
-    
-    if (!authToken) {
-      console.log('🎭 [DASHBOARD] Modo demo - usando datos mock');
-      console.log('🎭 [DASHBOARD] Verificando getMockDashboardMetrics...');
-      console.log('🎭 [DASHBOARD] getMockDashboardMetrics type:', typeof getMockDashboardMetrics);
-      
-      if (typeof getMockDashboardMetrics !== 'function') {
-        throw new Error('getMockDashboardMetrics no está definida');
-      }
-      
-      response = await getMockDashboardMetrics();
-      console.log('🎭 [DASHBOARD] Mock metrics response:', response);
-    } else {
-      console.log('🔐 [DASHBOARD] Modo autenticado - llamando API real');
-      response = await makeAPICall('/dashboard/metrics');
-      console.log('🔐 [DASHBOARD] API metrics response:', response);
-    }
-    
-    console.log('📈 [DASHBOARD] Validando estructura de respuesta...');
-    console.log('📈 [DASHBOARD] response.success:', response.success);
-    console.log('📈 [DASHBOARD] response.data existe:', !!response.data);
-    console.log('📈 [DASHBOARD] response.data.kpis existe:', !!(response.data && response.data.kpis));
-    
-    if (response.success && response.data && response.data.kpis) {
-      const kpis = response.data.kpis;
-      const realTime = response.data.realTimeActivity;
-      
-      console.log('📈 [DASHBOARD] KPIs recibidos:', Object.keys(kpis));
-      console.log('📈 [DASHBOARD] RealTime data:', realTime);
-      
-      // Actualizar KPI cards
-      console.log('📈 [DASHBOARD] Actualizando KPI cards...');
-      updateKPICard('kpiTotalSurveys', 'trendTotalSurveys', kpis.totalSurveys);
-      updateKPICard('kpiActiveSurveys', 'trendActiveSurveys', kpis.activeSurveys);
-      updateKPICard('kpiTotalResponses', 'trendTotalResponses', kpis.totalResponses);
-      updateKPICard('kpiSatisfaction', 'trendSatisfaction', kpis.avgSatisfaction);
-      updateKPICard('kpiEngagement', 'trendEngagement', kpis.engagementRate);
-      updateKPICard('kpiWeeklyResponses', 'trendWeeklyResponses', kpis.responsesThisWeek);
-      console.log('📈 [DASHBOARD] KPI cards actualizados');
-      
-      // Actualizar actividad en tiempo real
-      if (realTime) {
-        console.log('📈 [DASHBOARD] Actualizando actividad en tiempo real...');
-        updateElement('responsesToday', realTime.responsesToday || 0);
-        updateElement('surveysThisWeek', realTime.surveysCreatedThisWeek || 0);
-        updateElement('activeUsers', realTime.activeUsers || 0);
-        updateElement('alertsCount', realTime.alertsCount || 0);
-        console.log('📈 [DASHBOARD] Actividad en tiempo real actualizada');
-      } else {
-        console.warn('⚠️ [DASHBOARD] No hay datos de actividad en tiempo real');
-      }
-      
-      console.log('✅ [DASHBOARD] Métricas actualizadas exitosamente');
-    } else {
-      console.warn('⚠️ [DASHBOARD] Formato de respuesta inválido');
-      console.warn('⚠️ [DASHBOARD] Response completo:', JSON.stringify(response, null, 2));
-    }
-    
-  } catch (error) {
-    console.error('❌ [DASHBOARD] Error cargando métricas:', error);
-    console.error('❌ [DASHBOARD] Error tipo:', error.constructor.name);
-    console.error('❌ [DASHBOARD] Error mensaje:', error.message);
-    console.error('❌ [DASHBOARD] Error stack:', error.stack);
-    showNotification('Error cargando métricas', 'error');
-  }
-}
+            // 📈 Cargar Métricas KPI - CON DEBUGS COMPLETOS
+            async function loadDashboardMetrics() {
+            console.log('📈 [DASHBOARD] === CARGANDO MÉTRICAS KPI ===');
+            console.log('📈 [DASHBOARD] authToken estado:', authToken ? 'Autenticado' : 'Demo mode');
+            
+            try {
+                let response;
+                
+                if (!authToken) {
+                console.log('🎭 [DASHBOARD] Modo demo - usando datos mock');
+                console.log('🎭 [DASHBOARD] Verificando getMockDashboardMetrics...');
+                console.log('🎭 [DASHBOARD] getMockDashboardMetrics type:', typeof getMockDashboardMetrics);
+                
+                if (typeof getMockDashboardMetrics !== 'function') {
+                    throw new Error('getMockDashboardMetrics no está definida');
+                }
+                
+                response = await getMockDashboardMetrics();
+                console.log('🎭 [DASHBOARD] Mock metrics response:', response);
+                } else {
+                console.log('🔐 [DASHBOARD] Modo autenticado - llamando API real');
+                response = await makeAPICall('/dashboard/metrics');
+                console.log('🔐 [DASHBOARD] API metrics response:', response);
+                }
+                
+                console.log('📈 [DASHBOARD] Validando estructura de respuesta...');
+                console.log('📈 [DASHBOARD] response.success:', response.success);
+                console.log('📈 [DASHBOARD] response.data existe:', !!response.data);
+                console.log('📈 [DASHBOARD] response.data.kpis existe:', !!(response.data && response.data.kpis));
+                
+                if (response.success && response.data && response.data.kpis) {
+                const kpis = response.data.kpis;
+                const realTime = response.data.realTimeActivity;
+                
+                console.log('📈 [DASHBOARD] KPIs recibidos:', Object.keys(kpis));
+                console.log('📈 [DASHBOARD] RealTime data:', realTime);
+                
+                // Actualizar KPI cards
+                console.log('📈 [DASHBOARD] Actualizando KPI cards...');
+                updateKPICard('kpiTotalSurveys', 'trendTotalSurveys', kpis.totalSurveys);
+                updateKPICard('kpiActiveSurveys', 'trendActiveSurveys', kpis.activeSurveys);
+                updateKPICard('kpiTotalResponses', 'trendTotalResponses', kpis.totalResponses);
+                updateKPICard('kpiSatisfaction', 'trendSatisfaction', kpis.avgSatisfaction);
+                updateKPICard('kpiEngagement', 'trendEngagement', kpis.engagementRate);
+                updateKPICard('kpiWeeklyResponses', 'trendWeeklyResponses', kpis.responsesThisWeek);
+                console.log('📈 [DASHBOARD] KPI cards actualizados');
+                
+                // Actualizar actividad en tiempo real
+                if (realTime) {
+                    console.log('📈 [DASHBOARD] Actualizando actividad en tiempo real...');
+                    updateElement('responsesToday', realTime.responsesToday || 0);
+                    updateElement('surveysThisWeek', realTime.surveysCreatedThisWeek || 0);
+                    updateElement('activeUsers', realTime.activeUsers || 0);
+                    updateElement('alertsCount', realTime.alertsCount || 0);
+                    console.log('📈 [DASHBOARD] Actividad en tiempo real actualizada');
+                } else {
+                    console.warn('⚠️ [DASHBOARD] No hay datos de actividad en tiempo real');
+                }
+                
+                console.log('✅ [DASHBOARD] Métricas actualizadas exitosamente');
+                } else {
+                console.warn('⚠️ [DASHBOARD] Formato de respuesta inválido');
+                console.warn('⚠️ [DASHBOARD] Response completo:', JSON.stringify(response, null, 2));
+                }
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error cargando métricas:', error);
+                console.error('❌ [DASHBOARD] Error tipo:', error.constructor.name);
+                console.error('❌ [DASHBOARD] Error mensaje:', error.message);
+                console.error('❌ [DASHBOARD] Error stack:', error.stack);
+                showNotification('Error cargando métricas', 'error');
+            }
+            }
 
-// 📊 Cargar Datos de Gráficos - CON DEBUGS COMPLETOS
+            // 📊 Cargar Datos de Gráficos - CON DEBUGS COMPLETOS
             async function loadDashboardCharts(period = '30d') {
             console.log(`📊 [DASHBOARD] === CARGANDO GRÁFICOS (${period}) ===`);
             console.log('📊 [DASHBOARD] authToken estado:', authToken ? 'Autenticado' : 'Demo mode');
