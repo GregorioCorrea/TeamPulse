@@ -69,7 +69,7 @@ app.get("/admin", (req, res) => {
       "style-src 'self' 'unsafe-inline';"
       );
     
-    const adminPanelPath = path.join(__dirname, "..", "..", "src/admin", "adminPanel.html");
+    const adminPanelPath = path.join(__dirname, "..",  "src/admin", "adminPanel.html");
     console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);
     res.sendFile(adminPanelPath);
   } catch (error) {

@@ -657,6 +657,229 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* 📊 DASHBOARD EJECUTIVO STYLES */
+        .dashboard-section {
+            margin-bottom: 32px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.4);
+        }
+
+        .kpi-icon {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
+
+        .kpi-content {
+            flex: 1;
+        }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .kpi-label {
+            font-size: 0.9rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-trend {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .kpi-trend.positive {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .kpi-trend.negative {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .kpi-trend.neutral {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        /* Charts Section */
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-container.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .chart-header h3 {
+            color: #2d3748;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .chart-subtitle {
+            color: #718096;
+            font-size: 0.9rem;
+            margin: 4px 0 0 0;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chart-controls .btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* Activity Section */
+        .activity-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .activity-section h3 {
+            color: #2d3748;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .activity-icon {
+            font-size: 1.5rem;
+            opacity: 0.8;
+        }
+
+        .activity-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 2px;
+        }
+
+        .activity-label {
+            font-size: 0.8rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Dashboard Responsive adjustments */
+        @media (max-width: 1024px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .kpi-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .activity-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
@@ -694,7 +917,136 @@
                     </div>
                 </div>
             </div>
+            <!-- 📊 DASHBOARD EJECUTIVO -->
+            <div class="dashboard-section" id="dashboardSection" style="display: none;">
+            <div class="dashboard-grid">
+                <!-- KPIs Cards -->
+                <div class="kpi-grid">
+                <div class="kpi-card" id="totalSurveysKPI">
+                    <div class="kpi-icon">📋</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiTotalSurveys">-</div>
+                    <div class="kpi-label">Total Encuestas</div>
+                    <div class="kpi-trend" id="trendTotalSurveys">-</div>
+                    </div>
+                </div>
+                
+                <div class="kpi-card" id="activeSurveysKPI">
+                    <div class="kpi-icon">🟢</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiActiveSurveys">-</div>
+                    <div class="kpi-label">Encuestas Activas</div>
+                    <div class="kpi-trend" id="trendActiveSurveys">-</div>
+                    </div>
+                </div>
+                
+                <div class="kpi-card" id="totalResponsesKPI">
+                    <div class="kpi-icon">👥</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiTotalResponses">-</div>
+                    <div class="kpi-label">Total Respuestas</div>
+                    <div class="kpi-trend" id="trendTotalResponses">-</div>
+                    </div>
+                </div>
+                
+                <div class="kpi-card" id="satisfactionKPI">
+                    <div class="kpi-icon">😊</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiSatisfaction">-</div>
+                    <div class="kpi-label">Satisfacción Promedio</div>
+                    <div class="kpi-trend" id="trendSatisfaction">-</div>
+                    </div>
+                </div>
+                
+                <div class="kpi-card" id="engagementKPI">
+                    <div class="kpi-icon">⚡</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiEngagement">-</div>
+                    <div class="kpi-label">Engagement Rate</div>
+                    <div class="kpi-trend" id="trendEngagement">-</div>
+                    </div>
+                </div>
+                
+                <div class="kpi-card" id="weeklyResponsesKPI">
+                    <div class="kpi-icon">📈</div>
+                    <div class="kpi-content">
+                    <div class="kpi-value" id="kpiWeeklyResponses">-</div>
+                    <div class="kpi-label">Respuestas Esta Semana</div>
+                    <div class="kpi-trend" id="trendWeeklyResponses">-</div>
+                    </div>
+                </div>
+                </div>
 
+                <!-- Charts Section -->
+                <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                    <h3>📈 Tendencia de Respuestas</h3>
+                    <div class="chart-controls">
+                        <button class="btn btn-small" onclick="updateChartPeriod('7d')" id="btn7d">7 días</button>
+                        <button class="btn btn-small btn-primary" onclick="updateChartPeriod('30d')" id="btn30d">30 días</button>
+                        <button class="btn btn-small" onclick="updateChartPeriod('90d')" id="btn90d">90 días</button>
+                    </div>
+                    </div>
+                    <canvas id="responsesTrendChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-header">
+                    <h3>📊 Satisfacción por Encuesta</h3>
+                    <button class="btn btn-small btn-secondary" onclick="exportChartData()">📁 Exportar</button>
+                    </div>
+                    <canvas id="satisfactionChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="chart-container full-width">
+                    <div class="chart-header">
+                    <h3>🎯 Performance de Encuestas</h3>
+                    <p class="chart-subtitle">Satisfacción vs Cantidad de Respuestas</p>
+                    </div>
+                    <canvas id="performanceChart" width="800" height="300"></canvas>
+                </div>
+                </div>
+
+                <!-- Real-time Activity -->
+                <div class="activity-section">
+                <h3>⚡ Actividad en Tiempo Real</h3>
+                <div class="activity-grid">
+                    <div class="activity-item">
+                    <div class="activity-icon">📝</div>
+                    <div class="activity-content">
+                        <div class="activity-value" id="responsesToday">-</div>
+                        <div class="activity-label">Respuestas Hoy</div>
+                    </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                    <div class="activity-icon">➕</div>
+                    <div class="activity-content">
+                        <div class="activity-value" id="surveysThisWeek">-</div>
+                        <div class="activity-label">Encuestas Esta Semana</div>
+                    </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                    <div class="activity-icon">👨‍💼</div>
+                    <div class="activity-content">
+                        <div class="activity-value" id="activeUsers">-</div>
+                        <div class="activity-label">Usuarios Activos</div>
+                    </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                    <div class="activity-icon">🚨</div>
+                    <div class="activity-content">
+                        <div class="activity-value" id="alertsCount">-</div>
+                        <div class="activity-label">Alertas</div>
+                    </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+            </div>
             <!-- Controls -->
             <div class="controls">
                 <div class="controls-row">
@@ -923,7 +1275,8 @@
                 
                 if (planText) planText.textContent = 'Plan Free';
                 if (planBadge) planBadge.className = 'plan-badge plan-free';
-                await loadSurveys();
+                await loadSurveys(); // Load mock surveys
+                await initializeDashboard(); // Initialize dashboard with mock data
             }
 
             // 🆕 API calls with better error handling
@@ -959,6 +1312,23 @@
                 } catch (error) {
                     console.error(`❌ API call failed: ${endpoint}`, error);
                     
+                    // En modo demo, usar datos mock para diferentes endpoints
+                    if (!authToken) {
+                        console.log(`🎭 API failed, usando mock data para: ${endpoint}`);
+                        
+                        if (endpoint === '/surveys') {
+                        return { success: true, data: await getMockSurveys() };
+                        } else if (endpoint === '/dashboard/metrics') {
+                        return await getMockDashboardMetrics();
+                        } else if (endpoint.startsWith('/dashboard/charts')) {
+                        const urlParams = new URLSearchParams(endpoint.split('?')[1] || '');
+                        const period = urlParams.get('period') || '30d';
+                        return await getMockDashboardCharts(period);
+                        }
+                    }
+                    
+                    throw error;
+                    }                   
                     // In demo mode, continue with mock data
                     if (!authToken && endpoint === '/surveys') {
                         console.log('🎭 API failed, using mock data for demo');
@@ -966,7 +1336,6 @@
                     }
                     
                     throw error;
-                }
             }
 
             // 🆕 Actualizar información del plan en el badge
@@ -1041,6 +1410,11 @@
                         emptyState.style.display = 'block';
                     } else {
                         container.style.display = 'block';
+                    }
+                    // Al final de la función loadSurveys() exitosa, agregar:
+                    if (!document.getElementById('dashboardSection').style.display || 
+                        document.getElementById('dashboardSection').style.display === 'none') {
+                    await initializeDashboard(); // 🆕 Inicializar dashboard si no está visible
                     }
                     
                 } catch (error) {
@@ -1754,6 +2128,749 @@
                 // 🔥 CRITICAL: Initialize Teams FIRST
                 initializeTeamsApp();
             });
+            // 📊 DASHBOARD EJECUTIVO - JavaScript Functions
+ 
+            let currentChartPeriod = '30d';
+            let responsesTrendChart = null;
+            let satisfactionChart = null;
+            let performanceChart = null;
+            let dashboardRefreshInterval = null;
+
+            // 🎯 Inicializar Dashboard
+// 🎯 Inicializar Dashboard - CON DEBUGS COMPLETOS
+async function initializeDashboard() {
+  console.log('📊 [DASHBOARD] Inicializando Dashboard Ejecutivo...');
+  console.log('📊 [DASHBOARD] authToken:', authToken ? 'Present' : 'Null');
+  console.log('📊 [DASHBOARD] Timestamp:', new Date().toISOString());
+  
+  try {
+    // Verificar que las funciones mock existen
+    console.log('📊 [DASHBOARD] Verificando funciones mock...');
+    console.log('📊 [DASHBOARD] getMockDashboardMetrics existe:', typeof getMockDashboardMetrics === 'function');
+    console.log('📊 [DASHBOARD] getMockDashboardCharts existe:', typeof getMockDashboardCharts === 'function');
+    console.log('📊 [DASHBOARD] makeAPICall existe:', typeof makeAPICall === 'function');
+    
+    // Cargar Chart.js desde CDN
+    if (!window.Chart) {
+      console.log('📊 [DASHBOARD] Chart.js no disponible, cargando desde CDN...');
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+      script.onload = () => {
+        console.log('📊 [DASHBOARD] Chart.js cargado exitosamente desde CDN');
+        console.log('📊 [DASHBOARD] window.Chart disponible:', !!window.Chart);
+        setupDashboard();
+      };
+      script.onerror = () => {
+        console.error('❌ [DASHBOARD] Error cargando Chart.js desde CDN');
+        console.log('📊 [DASHBOARD] Intentando configurar dashboard sin Chart.js...');
+        setupDashboard();
+      };
+      document.head.appendChild(script);
+      console.log('📊 [DASHBOARD] Script de Chart.js agregado al DOM');
+    } else {
+      console.log('📊 [DASHBOARD] Chart.js ya disponible');
+      console.log('📊 [DASHBOARD] Chart version:', window.Chart.version || 'Unknown');
+      setupDashboard();
+    }
+  } catch (error) {
+    console.error('❌ [DASHBOARD] Error inicializando dashboard:', error);
+    console.error('❌ [DASHBOARD] Error stack:', error.stack);
+  }
+}
+
+// 🚀 Configurar Dashboard - CON DEBUGS COMPLETOS
+async function setupDashboard() {
+  console.log('📊 [DASHBOARD] === INICIANDO SETUP DASHBOARD ===');
+  console.log('📊 [DASHBOARD] authToken presente:', !!authToken);
+  console.log('📊 [DASHBOARD] Chart.js disponible:', !!window.Chart);
+  
+  try {
+    // Mostrar sección dashboard
+    const dashboardSection = document.getElementById('dashboardSection');
+    console.log('📊 [DASHBOARD] dashboardSection encontrado:', !!dashboardSection);
+    
+    if (dashboardSection) {
+      console.log('📊 [DASHBOARD] Mostrando sección dashboard...');
+      dashboardSection.style.display = 'block';
+      console.log('📊 [DASHBOARD] dashboardSection.style.display:', dashboardSection.style.display);
+    } else {
+      console.error('❌ [DASHBOARD] dashboardSection no encontrado en DOM');
+      return;
+    }
+    
+    // Cargar métricas iniciales
+    console.log('📊 [DASHBOARD] === CARGANDO MÉTRICAS ===');
+    try {
+      await loadDashboardMetrics();
+      console.log('✅ [DASHBOARD] Métricas cargadas exitosamente');
+    } catch (metricsError) {
+      console.error('❌ [DASHBOARD] Error en loadDashboardMetrics:', metricsError);
+      console.error('❌ [DASHBOARD] Metrics error stack:', metricsError.stack);
+    }
+    
+    // Cargar datos de gráficos
+    console.log('📊 [DASHBOARD] === CARGANDO GRÁFICOS ===');
+    try {
+      await loadDashboardCharts();
+      console.log('✅ [DASHBOARD] Gráficos cargados exitosamente');
+    } catch (chartsError) {
+      console.error('❌ [DASHBOARD] Error en loadDashboardCharts:', chartsError);
+      console.error('❌ [DASHBOARD] Charts error stack:', chartsError.stack);
+    }
+    
+    // Configurar auto-refresh cada 5 minutos
+    console.log('📊 [DASHBOARD] Configurando auto-refresh...');
+    dashboardRefreshInterval = setInterval(async () => {
+      console.log('🔄 [DASHBOARD] Auto-refresh dashboard...');
+      try {
+        await loadDashboardMetrics();
+      } catch (refreshError) {
+        console.error('❌ [DASHBOARD] Error en auto-refresh:', refreshError);
+      }
+    }, 5 * 60 * 1000);
+    console.log('📊 [DASHBOARD] Auto-refresh configurado con ID:', dashboardRefreshInterval);
+    
+    console.log('✅ [DASHBOARD] === SETUP DASHBOARD COMPLETADO ===');
+    
+  } catch (error) {
+    console.error('❌ [DASHBOARD] Error configurando dashboard:', error);
+    console.error('❌ [DASHBOARD] Setup error stack:', error.stack);
+    showNotification('Error configurando dashboard', 'error');
+  }
+}
+
+// 📈 Cargar Métricas KPI - CON DEBUGS COMPLETOS
+async function loadDashboardMetrics() {
+  console.log('📈 [DASHBOARD] === CARGANDO MÉTRICAS KPI ===');
+  console.log('📈 [DASHBOARD] authToken estado:', authToken ? 'Autenticado' : 'Demo mode');
+  
+  try {
+    let response;
+    
+    if (!authToken) {
+      console.log('🎭 [DASHBOARD] Modo demo - usando datos mock');
+      console.log('🎭 [DASHBOARD] Verificando getMockDashboardMetrics...');
+      console.log('🎭 [DASHBOARD] getMockDashboardMetrics type:', typeof getMockDashboardMetrics);
+      
+      if (typeof getMockDashboardMetrics !== 'function') {
+        throw new Error('getMockDashboardMetrics no está definida');
+      }
+      
+      response = await getMockDashboardMetrics();
+      console.log('🎭 [DASHBOARD] Mock metrics response:', response);
+    } else {
+      console.log('🔐 [DASHBOARD] Modo autenticado - llamando API real');
+      response = await makeAPICall('/dashboard/metrics');
+      console.log('🔐 [DASHBOARD] API metrics response:', response);
+    }
+    
+    console.log('📈 [DASHBOARD] Validando estructura de respuesta...');
+    console.log('📈 [DASHBOARD] response.success:', response.success);
+    console.log('📈 [DASHBOARD] response.data existe:', !!response.data);
+    console.log('📈 [DASHBOARD] response.data.kpis existe:', !!(response.data && response.data.kpis));
+    
+    if (response.success && response.data && response.data.kpis) {
+      const kpis = response.data.kpis;
+      const realTime = response.data.realTimeActivity;
+      
+      console.log('📈 [DASHBOARD] KPIs recibidos:', Object.keys(kpis));
+      console.log('📈 [DASHBOARD] RealTime data:', realTime);
+      
+      // Actualizar KPI cards
+      console.log('📈 [DASHBOARD] Actualizando KPI cards...');
+      updateKPICard('kpiTotalSurveys', 'trendTotalSurveys', kpis.totalSurveys);
+      updateKPICard('kpiActiveSurveys', 'trendActiveSurveys', kpis.activeSurveys);
+      updateKPICard('kpiTotalResponses', 'trendTotalResponses', kpis.totalResponses);
+      updateKPICard('kpiSatisfaction', 'trendSatisfaction', kpis.avgSatisfaction);
+      updateKPICard('kpiEngagement', 'trendEngagement', kpis.engagementRate);
+      updateKPICard('kpiWeeklyResponses', 'trendWeeklyResponses', kpis.responsesThisWeek);
+      console.log('📈 [DASHBOARD] KPI cards actualizados');
+      
+      // Actualizar actividad en tiempo real
+      if (realTime) {
+        console.log('📈 [DASHBOARD] Actualizando actividad en tiempo real...');
+        updateElement('responsesToday', realTime.responsesToday || 0);
+        updateElement('surveysThisWeek', realTime.surveysCreatedThisWeek || 0);
+        updateElement('activeUsers', realTime.activeUsers || 0);
+        updateElement('alertsCount', realTime.alertsCount || 0);
+        console.log('📈 [DASHBOARD] Actividad en tiempo real actualizada');
+      } else {
+        console.warn('⚠️ [DASHBOARD] No hay datos de actividad en tiempo real');
+      }
+      
+      console.log('✅ [DASHBOARD] Métricas actualizadas exitosamente');
+    } else {
+      console.warn('⚠️ [DASHBOARD] Formato de respuesta inválido');
+      console.warn('⚠️ [DASHBOARD] Response completo:', JSON.stringify(response, null, 2));
+    }
+    
+  } catch (error) {
+    console.error('❌ [DASHBOARD] Error cargando métricas:', error);
+    console.error('❌ [DASHBOARD] Error tipo:', error.constructor.name);
+    console.error('❌ [DASHBOARD] Error mensaje:', error.message);
+    console.error('❌ [DASHBOARD] Error stack:', error.stack);
+    showNotification('Error cargando métricas', 'error');
+  }
+}
+
+// 📊 Cargar Datos de Gráficos - CON DEBUGS COMPLETOS
+            async function loadDashboardCharts(period = '30d') {
+            console.log(`📊 [DASHBOARD] === CARGANDO GRÁFICOS (${period}) ===`);
+            console.log('📊 [DASHBOARD] authToken estado:', authToken ? 'Autenticado' : 'Demo mode');
+            console.log('📊 [DASHBOARD] Chart.js disponible:', !!window.Chart);
+            
+            try {
+                let response;
+                
+                if (!authToken) {
+                console.log('🎭 [DASHBOARD] Modo demo - usando datos mock para gráficos');
+                console.log('🎭 [DASHBOARD] Verificando getMockDashboardCharts...');
+                console.log('🎭 [DASHBOARD] getMockDashboardCharts type:', typeof getMockDashboardCharts);
+                
+                if (typeof getMockDashboardCharts !== 'function') {
+                    throw new Error('getMockDashboardCharts no está definida');
+                }
+                
+                response = await getMockDashboardCharts(period);
+                console.log('🎭 [DASHBOARD] Mock charts response:', response);
+                } else {
+                console.log('🔐 [DASHBOARD] Modo autenticado - llamando API real');
+                response = await makeAPICall(`/dashboard/charts?period=${period}`);
+                console.log('🔐 [DASHBOARD] API charts response:', response);
+                }
+                
+                console.log('📊 [DASHBOARD] Validando estructura de gráficos...');
+                console.log('📊 [DASHBOARD] response.success:', response.success);
+                console.log('📊 [DASHBOARD] response.data existe:', !!response.data);
+                
+                if (response.success && response.data) {
+                const chartData = response.data;
+                console.log('📊 [DASHBOARD] Chart data keys:', Object.keys(chartData));
+                
+                // Actualizar gráfico de tendencias
+                if (chartData.responsesTrend) {
+                    console.log('📊 [DASHBOARD] Actualizando gráfico de tendencias...');
+                    updateResponsesTrendChart(chartData.responsesTrend);
+                    console.log('📊 [DASHBOARD] Gráfico de tendencias actualizado');
+                } else {
+                    console.warn('⚠️ [DASHBOARD] No hay datos de responsesTrend');
+                }
+                
+                // Actualizar gráfico de satisfacción
+                if (chartData.satisfactionScores) {
+                    console.log('📊 [DASHBOARD] Actualizando gráfico de satisfacción...');
+                    updateSatisfactionChart(chartData.satisfactionScores);
+                    console.log('📊 [DASHBOARD] Gráfico de satisfacción actualizado');
+                } else {
+                    console.warn('⚠️ [DASHBOARD] No hay datos de satisfactionScores');
+                }
+                
+                // Actualizar gráfico de performance
+                if (chartData.surveyPerformance) {
+                    console.log('📊 [DASHBOARD] Actualizando gráfico de performance...');
+                    updatePerformanceChart(chartData.surveyPerformance);
+                    console.log('📊 [DASHBOARD] Gráfico de performance actualizado');
+                } else {
+                    console.warn('⚠️ [DASHBOARD] No hay datos de surveyPerformance');
+                }
+                
+                console.log('✅ [DASHBOARD] Gráficos actualizados exitosamente');
+                } else {
+                console.warn('⚠️ [DASHBOARD] Datos de gráficos inválidos');
+                console.warn('⚠️ [DASHBOARD] Response completo:', JSON.stringify(response, null, 2));
+                }
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error cargando gráficos:', error);
+                console.error('❌ [DASHBOARD] Error tipo:', error.constructor.name);
+                console.error('❌ [DASHBOARD] Error mensaje:', error.message);
+                console.error('❌ [DASHBOARD] Error stack:', error.stack);
+                showNotification('Error cargando gráficos', 'error');
+            }
+            }
+            // 🚀 Configurar Dashboard
+            async function setupDashboard() {
+            console.log('📊 [DASHBOARD] Configurando dashboard...');
+            
+            try {
+                // Mostrar sección dashboard
+                const dashboardSection = document.getElementById('dashboardSection');
+                if (dashboardSection) {
+                dashboardSection.style.display = 'block';
+                console.log('📊 [DASHBOARD] Sección dashboard visible');
+                }
+                
+                // Cargar métricas iniciales
+                await loadDashboardMetrics();
+                
+                // Cargar datos de gráficos
+                await loadDashboardCharts();
+                
+                // Configurar auto-refresh cada 5 minutos
+                dashboardRefreshInterval = setInterval(async () => {
+                console.log('🔄 [DASHBOARD] Auto-refresh dashboard...');
+                await loadDashboardMetrics();
+                }, 5 * 60 * 1000);
+                
+                console.log('✅ [DASHBOARD] Dashboard configurado exitosamente');
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error configurando dashboard:', error);
+                showNotification('Error configurando dashboard', 'error');
+            }
+            }
+
+            // 📈 Cargar Métricas KPI
+            async function loadDashboardMetrics() {
+            console.log('📈 [DASHBOARD] Cargando métricas KPI...');
+            
+            try {
+                let response;
+                
+                if (!authToken) {
+                // Modo demo - usar datos mock directamente
+                console.log('🎭 [DASHBOARD] Usando datos mock para métricas');
+                response = await getMockDashboardMetrics();
+                } else {
+                // Modo autenticado - llamar API real
+                response = await makeAPICall('/dashboard/metrics');
+                }
+                
+                console.log('📈 [DASHBOARD] Métricas recibidas:', response);
+                
+                if (response.success && response.data && response.data.kpis) {
+                const kpis = response.data.kpis;
+                const realTime = response.data.realTimeActivity;
+                
+                // Actualizar KPI cards
+                updateKPICard('kpiTotalSurveys', 'trendTotalSurveys', kpis.totalSurveys);
+                updateKPICard('kpiActiveSurveys', 'trendActiveSurveys', kpis.activeSurveys);
+                updateKPICard('kpiTotalResponses', 'trendTotalResponses', kpis.totalResponses);
+                updateKPICard('kpiSatisfaction', 'trendSatisfaction', kpis.avgSatisfaction);
+                updateKPICard('kpiEngagement', 'trendEngagement', kpis.engagementRate);
+                updateKPICard('kpiWeeklyResponses', 'trendWeeklyResponses', kpis.responsesThisWeek);
+                
+                // Actualizar actividad en tiempo real
+                if (realTime) {
+                    updateElement('responsesToday', realTime.responsesToday || 0);
+                    updateElement('surveysThisWeek', realTime.surveysCreatedThisWeek || 0);
+                    updateElement('activeUsers', realTime.activeUsers || 0);
+                    updateElement('alertsCount', realTime.alertsCount || 0);
+                }
+                
+                console.log('✅ [DASHBOARD] Métricas actualizadas exitosamente');
+                } else {
+                console.warn('⚠️ [DASHBOARD] Formato de respuesta inválido:', response);
+                }
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error cargando métricas:', error);
+                
+                // Fallback en caso de error - usar datos básicos
+                if (!authToken) {
+                console.log('🎭 [DASHBOARD] Fallback a datos básicos mock');
+                const fallbackKpis = {
+                    totalSurveys: { value: 3, trend: '+0%' },
+                    activeSurveys: { value: 3, trend: '+0%' },
+                    totalResponses: { value: 82, trend: '+0%' },
+                    avgSatisfaction: { value: 75, trend: '+0%' },
+                    engagementRate: { value: 80, trend: '+0%' },
+                    responsesThisWeek: { value: 15, trend: '+0%' }
+                };
+                
+                Object.keys(fallbackKpis).forEach(key => {
+                    updateKPICard(`kpi${key.charAt(0).toUpperCase() + key.slice(1)}`, `trend${key.charAt(0).toUpperCase() + key.slice(1)}`, fallbackKpis[key]);
+                });
+                
+                updateElement('responsesToday', 5);
+                updateElement('surveysThisWeek', 1);
+                updateElement('activeUsers', 25);
+                updateElement('alertsCount', 0);
+                } else {
+                showNotification('Error cargando métricas', 'error');
+                }
+            }
+            }
+
+// 📊 Cargar Datos de Gráficos - VERSIÓN CORREGIDA
+async function loadDashboardCharts(period = '30d') {
+  console.log(`📊 [DASHBOARD] Cargando gráficos para período: ${period}`);
+  
+  try {
+    let response;
+    
+    if (!authToken) {
+      // Modo demo - usar datos mock directamente
+      console.log(`🎭 [DASHBOARD] Usando datos mock para gráficos (${period})`);
+      response = await getMockDashboardCharts(period);
+    } else {
+      // Modo autenticado - llamar API real
+      response = await makeAPICall(`/dashboard/charts?period=${period}`);
+    }
+    
+    console.log('📊 [DASHBOARD] Datos de gráficos recibidos:', response);
+    
+    if (response.success && response.data) {
+      const chartData = response.data;
+      
+      // Actualizar gráfico de tendencias
+      if (chartData.responsesTrend) {
+        updateResponsesTrendChart(chartData.responsesTrend);
+      }
+      
+      // Actualizar gráfico de satisfacción
+      if (chartData.satisfactionScores) {
+        updateSatisfactionChart(chartData.satisfactionScores);
+      }
+      
+      // Actualizar gráfico de performance
+      if (chartData.surveyPerformance) {
+        updatePerformanceChart(chartData.surveyPerformance);
+      }
+      
+      console.log('✅ [DASHBOARD] Gráficos actualizados exitosamente');
+    } else {
+      console.warn('⚠️ [DASHBOARD] Datos de gráficos inválidos:', response);
+    }
+    
+  } catch (error) {
+    console.error('❌ [DASHBOARD] Error cargando gráficos:', error);
+    
+    // En modo demo, intentar cargar datos básicos
+    if (!authToken) {
+      console.log('🎭 [DASHBOARD] Fallback a gráficos básicos mock');
+      try {
+        const fallbackData = await getMockDashboardCharts(period);
+        if (fallbackData.success && fallbackData.data) {
+          const chartData = fallbackData.data;
+          if (chartData.responsesTrend) updateResponsesTrendChart(chartData.responsesTrend);
+          if (chartData.satisfactionScores) updateSatisfactionChart(chartData.satisfactionScores);
+          if (chartData.surveyPerformance) updatePerformanceChart(chartData.surveyPerformance);
+        }
+      } catch (fallbackError) {
+        console.error('❌ [DASHBOARD] Error en fallback:', fallbackError);
+      }
+    } else {
+      showNotification('Error cargando gráficos', 'error');
+    }
+  }
+}
+            // 📊 Cargar Datos de Gráficos
+            async function loadDashboardCharts(period = '30d') {
+            console.log(`📊 [DASHBOARD] Cargando gráficos para período: ${period}`);
+            
+            try {
+                const response = await makeAPICall(`/dashboard/charts?period=${period}`);
+                console.log('📊 [DASHBOARD] Datos de gráficos recibidos:', response);
+                
+                if (response.success && response.data) {
+                const chartData = response.data;
+                
+                // Actualizar gráfico de tendencias
+                if (chartData.responsesTrend) {
+                    updateResponsesTrendChart(chartData.responsesTrend);
+                }
+                
+                // Actualizar gráfico de satisfacción
+                if (chartData.satisfactionScores) {
+                    updateSatisfactionChart(chartData.satisfactionScores);
+                }
+                
+                // Actualizar gráfico de performance
+                if (chartData.surveyPerformance) {
+                    updatePerformanceChart(chartData.surveyPerformance);
+                }
+                
+                console.log('✅ [DASHBOARD] Gráficos actualizados exitosamente');
+                } else {
+                console.warn('⚠️ [DASHBOARD] Datos de gráficos inválidos:', response);
+                }
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error cargando gráficos:', error);
+                showNotification('Error cargando gráficos', 'error');
+            }
+            }
+
+            // 🔄 Actualizar KPI Card
+            function updateKPICard(valueId, trendId, kpiData) {
+            console.log(`🔄 [DASHBOARD] Actualizando KPI: ${valueId}`, kpiData);
+            
+            try {
+                const valueElement = document.getElementById(valueId);
+                const trendElement = document.getElementById(trendId);
+                
+                if (valueElement && kpiData) {
+                valueElement.textContent = kpiData.value || '-';
+                
+                if (trendElement && kpiData.trend) {
+                    trendElement.textContent = kpiData.trend;
+                    
+                    // Aplicar estilo según tendencia
+                    trendElement.className = 'kpi-trend';
+                    if (kpiData.trend.startsWith('+')) {
+                    trendElement.classList.add('positive');
+                    } else if (kpiData.trend.startsWith('-')) {
+                    trendElement.classList.add('negative');
+                    } else {
+                    trendElement.classList.add('neutral');
+                    }
+                }
+                } else {
+                console.warn(`⚠️ [DASHBOARD] Elemento no encontrado: ${valueId}`);
+                }
+            } catch (error) {
+                console.error(`❌ [DASHBOARD] Error actualizando KPI ${valueId}:`, error);
+            }
+            }
+
+            // 📈 Actualizar Gráfico de Tendencias
+            function updateResponsesTrendChart(data) {
+            console.log('📈 [DASHBOARD] Actualizando gráfico de tendencias:', data);
+            
+            try {
+                const ctx = document.getElementById('responsesTrendChart');
+                if (!ctx) {
+                console.error('❌ [DASHBOARD] Canvas responsesTrendChart no encontrado');
+                return;
+                }
+                
+                // Destruir gráfico existente
+                if (responsesTrendChart) {
+                responsesTrendChart.destroy();
+                }
+                
+                responsesTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                    },
+                    scales: {
+                    x: {
+                        display: true,
+                        title: {
+                        display: true,
+                        text: 'Fecha'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                        display: true,
+                        text: 'Respuestas'
+                        },
+                        beginAtZero: true
+                    }
+                    },
+                    interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                    }
+                }
+                });
+                
+                console.log('✅ [DASHBOARD] Gráfico de tendencias actualizado');
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error actualizando gráfico de tendencias:', error);
+            }
+            }
+
+            // 📊 Actualizar Gráfico de Satisfacción
+            function updateSatisfactionChart(data) {
+            console.log('📊 [DASHBOARD] Actualizando gráfico de satisfacción:', data);
+            
+            try {
+                const ctx = document.getElementById('satisfactionChart');
+                if (!ctx) {
+                console.error('❌ [DASHBOARD] Canvas satisfactionChart no encontrado');
+                return;
+                }
+                
+                // Destruir gráfico existente
+                if (satisfactionChart) {
+                satisfactionChart.destroy();
+                }
+                
+                satisfactionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                        usePointStyle: true,
+                        padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed + '%';
+                        }
+                        }
+                    }
+                    }
+                }
+                });
+                
+                console.log('✅ [DASHBOARD] Gráfico de satisfacción actualizado');
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error actualizando gráfico de satisfacción:', error);
+            }
+            }
+
+            // 🎯 Actualizar Gráfico de Performance
+            function updatePerformanceChart(data) {
+            console.log('🎯 [DASHBOARD] Actualizando gráfico de performance:', data);
+            
+            try {
+                const ctx = document.getElementById('performanceChart');
+                if (!ctx) {
+                console.error('❌ [DASHBOARD] Canvas performanceChart no encontrado');
+                return;
+                }
+                
+                // Destruir gráfico existente
+                if (performanceChart) {
+                performanceChart.destroy();
+                }
+                
+                performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                    },
+                    scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                        display: true,
+                        text: 'Satisfacción (%)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                        display: true,
+                        text: 'Respuestas'
+                        },
+                        grid: {
+                        drawOnChartArea: false,
+                        },
+                    }
+                    }
+                }
+                });
+                
+                console.log('✅ [DASHBOARD] Gráfico de performance actualizado');
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error actualizando gráfico de performance:', error);
+            }
+            }
+
+            // 🔄 Cambiar Período de Gráficos
+            async function updateChartPeriod(period) {
+            console.log(`🔄 [DASHBOARD] Cambiando período a: ${period}`);
+            
+            currentChartPeriod = period;
+            
+            // Actualizar botones activos
+            document.querySelectorAll('.chart-controls .btn').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            
+            const activeBtn = document.getElementById(`btn${period}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('btn-secondary');
+                activeBtn.classList.add('btn-primary');
+            }
+            
+            // Recargar gráficos
+            await loadDashboardCharts(period);
+            }
+
+            // 📁 Exportar Datos de Gráficos
+            function exportChartData() {
+            console.log('📁 [DASHBOARD] Exportando datos de gráficos...');
+            
+            try {
+                // Por ahora, mostrar mensaje
+                showNotification('Exportación de gráficos será implementada próximamente', 'success');
+                
+                // TODO: Implementar exportación real de datos
+                
+            } catch (error) {
+                console.error('❌ [DASHBOARD] Error exportando datos:', error);
+                showNotification('Error al exportar datos', 'error');
+            }
+            }
+
+            // 🔧 Función auxiliar para actualizar elementos
+            function updateElement(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value;
+            } else {
+                console.warn(`⚠️ [DASHBOARD] Elemento no encontrado: ${elementId}`);
+            }
+            }
+
+            // 🔄 Función para limpiar dashboard al salir
+            function cleanupDashboard() {
+            console.log('🔄 [DASHBOARD] Limpiando dashboard...');
+            
+            if (dashboardRefreshInterval) {
+                clearInterval(dashboardRefreshInterval);
+                dashboardRefreshInterval = null;
+            }
+            
+            if (responsesTrendChart) {
+                responsesTrendChart.destroy();
+                responsesTrendChart = null;
+            }
+            
+            if (satisfactionChart) {
+                satisfactionChart.destroy();
+                satisfactionChart = null;
+            }
+            
+            if (performanceChart) {
+                performanceChart.destroy();
+                performanceChart = null;
+            }
+            }
 
     console.log('🎯 TeamPulse Admin Panel script loaded');
             // Auto-refresh data every 5 minutes (only if authenticated)
@@ -1767,6 +2884,93 @@
                     }
                 }
             }, 5 * 60 * 1000);
+
+            // 📊 Mock data para dashboard en modo demo
+            async function getMockDashboardMetrics() {
+            return {
+                success: true,
+                data: {
+                kpis: {
+                    totalSurveys: { value: 8, trend: '+12%', icon: '📋' },
+                    activeSurveys: { value: 6, trend: '+8%', icon: '🟢' },
+                    totalResponses: { value: 142, trend: '+25%', icon: '👥' },
+                    avgSatisfaction: { value: 78, trend: '+5%', icon: '😊' },
+                    engagementRate: { value: 85, trend: '+15%', icon: '⚡' },
+                    responsesThisWeek: { value: 23, trend: '+18%', icon: '📈' }
+                },
+                realTimeActivity: {
+                    responsesToday: 8,
+                    surveysCreatedThisWeek: 2,
+                    activeUsers: 34,
+                    alertsCount: 1
+                }
+                }
+            };
+            }
+
+            async function getMockDashboardCharts(period = '30d') {
+                const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+                
+                // Generar fechas y datos mock
+                const labels = [];
+                const responseData = [];
+                
+                for (let i = days - 1; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    labels.push(date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }));
+                    
+                    // Datos realistas con variación
+                    const baseResponses = 3 + Math.sin(i * 0.1) * 2 + Math.random() * 4;
+                    responseData.push(Math.max(0, Math.round(baseResponses)));
+                }
+
+                return {
+                    success: true,
+                    data: {
+                    responsesTrend: {
+                        labels: labels,
+                        datasets: [{
+                        label: 'Respuestas por día',
+                        data: responseData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                        }]
+                    },
+                    
+                    satisfactionScores: {
+                        labels: ['Clima Laboral Q4', 'NPS Clientes', 'Feedback Capacitación'],
+                        datasets: [{
+                        label: 'Score de Satisfacción (%)',
+                        data: [78, 65, 88],
+                        backgroundColor: ['#48bb78', '#ed8936', '#48bb78'],
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                        }]
+                    },
+
+                    surveyPerformance: {
+                        labels: ['Clima Laboral Q4', 'NPS Clientes', 'Feedback Capacitación'],
+                        datasets: [
+                        {
+                            label: 'Satisfacción (%)',
+                            data: [78, 65, 88],
+                            backgroundColor: '#667eea',
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Respuestas',
+                            data: [47, 23, 12],
+                            backgroundColor: '#764ba2',
+                            yAxisID: 'y1'
+                        }
+                        ]
+                        }
+                    }
+                };
+            }
 
             console.log('🎯 TeamPulse Admin Panel loaded successfully');
         </script>
