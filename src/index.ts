@@ -57,7 +57,7 @@ app.use("/api/admin", adminRouter);
 
 // ── 🆕 SERVE ADMIN PANEL HTML con CSP Headers ─────────────────────
 app.get("/admin", (req, res) => {
-  try {
+
     // 🔧 CSP Headers requeridos por Teams
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Content-Security-Policy', 
@@ -69,14 +69,30 @@ app.get("/admin", (req, res) => {
       "style-src 'self' 'unsafe-inline';"
       );
     
-    const adminPanelPath = path.join(__dirname, "..", "..", "src/admin", "adminPanel.html");
-    console.log(`🎯 Serving admin panel from: ${adminPanelPath}`);
-    res.sendFile(adminPanelPath);
-  } catch (error) {
-    console.error("❌ Error serving admin panel:", error);
-    res.status(500).send("Admin panel error");
-  }
-});
+  const possiblePaths = [
+    path.join(process.cwd(), "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "..", "admin", "adminPanel.html"),
+    path.join(__dirname, "..", "..", "src/admin", "adminPanel.html"),
+    path.join(__dirname, "..", "src/admin", "adminPanel.html"),
+    path.join(__dirname, "admin", "adminPanel.html")
+    ];
+
+    for (const filePath of possiblePaths) {
+      try {
+        if (require('fs').existsSync(filePath)) {
+          console.log(`✅ Found admin panel at: ${filePath}`);
+          return res.sendFile(filePath);
+        }
+      } catch (error) {
+        console.log(`❌ Path not found: ${filePath}`);
+      }
+    }
+
+    // Si ninguna ruta funciona
+    res.status(404).send("Admin panel not found");
+    }
+  );
 
 // ── 🆕 ADMIN PANEL ASSETS (if needed) ────────────────────────────
 app.use("/admin/assets", express.static(path.join(__dirname, "..", "admin", "assets")));
