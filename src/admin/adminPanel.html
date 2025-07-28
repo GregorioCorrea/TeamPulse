@@ -2136,69 +2136,237 @@
             let performanceChart = null;
             let dashboardRefreshInterval = null;
 
-
-            // 🎯 Inicializar Dashboard - VERSIÓN MODULE + DEFER
+            // 🎯 Inicializar Dashboard - CON FLUENT UI CHARTS
             async function initializeDashboard() {
-            console.log('📊 [DASHBOARD] Inicializando Dashboard Ejecutivo...');
+            console.log('📊 [DASHBOARD] Inicializando con Fluent UI Charts...');
             console.log('📊 [DASHBOARD] authToken:', authToken ? 'Present' : 'Null');
             
             try {
-                if (!window.Chart) {
-                console.log('📊 [DASHBOARD] Cargando Chart.js como module con defer...');
+                // Verificar que las funciones mock existen
+                console.log('📊 [DASHBOARD] Verificando funciones mock...');
+                console.log('📊 [DASHBOARD] getMockDashboardMetrics existe:', typeof getMockDashboardMetrics === 'function');
+                console.log('📊 [DASHBOARD] getMockDashboardCharts existe:', typeof getMockDashboardCharts === 'function');
                 
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.type = 'module';
-                    script.defer = true;
-                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                if (!window.Chart && !window.FluentUICharts && !window.Fluent) {
+                console.log('📊 [DASHBOARD] Cargando Fluent UI Charts...');
+                
+                // CDNs oficiales de Microsoft que Teams debería permitir
+                const fluentCDNs = [
+                    'https://res.cdn.office.net/teams-js/fluentui/charts/8.5.12/fluent-charts.min.js',
+                    'https://unpkg.com/@fluentui/react-charts-preview@0.1.0/dist/fluent-charts.min.js'
+                ];
+                
+                let loaded = false;
+                
+                for (const url of fluentCDNs) {
+                    if (loaded) break;
                     
-                    script.onload = () => {
-                    console.log('✅ [DASHBOARD] Chart.js module cargado');
-                    console.log('📊 [DASHBOARD] window.Chart disponible:', !!window.Chart);
+                    try {
+                    console.log(`📊 [DASHBOARD] Intentando Fluent CDN: ${url}`);
                     
-                    // Esperar un poco más para que se registre globalmente
-                    setTimeout(() => {
-                        console.log('📊 [DASHBOARD] window.Chart después de timeout:', !!window.Chart);
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = url;
+                        
+                        script.onload = () => {
+                        console.log(`✅ [DASHBOARD] Fluent UI Charts cargado: ${url}`);
+                        loaded = true;
                         resolve(true);
-                    }, 500);
-                    };
+                        };
+                        
+                        script.onerror = () => {
+                        console.warn(`❌ [DASHBOARD] Falló Fluent CDN: ${url}`);
+                        reject(new Error(`Failed: ${url}`));
+                        };
+                        
+                        setTimeout(() => reject(new Error('Timeout')), 8000);
+                        document.head.appendChild(script);
+                    });
                     
-                    script.onerror = (error) => {
-                    console.error('❌ [DASHBOARD] Error cargando Chart.js module:', error);
-                    reject(error);
-                    };
-                    
-                    // Timeout de 15 segundos
-                    setTimeout(() => {
-                    if (!window.Chart) {
-                        console.warn('⏰ [DASHBOARD] Timeout cargando Chart.js module');
-                        reject(new Error('Timeout loading Chart.js'));
+                    } catch (error) {
+                    console.warn(`⚠️ [DASHBOARD] Error con Fluent CDN: ${error.message}`);
                     }
-                    }, 15000);
-                    
-                    document.head.appendChild(script);
-                    console.log('📊 [DASHBOARD] Script Chart.js module agregado al DOM');
-                });
-                
-                } else {
-                console.log('📊 [DASHBOARD] Chart.js ya disponible');
                 }
                 
-                // Verificar que Chart está realmente disponible
-                if (window.Chart) {
-                console.log('📊 [DASHBOARD] Chart.js confirmado, configurando dashboard...');
+                if (!loaded) {
+                    console.log('📊 [DASHBOARD] Fluent UI no disponible, usando gráficos nativos...');
+                    await createNativeCharts();
+                    return;
+                }
+                } else {
+                console.log('📊 [DASHBOARD] Fluent UI o Chart.js ya disponible');
+                }
+                
                 await setupDashboard();
-                } else {
-                console.error('❌ [DASHBOARD] Chart.js no está disponible después de la carga');
-                await setupDashboardWithoutCharts();
-                }
                 
             } catch (error) {
-                console.error('❌ [DASHBOARD] Error inicializando dashboard:', error);
-                console.log('📊 [DASHBOARD] Fallback: configurando dashboard sin gráficos...');
-                await setupDashboardWithoutCharts();
+                console.error('❌ [DASHBOARD] Error con Fluent UI:', error);
+                console.log('📊 [DASHBOARD] Fallback a gráficos nativos...');
+                await createNativeCharts();
             }
             }
+
+            // 📊 Crear gráficos nativos sin librerías externas
+            async function createNativeCharts() {
+            console.log('📊 [DASHBOARD] Creando gráficos nativos...');
+            
+            // Reemplazar Chart.js con implementación nativa
+            window.Chart = class {
+                constructor(ctx, config) {
+                this.ctx = ctx;
+                this.config = config;
+                this.canvas = ctx.canvas || ctx;
+                this.render();
+                }
+                
+                render() {
+                const { type, data } = this.config;
+                
+                if (type === 'line') {
+                    this.renderLineChart(data);
+                } else if (type === 'doughnut') {
+                    this.renderDoughnutChart(data);
+                } else if (type === 'bar') {
+                    this.renderBarChart(data);
+                }
+                }
+                
+                renderLineChart(data) {
+                const canvas = this.canvas;
+                const ctx = canvas.getContext('2d');
+                const { labels, datasets } = data;
+                
+                // Limpiar canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Configurar dimensiones
+                const padding = 40;
+                const width = canvas.width - padding * 2;
+                const height = canvas.height - padding * 2;
+                
+                if (!datasets[0] || !datasets[0].data) return;
+                
+                const values = datasets[0].data;
+                const max = Math.max(...values) || 1;
+                
+                // Dibujar ejes
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding, padding);
+                ctx.lineTo(padding, height + padding);
+                ctx.lineTo(width + padding, height + padding);
+                ctx.stroke();
+                
+                // Dibujar línea
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                
+                values.forEach((value, index) => {
+                    const x = padding + (index / (values.length - 1)) * width;
+                    const y = height + padding - (value / max) * height;
+                    
+                    if (index === 0) {
+                    ctx.moveTo(x, y);
+                    } else {
+                    ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+                
+                // Dibujar puntos
+                ctx.fillStyle = '#667eea';
+                values.forEach((value, index) => {
+                    const x = padding + (index / (values.length - 1)) * width;
+                    const y = height + padding - (value / max) * height;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+                }
+                
+                renderDoughnutChart(data) {
+                const canvas = this.canvas;
+                const ctx = canvas.getContext('2d');
+                const { labels, datasets } = data;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = Math.min(centerX, centerY) - 20;
+                
+                if (!datasets[0] || !datasets[0].data) return;
+                
+                const values = datasets[0].data;
+                const colors = datasets[0].backgroundColor || ['#667eea', '#48bb78', '#ed8936'];
+                const total = values.reduce((sum, val) => sum + val, 0);
+                
+                let currentAngle = -Math.PI / 2;
+                
+                values.forEach((value, index) => {
+                    const sliceAngle = (value / total) * 2 * Math.PI;
+                    
+                    ctx.fillStyle = colors[index] || '#667eea';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+                    ctx.arc(centerX, centerY, radius * 0.6, currentAngle + sliceAngle, currentAngle, true);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    currentAngle += sliceAngle;
+                });
+                }
+                
+                renderBarChart(data) {
+                const canvas = this.canvas;
+                const ctx = canvas.getContext('2d');
+                const { labels, datasets } = data;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const padding = 40;
+                const width = canvas.width - padding * 2;
+                const height = canvas.height - padding * 2;
+                
+                if (!datasets[0] || !datasets[0].data) return;
+                
+                const values = datasets[0].data;
+                const max = Math.max(...values) || 1;
+                const barWidth = width / values.length * 0.8;
+                
+                // Dibujar ejes
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding, padding);
+                ctx.lineTo(padding, height + padding);
+                ctx.lineTo(width + padding, height + padding);
+                ctx.stroke();
+                
+                // Dibujar barras
+                ctx.fillStyle = '#667eea';
+                values.forEach((value, index) => {
+                    const barHeight = (value / max) * height;
+                    const x = padding + (index / values.length) * width + (width / values.length - barWidth) / 2;
+                    const y = height + padding - barHeight;
+                    
+                    ctx.fillRect(x, y, barWidth, barHeight);
+                });
+                }
+                
+                destroy() {
+                // No-op para compatibilidad
+                }
+            };
+            
+            console.log('✅ [DASHBOARD] Gráficos nativos creados');
+            await setupDashboard();
+            }
+
             // 🚀 Configurar Dashboard - CON DEBUGS COMPLETOS
             async function setupDashboard() {
             console.log('📊 [DASHBOARD] === INICIANDO SETUP DASHBOARD ===');
