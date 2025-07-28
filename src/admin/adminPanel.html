@@ -2403,17 +2403,56 @@
             }
             // 🔄 Actualizar KPIs con animación
             function updateKPIs(kpis) {
-                if (!kpis) return;
+                console.log('🔄 [DEBUG KPI] updateKPIs llamada con:', kpis);
+                
+                if (!kpis) {
+                    console.warn('⚠️ [DEBUG KPI] No hay KPIs para actualizar');
+                    return;
+                }
+                
+                // 🔧 MAPEO CORRECTO de nombres del backend a frontend
+                const mappings = {
+                    'totalSurveys': 'kpiTotalSurveys',
+                    'activeSurveys': 'kpiActiveSurveys', 
+                    'totalResponses': 'kpiTotalResponses',
+                    'avgSatisfaction': 'kpiSatisfaction',      // ← Este era el problema
+                    'engagementRate': 'kpiEngagement',         // ← Este era el problema
+                    'responsesThisWeek': 'kpiWeeklyResponses'  // ← Este era el problema
+                };
+                
+                const trendMappings = {
+                    'totalSurveys': 'trendTotalSurveys',
+                    'activeSurveys': 'trendActiveSurveys',
+                    'totalResponses': 'trendTotalResponses', 
+                    'avgSatisfaction': 'trendSatisfaction',
+                    'engagementRate': 'trendEngagement',
+                    'responsesThisWeek': 'trendWeeklyResponses'
+                };
                 
                 Object.keys(kpis).forEach(key => {
                     const kpi = kpis[key];
-                    const valueEl = document.getElementById(`kpi${key.charAt(0).toUpperCase() + key.slice(1)}`);
-                    const trendEl = document.getElementById(`trend${key.charAt(0).toUpperCase() + key.slice(1)}`);
+                    console.log(`🔄 [DEBUG KPI] Procesando ${key}:`, kpi);
+                    
+                    const valueElementId = mappings[key];
+                    const trendElementId = trendMappings[key];
+                    
+                    if (!valueElementId) {
+                        console.warn(`⚠️ [DEBUG KPI] No hay mapeo para: ${key}`);
+                        return;
+                    }
+                    
+                    const valueEl = document.getElementById(valueElementId);
+                    const trendEl = document.getElementById(trendElementId);
+                    
+                    console.log(`🔄 [DEBUG KPI] ${valueElementId} encontrado:`, !!valueEl);
+                    console.log(`🔄 [DEBUG KPI] ${trendElementId} encontrado:`, !!trendEl);
                     
                     if (valueEl && kpi.value !== undefined) {
-                        // Animación simple del número
                         const currentValue = parseInt(valueEl.textContent) || 0;
+                        console.log(`🔄 [DEBUG KPI] Animando ${valueElementId}: ${currentValue} → ${kpi.value}`);
                         animateValue(valueEl, currentValue, kpi.value, 800);
+                    } else {
+                        console.warn(`⚠️ [DEBUG KPI] Elemento no encontrado o valor inválido: ${valueElementId}`);
                     }
                     
                     if (trendEl && kpi.trend) {
@@ -2427,10 +2466,10 @@
                         } else {
                             trendEl.classList.add('neutral');
                         }
+                        console.log(`✅ [DEBUG KPI] Trend actualizado: ${trendElementId} = ${kpi.trend}`);
                     }
                 });
             }
-
             // ⚡ Actualizar Actividad en Tiempo Real
             function updateRealTimeActivity(activity) {
                 if (!activity) return;
