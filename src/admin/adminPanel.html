@@ -2573,6 +2573,35 @@
             }, 5 * 60 * 1000);    
     
             console.log('🎯 TeamPulse Admin Panel loaded successfully');
+            // 🔧 DEBUG TEMPORAL - Forzar carga de métricas
+            setTimeout(async () => {
+                console.log('🔧 [DEBUG MANUAL] Forzando carga de métricas...');
+                try {
+                    await loadDashboardMetrics();
+                    console.log('🔧 [DEBUG MANUAL] Métricas forzadas completadas');
+                } catch (error) {
+                    console.error('🔧 [DEBUG MANUAL] Error en métricas forzadas:', error);
+                }
+            }, 3000); // Esperar 3 segundos después de carga
+
+            // 🔧 DEBUG - Verificar elementos del dashboard
+            setTimeout(() => {
+                console.log('🔧 [DEBUG ELEMENTOS] Verificando elementos...');
+                
+                const dashboardSection = document.getElementById('dashboardSection');
+                console.log('🔧 dashboardSection encontrado:', !!dashboardSection);
+                console.log('🔧 dashboardSection visible:', dashboardSection?.style.display);
+                
+                const kpiElements = [
+                    'kpiTotalSurveys', 'kpiActiveSurveys', 'kpiTotalResponses', 
+                    'kpiSatisfaction', 'kpiEngagement', 'kpiWeeklyResponses'
+                ];
+                
+                kpiElements.forEach(id => {
+                    const element = document.getElementById(id);
+                    console.log(`🔧 ${id}:`, element ? element.textContent : 'NO ENCONTRADO');
+                });
+            }, 5000);
         </script>
     </div>
 </div>
