@@ -2231,16 +2231,19 @@
                 }
                 }
                 
+                // 📊 Versiones mejoradas con etiquetas y leyendas
                 renderLineChart(data) {
                 const canvas = this.canvas;
                 const ctx = canvas.getContext('2d');
                 const { labels, datasets } = data;
                 
-                // Limpiar canvas
+                // Establecer tamaño del canvas
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // Configurar dimensiones
-                const padding = 40;
+                const padding = 50;
                 const width = canvas.width - padding * 2;
                 const height = canvas.height - padding * 2;
                 
@@ -2248,6 +2251,16 @@
                 
                 const values = datasets[0].data;
                 const max = Math.max(...values) || 1;
+                
+                // Configurar fuente
+                ctx.font = '12px Segoe UI';
+                ctx.fillStyle = '#4a5568';
+                
+                // Dibujar título
+                ctx.font = 'bold 14px Segoe UI';
+                ctx.fillStyle = '#2d3748';
+                ctx.textAlign = 'center';
+                ctx.fillText(datasets[0].label || 'Tendencia de Respuestas', canvas.width / 2, 20);
                 
                 // Dibujar ejes
                 ctx.strokeStyle = '#e2e8f0';
@@ -2257,6 +2270,56 @@
                 ctx.lineTo(padding, height + padding);
                 ctx.lineTo(width + padding, height + padding);
                 ctx.stroke();
+                
+                // Etiquetas del eje Y
+                ctx.font = '10px Segoe UI';
+                ctx.fillStyle = '#718096';
+                ctx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const value = (max / 5) * i;
+                    const y = height + padding - (i / 5) * height;
+                    ctx.fillText(Math.round(value).toString(), padding - 5, y + 3);
+                    
+                    // Líneas de cuadrícula horizontales
+                    if (i > 0) {
+                    ctx.strokeStyle = '#f7fafc';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width + padding, y);
+                    ctx.stroke();
+                    }
+                }
+                
+                // Etiquetas del eje X
+                ctx.textAlign = 'center';
+                labels.forEach((label, index) => {
+                    if (index % Math.ceil(labels.length / 6) === 0) { // Mostrar cada 6ta etiqueta
+                    const x = padding + (index / (labels.length - 1)) * width;
+                    ctx.fillText(label, x, height + padding + 15);
+                    }
+                });
+                
+                // Dibujar área bajo la línea
+                if (datasets[0].fill) {
+                    const gradient = ctx.createLinearGradient(0, padding, 0, height + padding);
+                    gradient.addColorStop(0, 'rgba(102, 126, 234, 0.2)');
+                    gradient.addColorStop(1, 'rgba(102, 126, 234, 0.05)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, height + padding);
+                    
+                    values.forEach((value, index) => {
+                    const x = padding + (index / (values.length - 1)) * width;
+                    const y = height + padding - (value / max) * height;
+                    ctx.lineTo(x, y);
+                    });
+                    
+                    ctx.lineTo(width + padding, height + padding);
+                    ctx.closePath();
+                    ctx.fill();
+                }
                 
                 // Dibujar línea
                 ctx.strokeStyle = '#667eea';
@@ -2285,28 +2348,45 @@
                     ctx.beginPath();
                     ctx.arc(x, y, 4, 0, 2 * Math.PI);
                     ctx.fill();
+                    
+                    // Punto blanco en el centro
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.fillStyle = '#667eea';
                 });
                 }
-                
+
                 renderDoughnutChart(data) {
                 const canvas = this.canvas;
                 const ctx = canvas.getContext('2d');
                 const { labels, datasets } = data;
                 
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 const centerX = canvas.width / 2;
                 const centerY = canvas.height / 2;
-                const radius = Math.min(centerX, centerY) - 20;
+                const radius = Math.min(centerX, centerY) - 60;
                 
                 if (!datasets[0] || !datasets[0].data) return;
                 
                 const values = datasets[0].data;
-                const colors = datasets[0].backgroundColor || ['#667eea', '#48bb78', '#ed8936'];
+                const colors = datasets[0].backgroundColor || ['#48bb78', '#ed8936', '#f56565'];
                 const total = values.reduce((sum, val) => sum + val, 0);
+                
+                // Título
+                ctx.font = 'bold 14px Segoe UI';
+                ctx.fillStyle = '#2d3748';
+                ctx.textAlign = 'center';
+                ctx.fillText('Satisfacción por Encuesta', centerX, 20);
                 
                 let currentAngle = -Math.PI / 2;
                 
+                // Dibujar segmentos
                 values.forEach((value, index) => {
                     const sliceAngle = (value / total) * 2 * Math.PI;
                     
@@ -2317,18 +2397,58 @@
                     ctx.closePath();
                     ctx.fill();
                     
+                    // Etiquetas de porcentaje
+                    const percentage = Math.round((value / total) * 100);
+                    if (percentage > 5) { // Solo mostrar si es > 5%
+                    const labelAngle = currentAngle + sliceAngle / 2;
+                    const labelRadius = radius * 0.8;
+                    const labelX = centerX + Math.cos(labelAngle) * labelRadius;
+                    const labelY = centerY + Math.sin(labelAngle) * labelRadius;
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Segoe UI';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${percentage}%`, labelX, labelY + 4);
+                    }
+                    
                     currentAngle += sliceAngle;
                 });
-                }
                 
+                // Leyenda
+                const legendY = canvas.height - 60;
+                const legendItemWidth = canvas.width / labels.length;
+                
+                labels.forEach((label, index) => {
+                    const x = legendItemWidth * index + legendItemWidth / 2;
+                    
+                    // Color de la leyenda
+                    ctx.fillStyle = colors[index] || '#667eea';
+                    ctx.fillRect(x - 20, legendY, 12, 12);
+                    
+                    // Texto de la leyenda
+                    ctx.fillStyle = '#4a5568';
+                    ctx.font = '11px Segoe UI';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(label, x, legendY + 25);
+                    
+                    // Valor
+                    ctx.fillStyle = '#718096';
+                    ctx.font = '10px Segoe UI';
+                    ctx.fillText(`${values[index]}%`, x, legendY + 38);
+                });
+                }
+
                 renderBarChart(data) {
                 const canvas = this.canvas;
                 const ctx = canvas.getContext('2d');
                 const { labels, datasets } = data;
                 
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                const padding = 40;
+                const padding = 60;
                 const width = canvas.width - padding * 2;
                 const height = canvas.height - padding * 2;
                 
@@ -2336,7 +2456,14 @@
                 
                 const values = datasets[0].data;
                 const max = Math.max(...values) || 1;
-                const barWidth = width / values.length * 0.8;
+                const barWidth = (width / values.length) * 0.7;
+                const barSpacing = width / values.length;
+                
+                // Título
+                ctx.font = 'bold 14px Segoe UI';
+                ctx.fillStyle = '#2d3748';
+                ctx.textAlign = 'center';
+                ctx.fillText('Performance de Encuestas', canvas.width / 2, 20);
                 
                 // Dibujar ejes
                 ctx.strokeStyle = '#e2e8f0';
@@ -2347,17 +2474,55 @@
                 ctx.lineTo(width + padding, height + padding);
                 ctx.stroke();
                 
-                // Dibujar barras
-                ctx.fillStyle = '#667eea';
-                values.forEach((value, index) => {
-                    const barHeight = (value / max) * height;
-                    const x = padding + (index / values.length) * width + (width / values.length - barWidth) / 2;
-                    const y = height + padding - barHeight;
+                // Etiquetas del eje Y
+                ctx.font = '10px Segoe UI';
+                ctx.fillStyle = '#718096';
+                ctx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const value = (max / 5) * i;
+                    const y = height + padding - (i / 5) * height;
+                    ctx.fillText(Math.round(value).toString(), padding - 5, y + 3);
                     
-                    ctx.fillRect(x, y, barWidth, barHeight);
-                });
+                    // Líneas de cuadrícula
+                    if (i > 0) {
+                    ctx.strokeStyle = '#f7fafc';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width + padding, y);
+                    ctx.stroke();
+                    }
                 }
                 
+                // Dibujar barras con gradiente
+                values.forEach((value, index) => {
+                    const barHeight = (value / max) * height;
+                    const x = padding + index * barSpacing + (barSpacing - barWidth) / 2;
+                    const y = height + padding - barHeight;
+                    
+                    // Gradiente para las barras
+                    const gradient = ctx.createLinearGradient(0, y, 0, y + barHeight);
+                    gradient.addColorStop(0, '#667eea');
+                    gradient.addColorStop(1, '#764ba2');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, y, barWidth, barHeight);
+                    
+                    // Valor encima de la barra
+                    ctx.fillStyle = '#2d3748';
+                    ctx.font = 'bold 11px Segoe UI';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(value.toString(), x + barWidth / 2, y - 5);
+                    
+                    // Etiqueta del eje X
+                    ctx.fillStyle = '#718096';
+                    ctx.font = '10px Segoe UI';
+                    const labelLines = labels[index].split(' ');
+                    labelLines.forEach((line, lineIndex) => {
+                    ctx.fillText(line, x + barWidth / 2, height + padding + 15 + (lineIndex * 12));
+                    });
+                });
+                }                
                 destroy() {
                 // No-op para compatibilidad
                 }
