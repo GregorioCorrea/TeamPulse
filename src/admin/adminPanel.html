@@ -1433,10 +1433,15 @@
                 await initializeDashboard(); // Initialize dashboard with mock data
             }
 
-            // 🆕 API calls with better error handling
+            // 🆕 API calls with detailed debugging
             async function makeAPICall(endpoint, options = {}) {
+                console.log(`🌐 [API DEBUG] === LLAMADA API: ${endpoint} ===`);
+                
                 const baseURL = window.location.origin;
                 const url = `${baseURL}/api/admin${endpoint}`;
+                
+                console.log(`🌐 [API DEBUG] URL completa: ${url}`);
+                console.log(`🌐 [API DEBUG] authToken presente: ${!!authToken}`);
                 
                 const defaultOptions = {
                     headers: {
@@ -1450,46 +1455,55 @@
                     finalOptions.body = JSON.stringify(options.body);
                 }
                 
+                console.log(`🌐 [API DEBUG] Headers:`, finalOptions.headers);
+                console.log(`🌐 [API DEBUG] Options:`, finalOptions);
+                
                 try {
+                    console.log(`🌐 [API DEBUG] Ejecutando fetch...`);
                     const response = await fetch(url, finalOptions);
                     
+                    console.log(`🌐 [API DEBUG] Response status: ${response.status}`);
+                    console.log(`🌐 [API DEBUG] Response ok: ${response.ok}`);
+                    
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        const errorText = await response.text();
+                        console.error(`🌐 [API DEBUG] Error response body: ${errorText}`);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
                     }
                     
                     const contentType = response.headers.get('content-type');
+                    console.log(`🌐 [API DEBUG] Content-Type: ${contentType}`);
+                    
+                    let result;
                     if (contentType && contentType.includes('application/json')) {
-                        return await response.json();
+                        result = await response.json();
                     } else {
-                        return await response.text();
+                        result = await response.text();
                     }
+                    
+                    console.log(`🌐 [API DEBUG] Result:`, result);
+                    console.log(`🌐 [API DEBUG] === FIN LLAMADA API ===`);
+                    
+                    return result;
+                    
                 } catch (error) {
-                    console.error(`❌ API call failed: ${endpoint}`, error);
+                    console.error(`❌ [API DEBUG] API call failed: ${endpoint}`, error);
+                    console.error(`❌ [API DEBUG] Error tipo: ${error.constructor.name}`);
+                    console.error(`❌ [API DEBUG] Error mensaje: ${error.message}`);
                     
                     // En modo demo, usar datos mock para diferentes endpoints
                     if (!authToken) {
                         console.log(`🎭 API failed, usando mock data para: ${endpoint}`);
                         
                         if (endpoint === '/surveys') {
-                        return { success: true, data: await getMockSurveys() };
+                            return { success: true, data: await getMockSurveys() };
                         } else if (endpoint === '/dashboard/metrics') {
-                        return await getMockDashboardMetrics();
-                        } else if (endpoint.startsWith('/dashboard/charts')) {
-                        const urlParams = new URLSearchParams(endpoint.split('?')[1] || '');
-                        const period = urlParams.get('period') || '30d';
-                        return await getMockDashboardCharts(period);
+                            return await getMockDashboardMetrics();
                         }
                     }
                     
                     throw error;
-                    }                   
-                    // In demo mode, continue with mock data
-                    if (!authToken && endpoint === '/surveys') {
-                        console.log('🎭 API failed, using mock data for demo');
-                        return { success: true, data: await getMockSurveys() };
-                    }
-                    
-                    throw error;
+                }
             }
 
             // 🆕 Actualizar información del plan en el badge
@@ -2319,35 +2333,74 @@
                 }
             }
 
-            // 📈 Cargar Métricas KPI
+            // 📈 Cargar Métricas KPI - CON DEBUG DETALLADO
             async function loadDashboardMetrics() {
-                console.log('📈 Cargando métricas dashboard...');
+                console.log('📈 [DEBUG] === INICIANDO CARGA MÉTRICAS ===');
+                console.log('📈 [DEBUG] authToken presente:', !!authToken);
+                console.log('📈 [DEBUG] authToken preview:', authToken ? authToken.substring(0, 50) + '...' : 'null');
                 
                 try {
                     let response;
                     
                     if (!authToken) {
+                        console.log('🎭 [DEBUG] Usando mock data - sin token');
                         response = await getMockDashboardMetrics();
                     } else {
-                        response = await makeAPICall('/dashboard/metrics');
+                        console.log('🔐 [DEBUG] Llamando API real con token...');
+                        
+                        try {
+                            response = await makeAPICall('/dashboard/metrics');
+                            console.log('✅ [DEBUG] API response recibida:', response);
+                        } catch (apiError) {
+                            console.error('❌ [DEBUG] API falló:', apiError);
+                            console.error('❌ [DEBUG] API error details:', {
+                                message: apiError.message,
+                                stack: apiError.stack
+                            });
+                            
+                            console.log('🎭 [DEBUG] Fallback a mock data por error API');
+                            response = await getMockDashboardMetrics();
+                        }
                     }
                     
+                    console.log('📈 [DEBUG] Response final:', response);
+                    console.log('📈 [DEBUG] Response.success:', response.success);
+                    console.log('📈 [DEBUG] Response.data:', response.data);
+                    
                     if (response.success && response.data) {
+                        console.log('✅ [DEBUG] Actualizando KPIs...');
+                        console.log('✅ [DEBUG] KPIs data:', response.data.kpis);
+                        
                         updateKPIs(response.data.kpis);
                         updateRealTimeActivity(response.data.realTimeActivity);
+                        
+                        console.log('✅ [DEBUG] KPIs actualizados exitosamente');
+                    } else {
+                        console.error('❌ [DEBUG] Response inválida:', {
+                            success: response.success,
+                            hasData: !!response.data,
+                            response: response
+                        });
                     }
                     
                 } catch (error) {
-                    console.error('❌ Error cargando métricas:', error);
+                    console.error('❌ [DEBUG] Error general cargando métricas:', error);
+                    console.error('❌ [DEBUG] Error stack:', error.stack);
+                    
                     // Usar fallback data
+                    console.log('🎭 [DEBUG] Usando fallback data por error general');
                     const fallbackData = await getMockDashboardMetrics();
+                    console.log('🎭 [DEBUG] Fallback data:', fallbackData);
+                    
                     if (fallbackData.success && fallbackData.data) {
                         updateKPIs(fallbackData.data.kpis);
                         updateRealTimeActivity(fallbackData.data.realTimeActivity);
+                        console.log('✅ [DEBUG] Fallback aplicado exitosamente');
                     }
                 }
+                
+                console.log('📈 [DEBUG] === FIN CARGA MÉTRICAS ===');
             }
-
             // 🔄 Actualizar KPIs con animación
             function updateKPIs(kpis) {
                 if (!kpis) return;
