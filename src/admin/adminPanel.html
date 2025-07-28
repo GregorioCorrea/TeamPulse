@@ -2319,11 +2319,15 @@
                     const dashboardSection = document.getElementById('dashboardSection');
                     if (dashboardSection) {
                         dashboardSection.style.display = 'block';
+                        console.log('📊 Dashboard section visible');
                     }
                     
                     // Cargar métricas y crear visualizaciones
                     await loadDashboardMetrics();
+                    // Crear visualizaciones simples
+                    console.log('📊 Creando visualizaciones simples...');
                     createSimpleVisualizations();
+                    console.log('📊 Visualizaciones simples creadas');
                     
                     console.log('✅ Dashboard inicializado');
                     
@@ -2504,10 +2508,12 @@
             // 📊 Crear Visualizaciones Simples (sin librerías externas)
             function createSimpleVisualizations() {
                 // Reemplazar canvas con visualizaciones CSS nativas
-                
+                console.log('📊 [VISUALIZATIONS] Iniciando creación de visualizaciones...');
                 // 1. Gráfico de tendencias
                 const trendChart = document.getElementById('responsesTrendChart');
+                console.log('📊 [VISUALIZATIONS] trendChart encontrado:', !!trendChart);
                 if (trendChart) {
+                    console.log('📊 [VISUALIZATIONS] Creando gráfico de tendencias...');
                     trendChart.innerHTML = `
                         <div class="simple-chart">
                             <div class="chart-title">📈 Últimos 7 días</div>
@@ -2522,11 +2528,15 @@
                             </div>
                         </div>
                     `;
+                    console.log('📊 [VISUALIZATIONS] Gráfico de tendencias creado');
                 }
                 
                 // 2. Gráfico de satisfacción
                 const satisfactionChart = document.getElementById('satisfactionChart');
+                console.log('📊 [VISUALIZATIONS] satisfactionChart encontrado:', !!satisfactionChart);
+                
                 if (satisfactionChart) {
+                    console.log('📊 [VISUALIZATIONS] Creando gráfico de satisfacción...');
                     satisfactionChart.innerHTML = `
                         <div class="simple-chart">
                             <div class="chart-title">😊 Satisfacción por encuesta</div>
@@ -2549,11 +2559,14 @@
                             </div>
                         </div>
                     `;
+                    console.log('📊 [VISUALIZATIONS] Gráfico de satisfacción creado');
                 }
                 
                 // 3. Gráfico de performance
                 const performanceChart = document.getElementById('performanceChart');
+                console.log('📊 [VISUALIZATIONS] performanceChart encontrado:', !!performanceChart);
                 if (performanceChart) {
+                    console.log('📊 [VISUALIZATIONS] Creando gráfico de performance..');
                     performanceChart.innerHTML = `
                         <div class="simple-chart">
                             <div class="chart-title">🎯 Performance general</div>
@@ -2577,7 +2590,9 @@
                             </div>
                         </div>
                     `;
+                    console.log('📊 [VISUALIZATIONS] Gráfico de performance creado');
                 }
+                console.log('📊 [VISUALIZATIONS] Visualizaciones creadas exitosamente');
             }
 
             // 📊 Datos mock simplificados
