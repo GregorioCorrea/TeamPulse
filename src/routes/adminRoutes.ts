@@ -253,7 +253,7 @@ router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Re
     let totalResponses = 0;
     for (const encuesta of encuestas) {
       try {
-        const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!);
+        const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!, tenantId);
         const participantesUnicos = new Set(respuestas.map(r => r.participanteId));
         totalResponses += participantesUnicos.size;
       } catch (error) {
@@ -321,7 +321,7 @@ router.get('/surveys', validateTeamsSSO, async (req: AuthenticatedRequest, res: 
     const encuestasEnriquecidas = await Promise.all(
       encuestas.map(async (encuesta) => {
         try {
-          const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!);
+          const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!, tenantId);
           const participantesUnicos = new Set(respuestas.map(r => r.participanteId));
           
           return {
@@ -682,7 +682,7 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
     }
 
     // Verificar si tiene respuestas (opcional: prevenir eliminación)
-    const respuestas = await azureService.cargarRespuestasEncuesta(id);
+    const respuestas = await azureService.cargarRespuestasEncuesta(id, tenantId);
     if (respuestas.length > 0) {
       console.log(`⚠️ Deleting survey ${id} with ${respuestas.length} responses`);
     }
@@ -759,8 +759,8 @@ router.get('/surveys/:id/responses', validateTeamsSSO, async (req: Authenticated
     return;
     }
 
-    const respuestas = await azureService.cargarRespuestasEncuesta(id);
-    const resultados = await azureService.cargarResultados(id);
+    const respuestas = await azureService.cargarRespuestasEncuesta(id, tenantId);
+    const resultados = await azureService.cargarResultados(id, tenantId);
 
     // Calcular estadísticas
     const participantesUnicos = new Set(respuestas.map(r => r.participanteId));

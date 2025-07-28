@@ -473,8 +473,17 @@ export class AzureTableService {
     }
   }
 
-  async cargarResultados(encuestaId: string): Promise<any | null> {
+  async cargarResultados(encuestaId: string, tenantId?: string): Promise<any | null> {
     try {
+      // 🔧 Verificar ownership si se proporciona tenantId
+      if (tenantId) {
+        const hasAccess = await this.verificarOwnershipEncuesta(encuestaId, tenantId);
+        if (!hasAccess) {
+          console.warn(`⚠️ Tenant ${tenantId} no tiene acceso a encuesta ${encuestaId}`);
+          return null;
+        }
+      }
+      
       const entity = await this.resultadosTable.getEntity('RESULTADO', encuestaId);
       
       return {
