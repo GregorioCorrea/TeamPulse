@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TeamPulse - Panel de Administración</title>
+    <!-- Teams SDK -->
     <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <!-- FluentUI Web Components -->
+    <script type="module" src="https://unpkg.com/@fluentui/web-components@2.5.16/dist/web-components.min.js"></script>
     <style>
         /* Same styles as before - keeping original design */
         * {
@@ -2341,7 +2344,7 @@
             async function loadDashboardMetrics() {
                 console.log('📈 [DEBUG] === INICIANDO CARGA MÉTRICAS ===');
                 console.log('📈 [DEBUG] authToken presente:', !!authToken);
-                console.log('📈 [DEBUG] authToken preview:', authToken ? authToken.substring(0, 50) + '...' : 'null');
+                console.log(`🌐 [API DEBUG] authToken presente: ${!!authToken}`);
                 
                 try {
                     let response;
@@ -2789,7 +2792,30 @@
                 }
             }, 5 * 60 * 1000);    
     
-            console.log('🎯 TeamPulse Admin Panel loaded successfully');
+            // 🔒 ENVIRONMENT DETECTION
+            const isProduction = !window.location.hostname.includes('localhost') && 
+                                !window.location.hostname.includes('127.0.0.1');
+
+            if (isProduction) {
+                // Silenciar logs debug en producción
+                const allowedPrefixes = ['✅', '❌', '⚠️', '🔐'];
+                const originalLog = console.log;
+                
+                console.log = function(...args) {
+                    if (args[0] && typeof args[0] === 'string') {
+                        const hasAllowedPrefix = allowedPrefixes.some(prefix => 
+                            args[0].includes(prefix)
+                        );
+                        if (hasAllowedPrefix || args[0].includes('Teams')) {
+                            originalLog.apply(console, args);
+                        }
+                    }
+                };
+                
+                console.log('🔒 Production mode - Debug logs filtered');
+            } else {
+                console.log('🎯 TeamPulse Admin Panel loaded successfully (Development)');
+            }
             // 🔧 DEBUG TEMPORAL - Forzar carga de métricas
             setTimeout(async () => {
                 console.log('🔧 [DEBUG MANUAL] Forzando carga de métricas...');
