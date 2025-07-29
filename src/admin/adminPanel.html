@@ -1299,7 +1299,8 @@
             <div class="controls">
                 <div class="controls-row">
                     <div class="search-box">
-                        <fluent-search id="searchInput" placeholder="Buscar encuestas..." appearance="outline"></fluent-search>
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar encuestas...">
                     </div>
                     <fluent-button appearance="accent" onclick="showCreateModal()">
                         ➕ Nueva Encuesta
@@ -1801,21 +1802,21 @@
                         </div>
                         
                         <div class="survey-actions">
-                            <fluent-button appearance="accent" size="small" onclick="editSurvey('${survey.id}')">
+                            <button class="btn btn-primary btn-small" onclick="editSurvey('${survey.id}')">
                                 ✏️ Editar
-                            </fluent-button>
-                            <fluent-button appearance="stealth" size="small" onclick="viewResults('${survey.id}')">
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="viewResults('${survey.id}')">
                                 📊 Resultados
-                            </fluent-button>
-                            <fluent-button appearance="stealth" size="small" onclick="toggleSurveyStatus('${survey.id}')">
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="toggleSurveyStatus('${survey.id}')">
                                 ${survey.estado === 'activa' ? '⏸️ Pausar' : '▶️ Activar'}
-                            </fluent-button>
-                            <fluent-button appearance="stealth" size="small" onclick="duplicateSurvey('${survey.id}')">
+                            </button>
+                            <button class="btn btn-secondary btn-small" onclick="duplicateSurvey('${survey.id}')">
                                 📄 Duplicar
-                            </fluent-button>
-                            <fluent-button appearance="lightweight" size="small" onclick="deleteSurvey('${survey.id}')">
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteSurvey('${survey.id}')">
                                 🗑️ Eliminar
-                            </fluent-button>
+                            </button>
                         </div>
                     </fluent-card>
                 `).join('');
