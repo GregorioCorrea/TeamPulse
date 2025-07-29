@@ -1130,6 +1130,43 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+        /* 🔄 Loading states mejorados */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+        }
+
+        .loading-overlay .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        .btn[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: scale(1.02);
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
 <body>
@@ -1767,15 +1804,15 @@
                 }
                 
                 const surveysHTML = surveys.map(survey => `
-                    <fluent-card class="survey-card">
+                    <div class="survey-card">
                         <div class="survey-header">
                             <div>
                                 <h3 class="survey-title">${survey.titulo}</h3>
                                 <span class="survey-id">ID: ${survey.id}</span>
                             </div>
-                            <fluent-badge appearance="${survey.estado === 'activa' ? 'success' : 'important'}" size="large">
+                            <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
                                 ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
-                            </fluent-badge>
+                            </span>
                         </div>
                         
                         <div class="survey-meta">
@@ -1818,7 +1855,7 @@
                                 🗑️ Eliminar
                             </button>
                         </div>
-                    </fluent-card>
+                    </div>
                 `).join('');
                 
                 container.innerHTML = surveysHTML;
@@ -2255,8 +2292,27 @@
             }
 
             async function refreshData() {
-                await loadSurveys();
-                showNotification('Datos actualizados', 'success');
+                const refreshBtn = document.querySelector('fluent-button[onclick="refreshData()"]') || 
+                                document.querySelector('button[onclick="refreshData()"]');
+                
+                if (refreshBtn) {
+                    refreshBtn.disabled = true;
+                    refreshBtn.textContent = '🔄 Actualizando...';
+                }
+                
+                try {
+                    await loadSurveys();
+                    await loadDashboardMetrics();
+                    showNotification('Datos actualizados exitosamente', 'success');
+                } catch (error) {
+                    console.error('❌ Error refreshing data:', error);
+                    showNotification('Error al actualizar datos', 'error');
+                } finally {
+                    if (refreshBtn) {
+                        refreshBtn.disabled = false;
+                        refreshBtn.textContent = '🔄 Actualizar';
+                    }
+                }
             }
 
             async function exportAllData() {
@@ -2295,35 +2351,95 @@
             function setupSearch() {
                 const searchInput = document.getElementById('searchInput');
                 
+                if (!searchInput) {
+                    console.warn('⚠️ Search input not found');
+                    return;
+                }
+                
+                let searchTimeout;
+                
                 searchInput.addEventListener('input', (e) => {
                     const query = e.target.value.toLowerCase().trim();
                     
+                    // Limpiar timeout anterior para evitar búsquedas múltiples
+                    clearTimeout(searchTimeout);
+                    
+                    // Si no hay query, mostrar todo inmediatamente
                     if (query === '') {
                         renderSurveys(surveysData);
                         return;
                     }
                     
-                    const filteredSurveys = surveysData.filter(survey => 
-                        survey.titulo.toLowerCase().includes(query) ||
-                        survey.objetivo.toLowerCase().includes(query) ||
-                        survey.id.toLowerCase().includes(query) ||
-                        survey.creador.toLowerCase().includes(query)
-                    );
-                    
-                    renderSurveys(filteredSurveys);
-                    
-                    if (filteredSurveys.length === 0) {
+                    // Feedback visual inmediato - mostrar que está buscando
+                    if (query.length >= 1) {
                         document.getElementById('surveysContainer').innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-icon">🔍</div>
-                                <h3>No se encontraron resultados</h3>
-                                <p>Intenta con otros términos de búsqueda</p>
+                            <div class="loading" style="padding: 40px;">
+                                <div class="loading-spinner" style="width: 30px; height: 30px; margin: 0 auto 16px;"></div>
+                                <p style="color: #718096;">Buscando "${query}"...</p>
                             </div>
                         `;
                     }
+                    
+                    // Debounce de 300ms - evita búsquedas mientras el usuario escribe
+                    searchTimeout = setTimeout(() => {
+                        console.log('🔍 Searching for:', query);
+                        
+                        const filteredSurveys = surveysData.filter(survey => 
+                            survey.titulo.toLowerCase().includes(query) ||
+                            survey.objetivo.toLowerCase().includes(query) ||
+                            survey.id.toLowerCase().includes(query) ||
+                            survey.creador.toLowerCase().includes(query)
+                        );
+                        
+                        // Renderizar resultados
+                        renderSurveys(filteredSurveys);
+                        
+                        // Si no hay resultados, mostrar estado mejorado
+                        if (filteredSurveys.length === 0) {
+                            document.getElementById('surveysContainer').innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-icon">🔍</div>
+                                    <h3>No se encontraron resultados para "${query}"</h3>
+                                    <p>Intenta con otros términos como:</p>
+                                    <div style="margin: 16px 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                                        <span class="option-tag" style="cursor: pointer;" onclick="document.getElementById('searchInput').value='clima'; setupSearch(); document.getElementById('searchInput').dispatchEvent(new Event('input'));">clima</span>
+                                        <span class="option-tag" style="cursor: pointer;" onclick="document.getElementById('searchInput').value='nps'; setupSearch(); document.getElementById('searchInput').dispatchEvent(new Event('input'));">nps</span>
+                                        <span class="option-tag" style="cursor: pointer;" onclick="document.getElementById('searchInput').value='feedback'; setupSearch(); document.getElementById('searchInput').dispatchEvent(new Event('input'));">feedback</span>
+                                    </div>
+                                    <button class="btn btn-secondary btn-small" onclick="document.getElementById('searchInput').value=''; renderSurveys(surveysData);" style="margin-top: 12px;">
+                                        ❌ Limpiar búsqueda
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            // Mostrar conteo de resultados
+                            console.log(`✅ Found ${filteredSurveys.length} surveys matching "${query}"`);
+                        }
+                    }, 300); // 300ms debounce - suave pero no lento
                 });
+                
+                // Mejorar UX del input
+                searchInput.addEventListener('focus', () => {
+                    searchInput.style.transform = 'scale(1.02)';
+                    searchInput.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+                });
+                
+                searchInput.addEventListener('blur', () => {
+                    searchInput.style.transform = 'scale(1)';
+                    searchInput.style.boxShadow = 'none';
+                });
+                
+                // Tecla ESC para limpiar
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        e.target.value = '';
+                        renderSurveys(surveysData);
+                        e.target.blur();
+                    }
+                });
+                
+                console.log('🔍 Search setup completed with debounce and enhanced UX');
             }
-
             // Utility functions
             function formatDate(date) {
                 if (!date) return 'N/A';
