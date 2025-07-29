@@ -1039,6 +1039,47 @@
                 grid-template-columns: 1fr;
             }
         }
+        fluent-card.kpi-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        fluent-card.kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        fluent-card.kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.4);
+        }
+
+        fluent-badge[id*="trend"] {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        fluent-button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
@@ -1081,59 +1122,59 @@
             <div class="dashboard-grid">
                 <!-- KPIs Cards -->
                 <div class="kpi-grid">
-                <div class="kpi-card" id="totalSurveysKPI">
+                <fluent-card class="kpi-card" id="totalSurveysKPI">
                     <div class="kpi-icon">📋</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiTotalSurveys">-</div>
                     <div class="kpi-label">Total Encuestas</div>
-                    <div class="kpi-trend" id="trendTotalSurveys">-</div>
+                    <fluent-badge appearance="accent" id="trendTotalSurveys">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 
-                <div class="kpi-card" id="activeSurveysKPI">
+                <fluent-card class="kpi-card" id="activeSurveysKPI">
                     <div class="kpi-icon">🟢</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiActiveSurveys">-</div>
                     <div class="kpi-label">Encuestas Activas</div>
-                    <div class="kpi-trend" id="trendActiveSurveys">-</div>
+                    <fluent-badge appearance="accent" id="trendActiveSurveys">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 
-                <div class="kpi-card" id="totalResponsesKPI">
+                <fluent-card class="kpi-card" id="totalResponsesKPI">
                     <div class="kpi-icon">👥</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiTotalResponses">-</div>
                     <div class="kpi-label">Total Respuestas</div>
-                    <div class="kpi-trend" id="trendTotalResponses">-</div>
+                    <fluent-badge appearance="accent" id="trendTotalResponses">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 
-                <div class="kpi-card" id="satisfactionKPI">
+                <fluent-card class="kpi-card" id="satisfactionKPI">
                     <div class="kpi-icon">😊</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiSatisfaction">-</div>
                     <div class="kpi-label">Satisfacción Promedio</div>
-                    <div class="kpi-trend" id="trendSatisfaction">-</div>
+                    <fluent-badge appearance="accent" id="trendSatisfaction">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 
-                <div class="kpi-card" id="engagementKPI">
+                <fluent-card class="kpi-card" id="engagementKPI">
                     <div class="kpi-icon">⚡</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiEngagement">-</div>
                     <div class="kpi-label">Engagement Rate</div>
-                    <div class="kpi-trend" id="trendEngagement">-</div>
+                    <fluent-badge appearance="accent" id="trendEngagement">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 
-                <div class="kpi-card" id="weeklyResponsesKPI">
+                <fluent-card class="kpi-card" id="weeklyResponsesKPI">
                     <div class="kpi-icon">📈</div>
                     <div class="kpi-content">
                     <div class="kpi-value" id="kpiWeeklyResponses">-</div>
                     <div class="kpi-label">Respuestas Esta Semana</div>
-                    <div class="kpi-trend" id="trendWeeklyResponses">-</div>
+                    <fluent-badge appearance="accent" id="trendWeeklyResponses">-</fluent-badge>
                     </div>
-                </div>
+                </fluent-card>
                 </div>
 
                 <!-- Charts Section -->
@@ -1211,15 +1252,15 @@
                         <span class="search-icon">🔍</span>
                         <input type="text" class="search-input" id="searchInput" placeholder="Buscar encuestas...">
                     </div>
-                    <button class="btn btn-primary" onclick="showCreateModal()">
+                    <fluent-button appearance="accent" onclick="showCreateModal()">
                         ➕ Nueva Encuesta
-                    </button>
-                    <button class="btn btn-secondary" onclick="refreshData()">
+                    </fluent-button>
+                    <fluent-button appearance="stealth" onclick="refreshData()">
                         🔄 Actualizar
-                    </button>
-                    <button class="btn btn-secondary" onclick="exportAllData()">
+                    </fluent-button>
+                    <fluent-button appearance="stealth" onclick="exportAllData()">
                         📊 Exportar Datos
-                    </button>
+                    </fluent-button>
                 </div>
             </div>
 
@@ -2464,16 +2505,15 @@
                     
                     if (trendEl && kpi.trend) {
                         trendEl.textContent = kpi.trend;
-                        trendEl.className = 'kpi-trend';
                         
+                        // FluentUI badges con colores apropiados
                         if (kpi.trend.startsWith('+')) {
-                            trendEl.classList.add('positive');
+                            trendEl.setAttribute('appearance', 'success');
                         } else if (kpi.trend.startsWith('-')) {
-                            trendEl.classList.add('negative');
+                            trendEl.setAttribute('appearance', 'important');
                         } else {
-                            trendEl.classList.add('neutral');
+                            trendEl.setAttribute('appearance', 'accent');
                         }
-                        console.log(`✅ [DEBUG KPI] Trend actualizado: ${trendElementId} = ${kpi.trend}`);
                     }
                 });
             }
