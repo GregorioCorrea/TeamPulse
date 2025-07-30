@@ -1167,6 +1167,104 @@
             transform: scale(1.02);
             transition: all 0.2s ease;
         }
+        /* ⚡ LOADING STATES PROFESIONALES */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+            border-radius: 16px;
+        }
+
+        .loading-overlay .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        .loading-overlay p {
+            color: #667eea;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .btn[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+            transform: none !important;
+        }
+
+        .btn.loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Survey cards loading skeleton */
+        .survey-skeleton {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .survey-skeleton::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            animation: skeleton-shimmer 2s infinite;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .skeleton-line {
+            height: 16px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-line.short { width: 60%; }
+        .skeleton-line.medium { width: 80%; }
+        .skeleton-line.long { width: 100%; }
     </style>
 </head>
 <body>
@@ -1683,9 +1781,13 @@
                 const emptyState = document.getElementById('emptyState');
                 
                 try {
-                    loading.style.display = 'block';
-                    container.style.display = 'none';
+                    // 1. Mostrar skeleton loading inmediatamente
+                    loading.style.display = 'none';
+                    container.style.display = 'block';
                     emptyState.style.display = 'none';
+                    
+                    // Crear skeleton de encuestas
+                    container.innerHTML = createSurveySkeleton(3); // 3 skeleton cards
                     
                     // Try real API first, fallback to mock data
                     let surveys;
@@ -1699,28 +1801,66 @@
                     
                     surveysData = surveys;
                     
+                    // 2. Simular pequeño delay para smooth transition
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
                     updateStatistics(surveys);
                     await updatePlanInfo();
+                    
+                    // 3. Render real surveys con fade-in
                     renderSurveys(surveys);
                     
-                    loading.style.display = 'none';
-                    
                     if (surveys.length === 0) {
+                        container.style.display = 'none';
                         emptyState.style.display = 'block';
-                    } else {
-                        container.style.display = 'block';
                     }
+                    
                     // Al final de la función loadSurveys() exitosa, agregar:
                     if (!document.getElementById('dashboardSection').style.display || 
                         document.getElementById('dashboardSection').style.display === 'none') {
-                    await initializeDashboard(); // 🆕 Inicializar dashboard si no está visible
+                        await initializeDashboard(); // 🆕 Inicializar dashboard si no está visible
                     }
                     
                 } catch (error) {
                     console.error('❌ Error loading surveys:', error);
+                    container.style.display = 'none';
                     loading.style.display = 'none';
                     showNotification('Error al cargar encuestas', 'error');
                 }
+            }
+
+            // 🦴 Crear skeleton loading para surveys
+            function createSurveySkeleton(count = 3) {
+                const skeletons = Array.from({length: count}, (_, i) => `
+                    <div class="survey-skeleton">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                            <div>
+                                <div class="skeleton-line medium" style="height: 24px; margin-bottom: 8px;"></div>
+                                <div class="skeleton-line short" style="height: 14px;"></div>
+                            </div>
+                            <div class="skeleton-line" style="width: 80px; height: 24px;"></div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+                            <div class="skeleton-line short" style="height: 20px;"></div>
+                            <div class="skeleton-line short" style="height: 20px;"></div>
+                            <div class="skeleton-line short" style="height: 20px;"></div>
+                            <div class="skeleton-line short" style="height: 20px;"></div>
+                        </div>
+                        
+                        <div class="skeleton-line long" style="height: 40px; margin-bottom: 16px;"></div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <div class="skeleton-line" style="width: 80px; height: 32px;"></div>
+                            <div class="skeleton-line" style="width: 100px; height: 32px;"></div>
+                            <div class="skeleton-line" style="width: 80px; height: 32px;"></div>
+                            <div class="skeleton-line" style="width: 90px; height: 32px;"></div>
+                            <div class="skeleton-line" style="width: 80px; height: 32px;"></div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                return skeletons;
             }
 
             // Mock data for development (same as before)
@@ -2292,25 +2432,48 @@
             }
 
             async function refreshData() {
-                const refreshBtn = document.querySelector('fluent-button[onclick="refreshData()"]') || 
-                                document.querySelector('button[onclick="refreshData()"]');
+                const refreshBtn = document.querySelector('[onclick="refreshData()"]');
+                const originalText = refreshBtn?.textContent || '🔄 Actualizar';
                 
                 if (refreshBtn) {
                     refreshBtn.disabled = true;
-                    refreshBtn.textContent = '🔄 Actualizando...';
+                    refreshBtn.classList.add('loading');
+                    refreshBtn.textContent = '⏳ Actualizando...';
                 }
                 
                 try {
+                    // Mostrar loading overlay en dashboard
+                    const dashboardSection = document.getElementById('dashboardSection');
+                    if (dashboardSection && dashboardSection.style.display !== 'none') {
+                        const overlay = document.createElement('div');
+                        overlay.className = 'loading-overlay';
+                        overlay.id = 'refreshOverlay';
+                        overlay.innerHTML = `
+                            <div class="loading-spinner"></div>
+                            <p>Actualizando dashboard...</p>
+                        `;
+                        dashboardSection.style.position = 'relative';
+                        dashboardSection.appendChild(overlay);
+                    }
+                    
                     await loadSurveys();
                     await loadDashboardMetrics();
-                    showNotification('Datos actualizados exitosamente', 'success');
+                    showNotification('✅ Datos actualizados exitosamente', 'success');
+                    
                 } catch (error) {
                     console.error('❌ Error refreshing data:', error);
-                    showNotification('Error al actualizar datos', 'error');
+                    showNotification('❌ Error al actualizar datos', 'error');
                 } finally {
                     if (refreshBtn) {
                         refreshBtn.disabled = false;
-                        refreshBtn.textContent = '🔄 Actualizar';
+                        refreshBtn.classList.remove('loading');
+                        refreshBtn.textContent = originalText;
+                    }
+                    
+                    // Remover overlay
+                    const overlay = document.getElementById('refreshOverlay');
+                    if (overlay) {
+                        overlay.remove();
                     }
                 }
             }
