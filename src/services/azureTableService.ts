@@ -744,9 +744,46 @@ export class AzureTableService {
     }
   }
 
-  // Función para crear templates seed (ejecutar una vez)
-// REEMPLAZAR la función crearTemplatesSeed en azureTableService.ts con esta versión corregida:
 
+// 🆕 Función para obtener suscripción activa en Marketplace
+async obtenerSuscripcionMarketplace(userId: string, tenantId: string): Promise<any | null> {
+  try {
+    // Crear tabla MarketplaceSubscriptions si no existe
+    const marketplaceTable = new TableClient(
+      `https://${process.env.AZURE_STORAGE_ACCOUNT_NAME}.table.core.windows.net`,
+      'MarketplaceSubscriptions',
+      new AzureNamedKeyCredential(
+        process.env.AZURE_STORAGE_ACCOUNT_NAME!,
+        process.env.AZURE_STORAGE_ACCOUNT_KEY!
+      )
+    );
+
+    // Buscar suscripción activa del usuario
+    const entities = marketplaceTable.listEntities({
+      queryOptions: { 
+        filter: `userOid eq '${userId}' and userTenant eq '${tenantId}' and status eq 'Activated'`
+      }
+    });
+    
+    for await (const subscription of entities) {
+      return {
+        userOid: subscription.userOid,
+        userEmail: subscription.userEmail,
+        userName: subscription.userName,
+        status: subscription.status,
+        planId: subscription.planId,
+        subscriptionId: subscription.rowKey
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error obteniendo suscripción marketplace:', error);
+    return null;
+  }
+}
+
+  // Función para crear templates seed (ejecutar una vez)
 async crearTemplatesSeed(): Promise<void> {
   console.log('🌱 Creando templates seed...');
 
@@ -931,6 +968,7 @@ async crearTemplatesSeed(): Promise<void> {
 }
 
 }
+
 
 // MIGRACIÓN UTILITY - Ejecutar una sola vez
 export async function migrarDatosJSON() {

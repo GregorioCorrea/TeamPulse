@@ -60,6 +60,7 @@ app.get("/admin", (req, res) => {
 
     // 🔧 CSP Headers requeridos por Teams
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', 
       "default-src 'self'; " +
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.cdn.office.net https://*.office.net https://*.microsoft.com; " +

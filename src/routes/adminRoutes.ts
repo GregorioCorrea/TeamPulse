@@ -1,6 +1,16 @@
 // src/routes/adminRoutes.ts
 import { Router, Request, Response } from "express";
 import { AzureTableService } from "../services/azureTableService";
+import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
+
+// Configurar tabla MarketplaceSubscriptions
+const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
+const key = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
+const marketplaceTable = new TableClient(
+  `https://${account}.table.core.windows.net`,
+  "MarketplaceSubscriptions",
+  new AzureNamedKeyCredential(account, key)
+);
 
 const router = Router();
 const azureService = new AzureTableService();
@@ -162,67 +172,68 @@ async function validateJWTToken(token: string): Promise<any> {
   }
 }
 
+// En adminRoutes.ts - REEMPLAZAR el bloque de auto-promoción por:
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
   try {
-    console.log(`🔍 [ADMIN CHECK] Starting permission check...`);
-    console.log(`🔍 [ADMIN CHECK] User ID: ${userId}`);
-    console.log(`🔍 [ADMIN CHECK] Tenant ID: ${tenantId}`);
-    
-    // Consultar tabla AdminUsers en Azure Storage
-    try {
-      console.log(`🔍 [ADMIN CHECK] Querying AdminUsers table...`);
-      const adminUser = await azureService.obtenerAdminUser(userId, tenantId);
-      console.log(`🔍 [ADMIN CHECK] Admin user found:`, adminUser ? 'YES' : 'NO');
-      
-      if (adminUser && adminUser.isActive) {
-        console.log(`✅ [ADMIN CHECK] Admin access granted from Azure Storage: ${userId}`);
-        return true;
-      }
-    } catch (error) {
-      console.error(`❌ [ADMIN CHECK] Error querying AdminUsers table:`, error);
-    }
-    
-    // AUTO-PROMOCIÓN: Si no hay admins en este tenant, hacer admin al primer usuario
-    try {
-      console.log(`🔍 [ADMIN CHECK] Checking for existing admins in tenant...`);
-      const existingAdmins = await azureService.listarAdminsEnTenant(tenantId);
-      console.log(`🔍 [ADMIN CHECK] Existing admins count: ${existingAdmins.length}`);
-      
-      if (existingAdmins.length === 0) {
-        console.log(`🚀 [ADMIN CHECK] First user in tenant ${tenantId} - auto-promoting to admin: ${userId}`);
-        
-        await azureService.agregarAdminUser(
-          userId,
-          tenantId,
-          `auto-${userId}@${tenantId}.com`,
-          'Auto Admin User',
-          'Auto-promotion System'
-        );
-        
-        console.log(`✅ [ADMIN CHECK] Auto-promoted first user to admin: ${userId}`);
-        return true;
-      } else {
-        console.log(`🔍 [ADMIN CHECK] Found ${existingAdmins.length} existing admins, no auto-promotion`);
-        existingAdmins.forEach((admin, index) => {
-          console.log(`🔍 [ADMIN CHECK] Admin ${index + 1}: ${admin.email} (${admin.isActive ? 'active' : 'inactive'})`);
-        });
-      }
-    } catch (autoPromoteError) {
-      console.error(`❌ [ADMIN CHECK] Auto-promotion failed:`, autoPromoteError);
-    }
-    
-    // En desarrollo, permitir cualquier usuario
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ [ADMIN CHECK] Development mode: Admin access granted to ${userId}`);
+    // 1. Verificar si ya es admin
+    const adminUser = await azureService.obtenerAdminUser(userId, tenantId);
+    if (adminUser && adminUser.isActive) {
       return true;
     }
     
-    console.log(`🚫 [ADMIN CHECK] Admin access denied: ${userId} not found in AdminUsers table`);
+    // 2. 🆕 SMART CHECK: ¿Es el usuario que activó la suscripción?
+    const subscription = await checkMarketplaceSubscription(userId, tenantId);
+    if (subscription && subscription.userOid === userId) {
+      console.log(`🚀 Auto-promoting marketplace purchaser: ${userId}`);
+      
+      await azureService.agregarAdminUser(
+        userId,
+        tenantId,
+        subscription.userEmail,
+        subscription.userName,
+        'Marketplace Purchaser Auto-Promotion'
+      );
+      
+      return true;
+    }
+    
+    // 3. Fallback para desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      return true;
+    }
+    
     return false;
     
   } catch (error) {
-    console.error('❌ [ADMIN CHECK] Error checking admin permissions:', error);
+    console.error('❌ Error checking admin permissions:', error);
     return false;
+  }
+}
+
+// Función auxiliar para verificar suscripción en Marketplace
+async function checkMarketplaceSubscription(userId: string, tenantId: string) {
+  try {
+    // Buscar en MarketplaceSubscriptions por userOid Y userTenant
+    const entities = marketplaceTable.listEntities({
+      queryOptions: { 
+        filter: `userOid eq '${userId}' and userTenant eq '${tenantId}' and status eq 'Activated'`
+      }
+    });
+    
+    for await (const subscription of entities) {
+      console.log(`✅ Found marketplace subscription for user: ${userId}`);
+      return {
+        userOid: subscription.userOid,
+        userEmail: subscription.userEmail,
+        userName: subscription.userName,
+        status: subscription.status
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error checking marketplace subscription:', error);
+    return null;
   }
 }
 
