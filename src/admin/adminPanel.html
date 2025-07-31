@@ -219,7 +219,10 @@
             border-radius: 12px;
             font-size: 1rem;
             transition: all 0.3s ease;
+            color: #333;
             background: white;
+            position: relative;
+            z-index: 2;
         }
 
         .search-input:focus {
@@ -235,6 +238,8 @@
             transform: translateY(-50%);
             color: #a0aec0;
             font-size: 1.2rem;
+            pointer-events: none;
+            z-index: 1;
         }
 
         .btn {
@@ -2073,6 +2078,7 @@
                 `).join('');
                 
                 container.innerHTML = surveysHTML;
+                makeSurveyCardsFocusable();
             }
 
             // Survey actions (same as before but with improved error handling)
@@ -2757,6 +2763,7 @@
                 notification.textContent = message;
                 notification.setAttribute('role', 'alert');
                 notification.setAttribute('aria-live', 'assertive');
+                notification.setAttribute('aria-atomic', 'true');
                 
                 document.body.appendChild(notification);
                 
@@ -3464,6 +3471,36 @@
                 e.target.querySelector('.btn-primary')?.click(); // Enter en card = editar
             }
             });
+
+            // 🎯 KEYBOARD NAVIGATION - WCAG AA REQUIREMENT
+            document.addEventListener('keydown', (e) => {
+            // Enter en survey card = editar
+            if (e.key === 'Enter' && e.target.classList.contains('survey-card')) {
+                const editBtn = e.target.querySelector('.btn-primary');
+                if (editBtn) editBtn.click();
+            }
+            
+            // Escape = cerrar modales
+            if (e.key === 'Escape') {
+                closeEditModal();
+                closeResultsModal();
+            }
+            
+            // Tab navigation mejorado para botones
+            if (e.key === 'Tab') {
+                // Permitir navegación normal por Tab
+                return;
+            }
+            });
+
+            // Hacer survey cards focusables
+            function makeSurveyCardsFocusable() {
+            document.querySelectorAll('.survey-card').forEach(card => {
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('role', 'button');
+                card.setAttribute('aria-label', `Encuesta: ${card.querySelector('.survey-title')?.textContent}. Presiona Enter para editar.`);
+            });
+            }
 
         </script>
     </div>

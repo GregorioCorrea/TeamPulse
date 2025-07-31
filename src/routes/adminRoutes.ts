@@ -1,16 +1,6 @@
 // src/routes/adminRoutes.ts
 import { Router, Request, Response } from "express";
 import { AzureTableService } from "../services/azureTableService";
-import { TableClient, AzureNamedKeyCredential } from "@azure/data-tables";
-
-// Configurar tabla MarketplaceSubscriptions
-const account = process.env.AZURE_STORAGE_ACCOUNT_NAME!;
-const key = process.env.AZURE_STORAGE_ACCOUNT_KEY!;
-const marketplaceTable = new TableClient(
-  `https://${account}.table.core.windows.net`,
-  "MarketplaceSubscriptions",
-  new AzureNamedKeyCredential(account, key)
-);
 
 const router = Router();
 const azureService = new AzureTableService();
@@ -148,8 +138,8 @@ async function validateJWTToken(token: string): Promise<any> {
           await azureService.agregarAdminUser(
             userData.userId,
             userData.tenantId,
-            userData.email,
-            userData.userName,
+            userData.email as string,
+            userData.userName as string,
             'Auto-promotion from first login'
           );
           
@@ -213,21 +203,11 @@ async function checkAdminPermissions(userId: string, tenantId: string): Promise<
 // Función auxiliar para verificar suscripción en Marketplace
 async function checkMarketplaceSubscription(userId: string, tenantId: string) {
   try {
-    // Buscar en MarketplaceSubscriptions por userOid Y userTenant
-    const entities = marketplaceTable.listEntities({
-      queryOptions: { 
-        filter: `userOid eq '${userId}' and userTenant eq '${tenantId}' and status eq 'Activated'`
-      }
-    });
+    const subscription = await azureService.obtenerSuscripcionMarketplace(userId, tenantId);
     
-    for await (const subscription of entities) {
+    if (subscription && subscription.userOid === userId) {
       console.log(`✅ Found marketplace subscription for user: ${userId}`);
-      return {
-        userOid: subscription.userOid,
-        userEmail: subscription.userEmail,
-        userName: subscription.userName,
-        status: subscription.status
-      };
+      return subscription;
     }
     
     return null;
