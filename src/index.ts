@@ -65,7 +65,7 @@ app.get("/admin", (req, res) => {
       "default-src 'self'; " +
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.cdn.office.net https://*.office.net https://*.microsoft.com; " +
       "connect-src 'self' https: wss: https://*.microsoft.com https://*.microsoftonline.com https://*.office.net; " +
-      "frame-ancestors 'self' https://teams.microsoft.com https://*.teams.microsoft.com; " +
+      "frame-ancestors 'self' https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft; " +
       "img-src 'self' data: https:; " +
       "style-src 'self' 'unsafe-inline';"
       );
