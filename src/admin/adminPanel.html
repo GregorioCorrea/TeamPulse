@@ -1302,6 +1302,25 @@
                 border: 2px solid;
             }
         }
+        
+        /* 🌑 HIGH CONTRAST MODE - MEJORADO */
+        @media (forced-colors: active) {
+        .btn {
+            border: 2px solid ButtonText !important;
+        }
+        
+        .survey-card {
+            border: 2px solid CanvasText !important;
+        }
+        
+        .stat-card {
+            border: 2px solid CanvasText !important;
+        }
+        
+        .search-input {
+            border: 2px solid FieldText !important;
+        }
+        }
 
         /* Reduced motion support */
         @media (prefers-reduced-motion: reduce) {
