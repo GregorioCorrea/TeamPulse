@@ -2,6 +2,7 @@
 import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { AzureTableService } from "../services/azureTableService";
+import { localAdminStore } from "../services/localAdminStore";
 
 const router = Router();
 const azureService = new AzureTableService();
@@ -332,7 +333,16 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       return;
     }
 
-    let encuestas = await azureService.listarEncuestas(tenantId);
+    let encuestas: any[] = [];
+    let azureError: any = null;
+
+    try {
+      encuestas = await azureService.listarEncuestas(tenantId);
+    } catch (error) {
+      azureError = error;
+      console.error('⚠️ No se pudieron obtener encuestas desde Azure, usando almacenamiento local:', error);
+      encuestas = [];
+    }
 
     // Enriquecer cada encuesta con datos de respuestas
     const encuestasEnriquecidas = await Promise.all(
@@ -353,7 +363,7 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
           console.warn(`⚠️ Error enriching survey ${encuesta.id}:`, error);
           return {
             ...encuesta,
-            totalRespuestas: 0,
+            totalRespuestas: encuesta.totalRespuestas ?? 0,
             ultimaRespuesta: null,
             estado: encuesta.estado || 'activa'
           };
@@ -361,8 +371,26 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       })
     );
 
+    // Incorporar encuestas locales si existen
+    const fallbackSurveys = localAdminStore.listSurveys();
+    let combinedSurveys = encuestasEnriquecidas;
+
+    if (fallbackSurveys.length > 0) {
+      const azureIds = new Set(encuestasEnriquecidas.map((survey) => survey.id));
+      const complement = fallbackSurveys
+        .filter((survey) => !azureIds.has(survey.id))
+        .map((survey) => ({
+          ...survey,
+          tenantId: survey.tenantId || tenantId,
+          totalRespuestas: survey.totalRespuestas || 0,
+          ultimaRespuesta: null,
+        }));
+
+      combinedSurveys = [...complement, ...encuestasEnriquecidas];
+    }
+
     // Aplicar filtros
-    let filteredSurveys = encuestasEnriquecidas;
+    let filteredSurveys = combinedSurveys;
 
     if (search) {
       const searchTerm = (search as string).toLowerCase();
@@ -405,7 +433,9 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
         hasMore: startIndex + limitCount < totalCount
       },
       filters: { search, status, creator },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      storageSource: azureError ? 'local' : 'azure',
+      fallbackCount: fallbackSurveys.length
     });
 
   } catch (error) {
@@ -499,33 +529,78 @@ router.post(
         creador,
         estado: 'activa',
         fechaCreacion: ahora.toISOString(),
-        ultimaModificacion: ahora,
+        ultimaModificacion: ahora.toISOString(),
         totalRespuestas: 0,
         basadoEnTemplate: basadoEnTemplate || null,
         tags: Array.isArray(tags) ? tags : []
       };
 
-      await azureService.guardarEncuesta(nuevaEncuesta);
+      try {
+        await azureService.guardarEncuesta(nuevaEncuesta);
 
-      await azureService.guardarResultados({
-        encuestaId,
-        titulo: nuevaEncuesta.titulo,
-        fechaCreacion: ahora,
-        estado: 'activa',
-        totalParticipantes: 0,
-        respuestas: [],
-        resumen: {}
-      });
+        try {
+          await azureService.guardarResultados({
+            encuestaId,
+            titulo: nuevaEncuesta.titulo,
+            fechaCreacion: ahora,
+            estado: 'activa',
+            totalParticipantes: 0,
+            respuestas: [],
+            resumen: {}
+          });
+        } catch (error) {
+          console.warn('⚠️ No se pudieron guardar resultados iniciales en Azure:', error);
+        }
 
-      console.log(`✅ Nueva encuesta creada: ${encuestaId} por ${creador}`);
+        try {
+          await (await import("../middleware/planLimiter")).registerSurveyCreation(tenantId);
+        } catch (error) {
+          console.warn('⚠️ No se pudo registrar el consumo de plan en Azure:', error);
+        }
 
-      res.status(201).json({
-        success: true,
-        message: 'Encuesta creada exitosamente',
-        data: nuevaEncuesta,
-        timestamp: ahora.toISOString(),
-        createdBy: creador
-      });
+        console.log(`✅ Nueva encuesta creada en Azure: ${encuestaId} por ${creador}`);
+
+        res.status(201).json({
+          success: true,
+          message: 'Encuesta creada exitosamente',
+          data: nuevaEncuesta,
+          timestamp: ahora.toISOString(),
+          createdBy: creador,
+          storageSource: 'azure'
+        });
+        return;
+
+      } catch (azureError) {
+        console.error('❌ No se pudo guardar la encuesta en Azure, usando almacenamiento local:', azureError);
+
+        const localSurvey = localAdminStore.addSurvey({
+          ...nuevaEncuesta,
+          tenantId,
+          estado: 'activa',
+          fechaCreacion: ahora.toISOString(),
+          totalRespuestas: 0
+        });
+
+        localAdminStore.saveResults({
+          encuestaId,
+          titulo: nuevaEncuesta.titulo,
+          fechaCreacion: ahora.toISOString(),
+          estado: 'activa',
+          totalParticipantes: 0,
+          respuestas: [],
+          resumen: {}
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Encuesta creada en modo sin conexión (Azure no disponible)',
+          data: localSurvey,
+          timestamp: ahora.toISOString(),
+          createdBy: creador,
+          storageSource: 'local'
+        });
+        return;
+      }
 
     } catch (error) {
       console.error('❌ Error creating survey from admin panel:', error);

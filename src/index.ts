@@ -106,7 +106,7 @@ app.get("/admin", (req, res) => {
       "Content-Security-Policy",
       [
         "default-src 'self' https://*.microsoft.com https://*.office.com https://*.office.net https://*.cloud.microsoft;",
-        "script-src 'self' 'unsafe-inline' https://res.cdn.office.net https://*.office.net https://*.microsoft.com https://*.cloud.microsoft;",
+        "script-src 'self' 'unsafe-inline' https://res.cdn.office.net https://*.office.net https://*.microsoft.com https://*.cloud.microsoft https://unpkg.com;",
         "connect-src 'self' https: wss: https://*.microsoft.com https://*.microsoftonline.com https://*.office.net https://*.cloud.microsoft https://*.office.com;",
         "frame-ancestors https://teams.microsoft.com https://*.teams.microsoft.com https://outlook.office.com https://*.outlook.office.com https://outlook.office365.com https://*.microsoft365.com https://*.cloud.microsoft;",
         "img-src 'self' data: https:;",

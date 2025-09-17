@@ -2323,6 +2323,7 @@
                     });
 
                     const createdSurvey = response.data || response;
+                    const storageSource = response.storageSource || 'azure';
                     const surveyToInsert = {
                         id: createdSurvey.id,
                         titulo: createdSurvey.titulo,
@@ -2331,14 +2332,19 @@
                         creador: createdSurvey.creador,
                         fechaCreacion: createdSurvey.fechaCreacion ? new Date(createdSurvey.fechaCreacion) : new Date(),
                         estado: createdSurvey.estado || 'activa',
-                        totalRespuestas: createdSurvey.totalRespuestas || 0
+                        totalRespuestas: createdSurvey.totalRespuestas || 0,
+                        storageSource
                     };
 
                     surveysData.unshift(surveyToInsert);
                     renderSurveys(surveysData);
                     updateStatistics(surveysData);
                     closeCreateModal();
-                    showNotification('Encuesta creada exitosamente', 'success');
+                    if (storageSource === 'local') {
+                        showNotification('Encuesta creada (almacenada temporalmente sin conexión)', 'warning');
+                    } else {
+                        showNotification('Encuesta creada exitosamente', 'success');
+                    }
 
                 } catch (error) {
                     console.error('❌ Error creating survey:', error);
