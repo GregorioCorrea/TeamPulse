@@ -1,0 +1,14 @@
+Color Palette
+-------------
+
+Primary
+- Azure Pulse: #0B5CFF
+- Deep Violet: #764BA2
+
+Secondary
+- Insight Mint: #10B981
+- Signal Yellow: #F59E0B
+
+Neutrals
+- Canvas: #F8FAFC
+- Slate: #1F2937

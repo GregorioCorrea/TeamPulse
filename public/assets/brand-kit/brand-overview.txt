@@ -1,0 +1,9 @@
+TeamPulse Positioning Statement
+-------------------------------
+
+TeamPulse delivers secure, AI-powered survey workflows native to Microsoft 365. It helps HR, CX, and operations teams capture actionable feedback with zero context switching, while giving administrators complete control over data residency and governance.
+
+Differentiators
+- Works across Microsoft Teams, Outlook, and the Microsoft 365 hub (cloud.microsoft compliant)
+- Pre-built templates with Azure AI insights for sentiment and anomaly detection
+- Admin console for compliance exports and configurable response policies

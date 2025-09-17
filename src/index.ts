@@ -3,9 +3,13 @@
 import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
+
+import compression from "compression";
+import helmet from "helmet";
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import adapter from "./adapter";
 import appBot from "./app/app";
 import { marketplaceRouter } from "./webhook/marketplacewebhook";
@@ -13,22 +17,55 @@ import { landingPageRouter } from "./webhook/landingPageHandler"; // 🆕 Router
 import { adminRouter } from "./routes/adminRoutes"; // 🆕 Admin panel routes
 
 const app = express();
-app.use(express.json());
-
-// CORS – actualizado para SSO y Admin Panel
+app.set("trust proxy", 1); // detrás de Azure App Service / Front Door
+app.use(express.json({ limit: "1mb" }));
+app.use(compression());
 app.use(
-  cors({
-    origin: [
-      "https://teampulse.incumate.io", 
-      "https://login.microsoftonline.com", // 🆕 Microsoft login
-      "https://teams.microsoft.com",       // 🆕 Teams app
-      "https://*.teams.microsoft.com"      // 🆕 Teams subdomains
-    ], 
-    methods: ["POST", "OPTIONS", "GET", "PUT", "PATCH", "DELETE"], // 🆕 Admin methods
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false        
+  helmet({
+    contentSecurityPolicy: false, // CSP la seteamos manual en /admin
+    frameguard: false,            // usamos frame-ancestors en CSP
   })
 );
+
+// CORS – compatible con Teams/SSO y Admin Panel
+const allowedOrigins = [
+  /^https:\/\/teampulse\.incumate\.io$/i,
+  /^https:\/\/.*\.teams\.microsoft\.com$/i,
+  /^https:\/\/teams\.microsoft\.com$/i,
+  /^https:\/\/login\.microsoftonline\.com$/i,
+  /^https:\/\/.*\.office\.net$/i,
+  /^https:\/\/.*\.microsoft\.com$/i,
+  /^https:\/\/.*\.cloud\.microsoft$/i,   // 👈 NUEVO
+];
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // allow same-origin / server-to-server
+      if (allowedOrigins.some((re) => re.test(origin))) return cb(null, true);
+      return cb(new Error(`CORS: origin not allowed: ${origin}`));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "x-tenant-id", // dev headers usados por adminRoutes
+      "x-user-id",
+      "x-roles",
+      "x-plan",
+    ],
+    // no usamos cookies/sesiones, el token va por Authorization
+    credentials: false,
+    optionsSuccessStatus: 204,
+    maxAge: 600,
+  })
+);
+
+// Preflight universal (Express 5 / path-to-regexp v6 compatible)
+app.options(/^\/.*$/, cors());
+
+
 
 // ── Application Insights (silencioso si falla) ────────────────────
 let telemetryClient: any = { trackEvent: () => {}, trackException: () => {} };
@@ -59,17 +96,26 @@ app.use("/api/admin", adminRouter);
 app.get("/admin", (req, res) => {
 
     // 🔧 CSP Headers requeridos por Teams
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', 
-      "default-src 'self'; " +
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.cdn.office.net https://*.office.net https://*.microsoft.com; " +
-      "connect-src 'self' https: wss: https://*.microsoft.com https://*.microsoftonline.com https://*.office.net; " +
-      "frame-ancestors 'self' https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft; " +
-      "img-src 'self' data: https:; " +
-      "style-src 'self' 'unsafe-inline';"
-      );
-    
+    // 🔧 Headers de seguridad y cache
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("Cache-Control", "no-store");
+
+    // CSP para Teams Tab
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self' https://*.microsoft.com https://*.office.com https://*.office.net https://*.cloud.microsoft;",
+        "script-src 'self' 'unsafe-inline' https://res.cdn.office.net https://*.office.net https://*.microsoft.com https://*.cloud.microsoft;",
+        "connect-src 'self' https: wss: https://*.microsoft.com https://*.microsoftonline.com https://*.office.net https://*.cloud.microsoft https://*.office.com;",
+        "frame-ancestors https://teams.microsoft.com https://*.teams.microsoft.com https://outlook.office.com https://*.outlook.office.com https://outlook.office365.com https://*.microsoft365.com https://*.cloud.microsoft;",
+        "img-src 'self' data: https:;",
+        "style-src 'self' 'unsafe-inline' https://*.microsoft.com https://*.office.net https://*.cloud.microsoft;",
+        "font-src 'self' https: data:;",
+      ].join(" ")
+    );
+
+  // Intentar varias rutas posibles para encontrar adminPanel.html  
   const possiblePaths = [
     path.join(process.cwd(), "admin", "adminPanel.html"),
     path.join(__dirname, "..", "admin", "adminPanel.html"),
@@ -97,6 +143,33 @@ app.get("/admin", (req, res) => {
 
 // ── 🆕 ADMIN PANEL ASSETS (if needed) ────────────────────────────
 app.use("/admin/assets", express.static(path.join(__dirname, "..", "admin", "assets")));
+
+// ── 🆕 SERVE ADMIN PANEL STATIC FILES ────────────────────────────
+app.use("/admin", express.static(path.join(process.cwd(), "admin")));
+
+// ── 🆕 PUBLIC MARKETING & SUPPORT PAGES ────────────────────────
+const publicDir = path.join(process.cwd(), "public");
+const staticAssetsDir = path.join(publicDir, "assets");
+
+if (fs.existsSync(staticAssetsDir)) {
+  app.use("/public/assets", express.static(staticAssetsDir));
+}
+
+function serveStaticPage(route: string, fileName: string) {
+  app.get(route, (_req, res) => {
+    const target = path.join(publicDir, fileName);
+    if (!fs.existsSync(target)) {
+      res.status(404).send("Resource not found");
+      return;
+    }
+    res.setHeader("Cache-Control", "public, max-age=600");
+    res.sendFile(target);
+  });
+}
+
+serveStaticPage("/support", "support.html");
+serveStaticPage("/legal/terms", "terms.html");
+serveStaticPage("/channel-info", "channel-info.html");
 
 // ── Webhook de Marketplace (JWT + JSON) - SIN CAMBIOS ────────────
 app.use("/api/marketplace/webhook", marketplaceRouter);
@@ -271,6 +344,8 @@ app.get("/", (_req, res) => {
     </html>
   `);
 });
+
+
 
 // ── 🆕 ERROR HANDLING MIDDLEWARE ─────────────────────────────────
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -14,6 +14,9 @@ interface AzureEncuesta {
   fechaCreacion: string; // ISO timestamp
   estado: string;   // "activa", "cerrada", "archivada"
   tenantId: string; // ID del tenant
+    // Soft delete metadata (opcionales)
+  fechaEliminacion?: string; // ISO timestamp
+  eliminadaPor?: string; // Usuario que eliminó
 }
 
 interface AzureRespuesta {
@@ -355,17 +358,19 @@ export class AzureTableService {
         preguntas: JSON.stringify(encuesta.preguntas),
         creador: encuesta.creador || 'Usuario',
         fechaCreacion: (() => {
-          // 🔧 Fix para fechas que pueden ser string o Date
           if (!encuesta.fechaCreacion) return new Date().toISOString();
           if (encuesta.fechaCreacion instanceof Date) return encuesta.fechaCreacion.toISOString();
           if (typeof encuesta.fechaCreacion === 'string') return encuesta.fechaCreacion;
           return new Date().toISOString();
         })(),
         estado: encuesta.estado || 'activa',
-        tenantId: encuesta.tenantId || 'default_tenant' // Asegurar tenantId
+        tenantId: encuesta.tenantId || 'default_tenant',
+        // ⬇️ si vienen campos de soft delete, los conservamos
+        fechaEliminacion: encuesta.fechaEliminacion,
+        eliminadaPor: encuesta.eliminadaPor
       };
 
-      await this.encuestasTable.upsertEntity(entity);
+      await this.encuestasTable.upsertEntity(entity); // upsert mantiene idempotencia
       console.log(`✅ Encuesta guardada en Azure: ${encuesta.id}`);
       return encuesta.id;
     } catch (error) {
@@ -374,10 +379,65 @@ export class AzureTableService {
     }
   }
 
+  async marcarEncuestaEliminada(encuestaId: string, tenantId: string, eliminadoPor: string) {
+    // Carga y ownership
+    const encuesta = await this.cargarEncuesta(encuestaId);
+    if (!encuesta) throw new Error('survey_not_found');
+    if (encuesta.tenantId !== tenantId) throw new Error('forbidden_tenant');
+
+    const fechaEliminacion = new Date().toISOString();
+    const encuestaEliminada = {
+      ...encuesta,
+      estado: 'eliminada',
+      fechaEliminacion,
+      eliminadaPor: eliminadoPor || 'Admin'
+    };
+
+    await this.guardarEncuesta(encuestaEliminada);
+
+    // (Opcional) también “congelar” o marcar resultados si querés
+    try {
+      const res = await this.cargarResultados(encuestaId, tenantId);
+      if (res) {
+        await this.guardarResultados({
+          ...res,
+          estado: 'eliminada',
+          // Mantengo título/fecha/resumen para auditoría
+        });
+      }
+    } catch (e) {
+      console.warn('⚠️ No se pudo marcar resultados como eliminados (continuo):', e);
+    }
+
+    return { encuestaId, fechaEliminacion };
+  }
+
+  async eliminarEncuestaFisica(encuestaId: string, tenantId: string) {
+    // Verificación
+    const encuesta = await this.cargarEncuesta(encuestaId);
+    if (!encuesta) return;
+    if (encuesta.tenantId !== tenantId) throw new Error('forbidden_tenant');
+
+    // Borrado físico de la encuesta
+    await this.encuestasTable.deleteEntity('ENCUESTA', encuestaId).catch(() => {});
+
+    // Borrado de resultados (si existen)
+    await this.resultadosTable.deleteEntity('RESULTADO', encuestaId).catch(() => {});
+
+    // Borrado de respuestas (puede ser voluminoso; hacerlo con cuidado)
+    const ents = this.respuestasTable.listEntities({
+      queryOptions: { filter: `PartitionKey eq '${encuestaId}'` }
+    });
+    for await (const e of ents) {
+      await this.respuestasTable.deleteEntity(e.partitionKey as string, e.rowKey as string).catch(() => {});
+    }
+
+    console.log(`🧹 Hard delete completado para encuesta ${encuestaId}`);
+  }
+
   async cargarEncuesta(encuestaId: string): Promise<any | null> {
     try {
       const entity = await this.encuestasTable.getEntity('ENCUESTA', encuestaId);
-      
       return {
         id: entity.rowKey,
         titulo: entity.titulo,
@@ -385,8 +445,10 @@ export class AzureTableService {
         preguntas: JSON.parse(entity.preguntas as string),
         creador: entity.creador,
         fechaCreacion: entity.fechaCreacion,
-        estado: entity.estado, // 🆕 Agregar
-        tenantId: entity.tenantId // 🆕 Agregar
+        estado: (entity.estado as string) || 'activa',
+        tenantId: entity.tenantId,
+        fechaEliminacion: entity.fechaEliminacion as string | undefined,
+        eliminadaPor: entity.eliminadaPor as string | undefined
       };
     } catch (error) {
       console.log(`📝 Encuesta no encontrada en Azure: ${encuestaId}`);
@@ -405,20 +467,20 @@ export class AzureTableService {
     }
   }
 
-  async listarEncuestas(tenantId?: string): Promise<any[]> {
+  async listarEncuestas(tenantId?: string, includeDeleted: boolean = false): Promise<any[]> {
     try {
       let filter = "PartitionKey eq 'ENCUESTA'";
-      
-      // 🆕 Agregar filtro por tenant si se proporciona
       if (tenantId) {
         filter += ` and tenantId eq '${tenantId}'`;
       }
-      
-      const entities = this.encuestasTable.listEntities({
-        queryOptions: { filter: filter }
-      });
+      if (!includeDeleted) {
+        // Excluir explícitamente eliminadas
+        filter += ` and (estado ne 'eliminada' or estado eq null)`;
+      }
 
-      const encuestas = [];
+      const entities = this.encuestasTable.listEntities({ queryOptions: { filter } });
+
+      const encuestas: any[] = [];
       for await (const entity of entities) {
         encuestas.push({
           id: entity.rowKey,
@@ -427,12 +489,13 @@ export class AzureTableService {
           preguntas: JSON.parse(entity.preguntas as string),
           creador: entity.creador,
           fechaCreacion: entity.fechaCreacion,
-          estado: entity.estado, // 🔧 Agregar estado que faltaba
-          tenantId: entity.tenantId, // 🔧 Agregar tenantId que faltaba
-          totalRespuestas: 0 // Por ahora, se puede calcular después
+          estado: (entity.estado as string) || 'activa',
+          tenantId: entity.tenantId,
+          fechaEliminacion: entity.fechaEliminacion as string | undefined,
+          eliminadaPor: entity.eliminadaPor as string | undefined,
+          totalRespuestas: 0
         });
       }
-
       return encuestas;
     } catch (error) {
       console.error('❌ Error listando encuestas:', error);

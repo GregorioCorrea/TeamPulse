@@ -1,5 +1,6 @@
 // src/routes/adminRoutes.ts
 import { Router, Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { AzureTableService } from "../services/azureTableService";
 
 const router = Router();
@@ -48,8 +49,6 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
     }
 
     const token = authHeader.substring(7);
-    console.log('🔐 [ADMIN AUTH] Token length:', token.length);
-    console.log('🔐 [ADMIN AUTH] Token preview:', token.substring(0, 50) + '...');
     
     // Validar token JWT
     const decodedUser = await validateJWTToken(token);
@@ -101,7 +100,7 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
 async function validateJWTToken(token: string): Promise<any> {
   try {
     console.log('🔐 [JWT] Starting token validation...');
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log('🔐 [JWT] Development mode - returning mock user');
       return {
@@ -112,49 +111,28 @@ async function validateJWTToken(token: string): Promise<any> {
       };
     }
 
-    // Extraer datos reales del token JWT
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      console.log('🔐 [JWT] Token payload preview:', {
-        payload
-      });
-      
-      const userData = {
-        userId: payload.sub || payload.oid,
-        tenantId: payload.tid,
-        userName: payload.name || payload.preferred_username || 'Unknown User',
-        email: payload.email || payload.upn || `${payload.sub}@${payload.tid}.onmicrosoft.com`
-      };
+    // Decodificar payload de JWT sin verificar firma (solo extracción de claims)
+    // ⚠️ Nota: Para producción, validar firma con jwks (Entra). Esto es lectura de claims.
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadJson = Buffer.from(parts[1], 'base64').toString('utf8');
+    const payload = JSON.parse(payloadJson);
 
-      console.log('🔐 [JWT] Extracted user data:', userData); // ← Ver datos extraídos
-      
-      // 🆕 AUTO-AGREGAR como admin si es el primer usuario del tenant
-      try {
-        const existingAdmins = await azureService.listarAdminsEnTenant(userData.tenantId);
-        
-        if (existingAdmins.length === 0) {
-          console.log(`🚀 Auto-adding first user as admin: ${userData.email}`);
-          
-          await azureService.agregarAdminUser(
-            userData.userId,
-            userData.tenantId,
-            userData.email as string,
-            userData.userName as string,
-            'Auto-promotion from first login'
-          );
-          
-          console.log(`✅ Auto-promoted to admin: ${userData.userName}`);
-        }
-      } catch (autoAddError) {
-        console.warn(`⚠️ Auto-add admin failed:`, autoAddError);
-      }
-      
-      return userData;
-      
-    } catch (parseError) {
-      console.error('🔐 [JWT] Error parsing token:', parseError);
-      return null;
-    }
+    const userData = {
+      userId: payload.sub || payload.oid,
+      tenantId: payload.tid,
+      userName: payload.name || payload.preferred_username || 'Unknown User',
+      email: payload.email || payload.upn || `${payload.sub}@${payload.tid}.onmicrosoft.com`
+    };
+
+    console.log('🔐 [JWT] Extracted user data:', {
+      userId: userData.userId,
+      tenantId: userData.tenantId,
+      name: userData.userName
+    });
+
+    // 🚫 IMPORTANTE: no hacer auto‑promoción acá (se maneja en checkAdminPermissions).
+    return userData;
 
   } catch (error) {
     console.error('🔐 [JWT] Error validating JWT:', error);
@@ -162,7 +140,8 @@ async function validateJWTToken(token: string): Promise<any> {
   }
 }
 
-// En adminRoutes.ts - REEMPLAZAR el bloque de auto-promoción por:
+
+// Bloque de auto-promoción
 async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
   try {
     // 1. Verificar si ya es admin
@@ -216,6 +195,53 @@ async function checkMarketplaceSubscription(userId: string, tenantId: string) {
     return null;
   }
 }
+
+// ────────────────────────────────────────────────────────────
+// GUARDS DE ROL Y PLAN (locales a adminRoutes)
+// ────────────────────────────────────────────────────────────
+
+function requireAdmin(req: AuthenticatedRequest, res: Response, next: any) {
+  if (req.user?.isAdmin) return next();
+  return res.status(403).json({
+    error: 'forbidden_role',
+    message: 'Se requieren privilegios de administrador'
+  });
+}
+
+// Usamos import dinámico para no generar ciclos
+function requirePlan(allowed: Array<'free' | 'pro' | 'enterprise'>) {
+  // Normalizador de planes: acepta variantes y devuelve el slug estándar
+  const normalizePlan = (p: string | undefined | null): 'free' | 'pro' | 'enterprise' => {
+    const v = (p || '').toLowerCase().trim();
+    if (v === 'enterprise' || v === 'ent' || v === 'enterp' || v === 'enterpriseplan') return 'enterprise';
+    if (v === 'pro' || v === 'professional') return 'pro';
+    return 'free';
+  };
+
+  return async (req: AuthenticatedRequest, res: Response, next: any) => {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return res.status(400).json({ error: 'Tenant ID required' });
+
+      const { getPlan } = await import("../middleware/planLimiter");
+      // getPlan puede devolver 'free' | 'pro' | 'enterprise' | 'ent' | etc.
+      const rawPlan = await getPlan(tenantId);
+      const plan = normalizePlan(rawPlan as unknown as string);
+
+      if (!allowed.includes(plan)) {
+        return res.status(402).json({
+          error: 'plan_not_allowed',
+          message: `Tu plan (${plan}) no habilita esta acción`
+        });
+      }
+      return next();
+    } catch (e) {
+      console.error('❌ Error en requirePlan:', e);
+      return res.status(500).json({ error: 'plan_check_failed' });
+    }
+  };
+}
+
 
 // ────────────────────────────────────────────────────────────
 // RUTAS DEL PANEL DE ADMINISTRACIÓN
@@ -293,7 +319,7 @@ router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Re
 });
 
 // 📋 GET /api/admin/surveys - Listar todas las encuestas con metadata extendida
-router.get('/surveys', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log(`📋 Admin surveys list requested by: ${req.user?.userName}`);
 
@@ -391,8 +417,128 @@ router.get('/surveys', validateTeamsSSO, async (req: AuthenticatedRequest, res: 
   }
 });
 
+// ➕ POST /api/admin/surveys - Crear una nueva encuesta desde el panel
+router.post(
+  '/surveys',
+  validateTeamsSSO,
+  requireAdmin,
+  requirePlan(['free', 'pro', 'enterprise']),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) {
+        res.status(400).json({
+          error: 'tenant_required',
+          message: 'Tenant ID es requerido para crear encuestas'
+        });
+        return;
+      }
+
+      const { titulo, objetivo, preguntas, basadoEnTemplate, tags } = req.body || {};
+
+      if (!titulo || !objetivo) {
+        res.status(400).json({
+          error: 'missing_fields',
+          message: 'Título y objetivo son obligatorios'
+        });
+        return;
+      }
+
+      if (!preguntas || !Array.isArray(preguntas) || preguntas.length === 0) {
+        res.status(400).json({
+          error: 'invalid_questions',
+          message: 'Debes incluir al menos una pregunta con opciones'
+        });
+        return;
+      }
+
+      const preguntasSanitizadas = [] as Array<{ pregunta: string; opciones: string[] }>;
+      for (let i = 0; i < preguntas.length; i++) {
+        const pregunta = preguntas[i];
+        const textoPregunta = (pregunta?.pregunta || '').toString().trim();
+        const opciones = Array.isArray(pregunta?.opciones)
+          ? pregunta.opciones.map((opt: string) => (opt || '').toString().trim()).filter(Boolean)
+          : [];
+
+        if (!textoPregunta) {
+          res.status(400).json({
+            error: 'invalid_question_text',
+            message: `La pregunta ${i + 1} necesita un texto descriptivo`
+          });
+          return;
+        }
+
+        if (opciones.length < 2) {
+          res.status(400).json({
+            error: 'invalid_question_options',
+            message: `La pregunta ${i + 1} requiere al menos dos opciones`
+          });
+          return;
+        }
+
+        preguntasSanitizadas.push({ pregunta: textoPregunta, opciones });
+      }
+
+      const baseSlug = titulo
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40);
+      const uniqueSuffix = randomUUID().split('-')[0];
+      const encuestaId = `${baseSlug || 'encuesta'}-${uniqueSuffix}`;
+
+      const ahora = new Date();
+      const creador = req.user?.userName || req.user?.userId || 'Administrador';
+
+      const nuevaEncuesta = {
+        id: encuestaId,
+        titulo: titulo.trim(),
+        objetivo: objetivo.trim(),
+        preguntas: preguntasSanitizadas,
+        tenantId,
+        creador,
+        estado: 'activa',
+        fechaCreacion: ahora.toISOString(),
+        ultimaModificacion: ahora,
+        totalRespuestas: 0,
+        basadoEnTemplate: basadoEnTemplate || null,
+        tags: Array.isArray(tags) ? tags : []
+      };
+
+      await azureService.guardarEncuesta(nuevaEncuesta);
+
+      await azureService.guardarResultados({
+        encuestaId,
+        titulo: nuevaEncuesta.titulo,
+        fechaCreacion: ahora,
+        estado: 'activa',
+        totalParticipantes: 0,
+        respuestas: [],
+        resumen: {}
+      });
+
+      console.log(`✅ Nueva encuesta creada: ${encuestaId} por ${creador}`);
+
+      res.status(201).json({
+        success: true,
+        message: 'Encuesta creada exitosamente',
+        data: nuevaEncuesta,
+        timestamp: ahora.toISOString(),
+        createdBy: creador
+      });
+
+    } catch (error) {
+      console.error('❌ Error creating survey from admin panel:', error);
+      res.status(500).json({
+        error: 'failed_to_create_survey',
+        message: 'Error al crear la encuesta'
+      });
+    }
+  }
+);
+
 // 📝 PUT /api/admin/surveys/:id - Actualizar encuesta completa
-router.put('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { titulo, objetivo, preguntas } = req.body;
@@ -494,7 +640,7 @@ router.put('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest, r
 });
 
 // ⏸️ PATCH /api/admin/surveys/:id/status - Cambiar estado de encuesta
-router.patch('/surveys/:id/status', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.patch('/surveys/:id/status', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -564,7 +710,7 @@ router.patch('/surveys/:id/status', validateTeamsSSO, async (req: AuthenticatedR
 });
 
 // 📄 POST /api/admin/surveys/:id/duplicate - Duplicar encuesta
-router.post('/surveys/:id/duplicate', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/surveys/:id/duplicate', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { newTitle } = req.body;
@@ -632,7 +778,7 @@ router.post('/surveys/:id/duplicate', validateTeamsSSO, async (req: Authenticate
 });
 
 // 🗑️ DELETE /api/admin/surveys/:id - Eliminar encuesta
-router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { confirm } = req.query;
@@ -686,6 +832,7 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
       return new Date().toISOString();
     })();
 
+    
     // Marcar como eliminada
     const encuestaEliminada = {
       ...encuesta,
@@ -717,7 +864,7 @@ router.delete('/surveys/:id', validateTeamsSSO, async (req: AuthenticatedRequest
 });
 
 // 📊 GET /api/admin/surveys/:id/responses - Ver respuestas detalladas
-router.get('/surveys/:id/responses', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/surveys/:id/responses', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { format = 'json' } = req.query;
@@ -819,7 +966,7 @@ router.get('/surveys/:id/responses', validateTeamsSSO, async (req: Authenticated
 // 📊 DASHBOARD EJECUTIVO - Agregar estas rutas al final de adminRoutes.ts
 
 // 📈 GET /api/admin/dashboard/metrics - Métricas KPI en tiempo real
-router.get('/dashboard/metrics', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/dashboard/metrics', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log(`📈 Dashboard metrics requested by: ${req.user?.userName}`);
 
@@ -949,7 +1096,7 @@ router.get('/dashboard/metrics', validateTeamsSSO, async (req: AuthenticatedRequ
 });
 
 // 📊 GET /api/admin/dashboard/charts - Datos para gráficos
-router.get('/dashboard/charts', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/dashboard/charts', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log(`📊 Dashboard charts requested by: ${req.user?.userName}`);
 

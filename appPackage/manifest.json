@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.21/MicrosoftTeams.schema.json",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "manifestVersion": "1.21",
   "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",
   "name": {
@@ -10,13 +10,13 @@
   "developer": {
     "name": "INCUBA CONSULTORES",
     "mpnId": "4891338",
-    "websiteUrl": "https://teampulse.incumate.io",
+    "websiteUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/support",
     "privacyUrl": "https://teampulse.incumate.io/privacy.html",
-    "termsOfUseUrl": "https://teampulse.incumate.io/terms.html"
+    "termsOfUseUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/legal/terms"
   },
   "description": {
     "short": "Bot inteligente de encuestas y feedback para Microsoft Teams con insights de IA",
-    "full": "TeamPulse revoluciona la recopilación de feedback de equipos con creación instantánea de encuestas, recolección de respuestas en tiempo real y análisis potenciado por IA. Crea encuestas profesionales desde plantillas (RRHH, Clientes, Capacitación, 360°), recopila respuestas anónimas y obtén insights inteligentes — todo sin salir de Microsoft Teams.\n\nCaracterísticas incluyen:\n• Plantillas profesionales pre-construidas\n• Recolección de respuestas anónimas\n• Análisis en tiempo real con insights de IA\n• Almacenamiento en Azure cloud\n• Seguridad de nivel empresarial\n• Fácil integración con flujos de trabajo existentes\n\nConfiado por organizaciones en todo el mundo para gestión simplificada de feedback.\n\nCompatible también con Microsoft Office, Microsoft Outlook, Microsoft Outlook Web\n\n────────────────────────────────────────────────\n🛡️  REPORTAR CONTENIDO OBJETABLE\nSi encuentras información incorrecta, inapropiada u ofensiva —incluido texto generado por IA— avísanos enseguida:\n\n• Correo: support@incumate.io\n• Asunto: \"TeamPulse – reporte de contenido\"\n• Incluye la palabra/frase exacta, la fecha y la captura de pantalla (o ID del mensaje) para que podamos revisarlo.\n\nNuestro equipo revisa y responde en menos de 24 h. Las encuestas pueden moderarse o eliminarse si infringen nuestras políticas de uso aceptable.\n────────────────────────────────────────────────\n\n────────────────────────────────────────────────\n🚀 COMENZAR / REGISTRO\nPara comenzar inmediatamente crea tu cuenta gratuita en:\nhttps://teampulse.incumate.io\n📚 CENTRO DE AYUDA\nGuías paso a paso, FAQs y videotutoriales:\nhttps://teampulse.incumate.io/support.html\n✉️ CONTACTO / SOPORTE\nDudas o problemas: support@incumate.io (respondemos <24 h)\n────────────────────────────────────────────────"
+    "full": "TeamPulse revoluciona la recopilación de feedback de equipos con creación instantánea de encuestas, recolección de respuestas en tiempo real y análisis potenciado por IA. Crea encuestas profesionales desde plantillas (RRHH, Clientes, Capacitación, 360°), recopila respuestas anónimas y obtén insights inteligentes — todo sin salir de Microsoft Teams.\n\nCaracterísticas incluyen:\n• Plantillas profesionales pre-construidas\n• Recolección de respuestas anónimas\n• Análisis en tiempo real con insights de IA\n• Almacenamiento en Azure cloud\n• Seguridad de nivel empresarial\n• Fácil integración con flujos de trabajo existentes\n\nConfiado por organizaciones en todo el mundo para gestión simplificada de feedback.\n\nCompatible con Microsoft Teams (teams.microsoft.com y cloud.microsoft), Microsoft Outlook (web y escritorio) y Microsoft 365 (office.com).\n\n────────────────────────────────────────────────\n🛡️  REPORTAR CONTENIDO OBJETABLE\nSi encuentras información incorrecta, inapropiada u ofensiva —incluido texto generado por IA— avísanos enseguida:\n\n• Correo: support@incumate.io\n• Asunto: \"TeamPulse – reporte de contenido\"\n• Incluye la palabra/frase exacta, la fecha y la captura de pantalla (o ID del mensaje) para que podamos revisarlo.\n\nNuestro equipo revisa y responde en menos de 24 h. Las encuestas pueden moderarse o eliminarse si infringen nuestras políticas de uso aceptable.\n────────────────────────────────────────────────\n\n────────────────────────────────────────────────\n🚀 COMENZAR / REGISTRO\nPara comenzar inmediatamente crea tu cuenta gratuita en:\nhttps://teampulse.incumate.io\n📚 CENTRO DE AYUDA\nGuías paso a paso, FAQs y videotutoriales:\nhttps://teampulse.incumate.io/support.html\n✉️ CONTACTO / SOPORTE\nDudas o problemas: support@incumate.io (respondemos <24 h)\n────────────────────────────────────────────────"
   },
   "icons": {
     "outline": "outline.png",
@@ -67,12 +67,20 @@
       "name": "Admin Panel",
       "contentUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/admin",
       "websiteUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/admin",
-      "scopes": ["personal"]
+      "scopes": ["personal"],
+      "context": ["personalTab"]
     }
   ],
   "validDomains": [
     "incumate.io",
-    "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net"
+    "teampulse.incumate.io",
+    "teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net",
+    "res.cdn.office.net",
+    "*.teams.microsoft.com",
+    "*.cloud.microsoft",
+    "outlook.office.com",
+    "outlook.office365.com",
+    "*.microsoft365.com"
   ],
   "webApplicationInfo": {
     "id": "4db8b9d3-589d-4da7-9b6a-1912d53efb2e",

@@ -1,0 +1,14 @@
+Logo Usage Guidelines
+---------------------
+
+Primary logo: wordmark "TeamPulse" with pulse icon.
+
+Safe area: maintain clear space equal to the height of the letter "T" around the logo.
+
+Backgrounds:
+- Light mode: use the full-color logo. Hex colors #0B5CFF and #764BA2.
+- Dark mode: use the white variant with 80% opacity shadow.
+
+Minimum size: 120 px width for digital.
+
+Do not rotate, stretch, or recolor the logomark outside the defined palette.

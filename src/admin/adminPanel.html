@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TeamPulse - Panel de Administración</title>
     <!-- Teams SDK -->
-    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script src="https://res.cdn.office.net/teams-js/2.22.0/js/MicrosoftTeams.min.js"></script>
     <!-- FluentUI Web Components -->
     <script type="module" src="https://unpkg.com/@fluentui/web-components@2.5.16/dist/web-components.min.js"></script>
     <style>
@@ -1523,11 +1523,9 @@
                             aria-describedby="search-help">
                         <div id="search-help" class="sr-only">Escribe para filtrar encuestas. Usa ESC para limpiar.</div>
                     </div>
-                    <!-- Saco el botón hasta que completemos la creación de encuestas estáticas
-                    <fluent-button appearance="accent" onclick="showCreateModal()">
+                    <fluent-button appearance="accent" onclick="openCreateModal()">
                         ➕ Nueva Encuesta
                     </fluent-button>
-                    -->
                     <fluent-button appearance="stealth" onclick="refreshData()">
                         🔄 Actualizar
                     </fluent-button>
@@ -1568,9 +1566,42 @@
                     <div class="empty-icon">📋</div>
                     <h3>No hay encuestas disponibles</h3>
                     <p>Crea tu primera encuesta para comenzar</p>
-                    <button class="btn btn-primary" onclick="showCreateModal()" aria-label="Crear primera encuesta">
+                    <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Crear primera encuesta">
                         ➕ Crear Primera Encuesta
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Survey Modal -->
+        <div id="createModal" class="modal">
+            <div class="modal-content" style="max-width: 720px;">
+                <div class="modal-header">
+                    <h2 class="modal-title">➕ Crear Nueva Encuesta</h2>
+                    <button class="close" onclick="closeCreateModal()">&times;</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="newSurveyTitle">Título de la encuesta</label>
+                    <input type="text" id="newSurveyTitle" class="form-input" placeholder="Ej: Encuesta de clima laboral Q1" aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="newSurveyObjective">Objetivo</label>
+                    <textarea id="newSurveyObjective" class="form-input" rows="3" placeholder="Describe el objetivo de esta encuesta" aria-required="true"></textarea>
+                </div>
+
+                <div class="questions-section">
+                    <div class="section-title">Preguntas</div>
+                    <div id="newQuestionsContainer"></div>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addNewSurveyQuestion()" style="margin-top: 12px;">
+                        ➕ Agregar Pregunta
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <fluent-button appearance="stealth" onclick="closeCreateModal()">Cancelar</fluent-button>
+                    <fluent-button appearance="accent" onclick="submitNewSurvey()">✅ Crear Encuesta</fluent-button>
                 </div>
             </div>
         </div>
@@ -1648,6 +1679,7 @@
             let authToken = null;
             let currentSurveyId = null;
             let surveysData = [];
+            let newSurveyDraft = null;
             let isTeamsContext = false;
             let authAttempted = false;
 
@@ -2102,6 +2134,218 @@
                 makeSurveyCardsFocusable();
             }
 
+            function resetNewSurveyDraft() {
+                newSurveyDraft = {
+                    titulo: '',
+                    objetivo: '',
+                    preguntas: [
+                        {
+                            pregunta: '¿Cómo calificarías esta experiencia?',
+                            opciones: ['Excelente', 'Buena', 'Regular', 'Mala']
+                        }
+                    ]
+                };
+            }
+
+            function openCreateModal() {
+                resetNewSurveyDraft();
+                const modal = document.getElementById('createModal');
+                const titleInput = document.getElementById('newSurveyTitle');
+                const objectiveInput = document.getElementById('newSurveyObjective');
+
+                if (titleInput) titleInput.value = '';
+                if (objectiveInput) objectiveInput.value = '';
+
+                renderNewSurveyQuestions();
+
+                if (modal) {
+                    modal.style.display = 'block';
+                    setTimeout(() => titleInput?.focus(), 50);
+                }
+            }
+
+            function renderNewSurveyQuestions() {
+                const container = document.getElementById('newQuestionsContainer');
+                if (!container || !newSurveyDraft) return;
+
+                const questionsHTML = newSurveyDraft.preguntas.map((question, index) => `
+                    <div class="question-item">
+                        <div class="question-header">
+                            <div class="question-number">${index + 1}</div>
+                            <button class="btn btn-danger btn-small" onclick="removeNewSurveyQuestion(${index})" aria-label="Eliminar pregunta ${index + 1}">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                        <input type="text" class="form-input" placeholder="Texto de la pregunta" 
+                            value="${question.pregunta}" onchange="updateNewSurveyQuestion(${index}, 'pregunta', this.value)">
+                        <div class="options-list">
+                            ${question.opciones.map((option, optIndex) => `
+                                <div class="option-tag">
+                                    <input type="text" value="${option}" 
+                                        onchange="updateNewSurveyOption(${index}, ${optIndex}, this.value)"
+                                        style="background: none; border: none; width: 100%; color: inherit;">
+                                    <button onclick="removeNewSurveyOption(${index}, ${optIndex})" style="margin-left: 8px; background: none; border: none; color: #e53e3e; cursor: pointer;">×</button>
+                                </div>
+                            `).join('')}
+                            <button class="btn btn-secondary btn-small" onclick="addNewSurveyOption(${index})" style="margin-top: 8px;" aria-label="Agregar opción a pregunta ${index + 1}">
+                                ➕ Agregar Opción
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = questionsHTML;
+            }
+
+            function addNewSurveyQuestion() {
+                if (!newSurveyDraft) resetNewSurveyDraft();
+
+                newSurveyDraft.preguntas.push({
+                    pregunta: 'Nueva pregunta',
+                    opciones: ['Opción 1', 'Opción 2']
+                });
+
+                renderNewSurveyQuestions();
+            }
+
+            function removeNewSurveyQuestion(index) {
+                if (!newSurveyDraft) return;
+                if (newSurveyDraft.preguntas.length <= 1) {
+                    showNotification('La encuesta debe tener al menos una pregunta', 'error');
+                    return;
+                }
+
+                newSurveyDraft.preguntas.splice(index, 1);
+                renderNewSurveyQuestions();
+            }
+
+            function updateNewSurveyQuestion(index, field, value) {
+                if (!newSurveyDraft) return;
+                newSurveyDraft.preguntas[index][field] = value;
+            }
+
+            function addNewSurveyOption(questionIndex) {
+                if (!newSurveyDraft) return;
+                newSurveyDraft.preguntas[questionIndex].opciones.push('Nueva opción');
+                renderNewSurveyQuestions();
+            }
+
+            function updateNewSurveyOption(questionIndex, optionIndex, value) {
+                if (!newSurveyDraft) return;
+                newSurveyDraft.preguntas[questionIndex].opciones[optionIndex] = value;
+            }
+
+            function removeNewSurveyOption(questionIndex, optionIndex) {
+                if (!newSurveyDraft) return;
+                if (newSurveyDraft.preguntas[questionIndex].opciones.length <= 2) {
+                    showNotification('Cada pregunta necesita al menos dos opciones', 'error');
+                    return;
+                }
+
+                newSurveyDraft.preguntas[questionIndex].opciones.splice(optionIndex, 1);
+                renderNewSurveyQuestions();
+            }
+
+            function closeCreateModal() {
+                const modal = document.getElementById('createModal');
+                if (modal) modal.style.display = 'none';
+                newSurveyDraft = null;
+            }
+
+            async function submitNewSurvey() {
+                const titleInput = document.getElementById('newSurveyTitle');
+                const objectiveInput = document.getElementById('newSurveyObjective');
+
+                const titulo = titleInput?.value.trim() || '';
+                const objetivo = objectiveInput?.value.trim() || '';
+
+                if (!titulo || !objetivo) {
+                    showNotification('Completa título y objetivo para continuar', 'error');
+                    return;
+                }
+
+                if (!newSurveyDraft || newSurveyDraft.preguntas.length === 0) {
+                    showNotification('Agrega al menos una pregunta a la encuesta', 'error');
+                    return;
+                }
+
+                const preguntasValidas = [];
+                for (const pregunta of newSurveyDraft.preguntas) {
+                    const textoPregunta = (pregunta.pregunta || '').trim();
+                    const opcionesLimpias = (pregunta.opciones || [])
+                        .map(opt => (opt || '').trim())
+                        .filter(opt => opt.length > 0);
+
+                    if (!textoPregunta) {
+                        showNotification('Cada pregunta debe tener un texto descriptivo', 'error');
+                        return;
+                    }
+
+                    if (opcionesLimpias.length < 2) {
+                        showNotification('Cada pregunta necesita al menos dos opciones válidas', 'error');
+                        return;
+                    }
+
+                    preguntasValidas.push({
+                        pregunta: textoPregunta,
+                        opciones: opcionesLimpias
+                    });
+                }
+
+                const payload = {
+                    titulo,
+                    objetivo,
+                    preguntas: preguntasValidas
+                };
+
+                try {
+                    if (!authToken) {
+                        const demoSurvey = {
+                            id: `demo_${Date.now()}`,
+                            ...payload,
+                            creador: 'Demo Admin',
+                            fechaCreacion: new Date(),
+                            estado: 'activa',
+                            totalRespuestas: 0
+                        };
+
+                        surveysData.unshift(demoSurvey);
+                        renderSurveys(surveysData);
+                        updateStatistics(surveysData);
+                        closeCreateModal();
+                        showNotification('Encuesta creada (modo demo)', 'success');
+                        return;
+                    }
+
+                    const response = await makeAPICall('/surveys', {
+                        method: 'POST',
+                        body: payload
+                    });
+
+                    const createdSurvey = response.data || response;
+                    const surveyToInsert = {
+                        id: createdSurvey.id,
+                        titulo: createdSurvey.titulo,
+                        objetivo: createdSurvey.objetivo,
+                        preguntas: createdSurvey.preguntas,
+                        creador: createdSurvey.creador,
+                        fechaCreacion: createdSurvey.fechaCreacion ? new Date(createdSurvey.fechaCreacion) : new Date(),
+                        estado: createdSurvey.estado || 'activa',
+                        totalRespuestas: createdSurvey.totalRespuestas || 0
+                    };
+
+                    surveysData.unshift(surveyToInsert);
+                    renderSurveys(surveysData);
+                    updateStatistics(surveysData);
+                    closeCreateModal();
+                    showNotification('Encuesta creada exitosamente', 'success');
+
+                } catch (error) {
+                    console.error('❌ Error creating survey:', error);
+                    showNotification('Error al crear la encuesta. Intenta nuevamente.', 'error');
+                }
+            }
+
             // Survey actions (same as before but with improved error handling)
             function editSurvey(surveyId) {
                 const survey = surveysData.find(s => s.id === surveyId);
@@ -2526,10 +2770,6 @@
                     console.error('❌ Error deleting survey:', error);
                     showNotification('Error al eliminar encuesta', 'error');
                 }
-            }
-
-            function showCreateModal() {
-                window.open('https://teams.microsoft.com/l/chat/0/0?users=4db8b9d3-589d-4da7-9b6a-1912d53efb2e&message=crear%20encuesta', '_blank');
             }
 
             async function refreshData() {
