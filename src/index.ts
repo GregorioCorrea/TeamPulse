@@ -30,6 +30,7 @@ app.use(
 // CORS – compatible con Teams/SSO y Admin Panel
 const allowedOrigins = [
   /^https:\/\/teampulse\.incumate\.io$/i,
+  /^https:\/\/teampulse-[a-z0-9]+\.brazilsouth-01\.azurewebsites\.net$/i,
   /^https:\/\/.*\.teams\.microsoft\.com$/i,
   /^https:\/\/teams\.microsoft\.com$/i,
   /^https:\/\/login\.microsoftonline\.com$/i,
