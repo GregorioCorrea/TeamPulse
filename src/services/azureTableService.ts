@@ -438,6 +438,8 @@ export class AzureTableService {
   async cargarEncuesta(encuestaId: string): Promise<any | null> {
     try {
       const entity = await this.encuestasTable.getEntity('ENCUESTA', encuestaId);
+      const entityTenant = (entity as any).tenantId || (entity as any).tenantid || null;
+
       return {
         id: entity.rowKey,
         titulo: entity.titulo,
@@ -446,7 +448,7 @@ export class AzureTableService {
         creador: entity.creador,
         fechaCreacion: entity.fechaCreacion,
         estado: (entity.estado as string) || 'activa',
-        tenantId: entity.tenantId,
+        tenantId: entityTenant,
         fechaEliminacion: entity.fechaEliminacion as string | undefined,
         eliminadaPor: entity.eliminadaPor as string | undefined
       };
@@ -470,9 +472,6 @@ export class AzureTableService {
   async listarEncuestas(tenantId?: string, includeDeleted: boolean = false): Promise<any[]> {
     try {
       let filter = "PartitionKey eq 'ENCUESTA'";
-      if (tenantId) {
-        filter += ` and tenantId eq '${tenantId}'`;
-      }
       if (!includeDeleted) {
         // Excluir explícitamente eliminadas
         filter += ` and (estado ne 'eliminada' or estado eq null)`;
@@ -482,6 +481,12 @@ export class AzureTableService {
 
       const encuestas: any[] = [];
       for await (const entity of entities) {
+        const entityTenant = (entity as any).tenantId || (entity as any).tenantid || null;
+
+        if (tenantId && entityTenant !== tenantId) {
+          continue;
+        }
+
         encuestas.push({
           id: entity.rowKey,
           titulo: entity.titulo,
@@ -490,7 +495,7 @@ export class AzureTableService {
           creador: entity.creador,
           fechaCreacion: entity.fechaCreacion,
           estado: (entity.estado as string) || 'activa',
-          tenantId: entity.tenantId,
+          tenantId: entityTenant,
           fechaEliminacion: entity.fechaEliminacion as string | undefined,
           eliminadaPor: entity.eliminadaPor as string | undefined,
           totalRespuestas: 0
