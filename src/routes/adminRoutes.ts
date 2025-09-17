@@ -7,6 +7,74 @@ import { localAdminStore } from "../services/localAdminStore";
 const router = Router();
 const azureService = new AzureTableService();
 
+interface SyncResult {
+  promotedIds: string[];
+  failed: Array<{ id: string; reason: string }>;
+}
+
+async function syncLocalSurveysToAzure(defaultTenant?: string): Promise<SyncResult> {
+  const localSurveys = localAdminStore
+    .listSurveys()
+    .filter((survey) => survey.storageSource === 'local');
+
+  const promotedIds: string[] = [];
+  const failed: Array<{ id: string; reason: string }> = [];
+
+  for (const survey of localSurveys) {
+    const tenantId = survey.tenantId || defaultTenant;
+
+    if (!tenantId) {
+      failed.push({ id: survey.id, reason: 'tenant_missing' });
+      continue;
+    }
+
+    try {
+      const surveyPayload = {
+        ...survey,
+        tenantId,
+        fechaCreacion: survey.fechaCreacion,
+        estado: survey.estado || 'activa',
+        totalRespuestas: survey.totalRespuestas || 0,
+      };
+
+      await azureService.guardarEncuesta(surveyPayload);
+
+      const localResults = localAdminStore.getResults(survey.id);
+      if (localResults) {
+        await azureService.guardarResultados({
+          encuestaId: survey.id,
+          titulo: localResults.titulo || survey.titulo,
+          fechaCreacion: new Date(localResults.fechaCreacion || survey.fechaCreacion),
+          estado: localResults.estado || survey.estado || 'activa',
+          totalParticipantes: localResults.totalParticipantes || 0,
+          respuestas: localResults.respuestas || [],
+          resumen: localResults.resumen || {},
+        });
+      }
+
+      try {
+        const { registerSurveyCreation } = await import("../middleware/planLimiter");
+        await registerSurveyCreation(tenantId);
+      } catch (planError) {
+        console.warn(`⚠️ No se pudo registrar consumo de plan para ${tenantId}:`, planError);
+      }
+
+      localAdminStore.deleteSurvey(survey.id);
+      promotedIds.push(survey.id);
+      console.log(`☁️ Encuesta sincronizada desde almacenamiento local: ${survey.id}`);
+
+    } catch (error) {
+      console.error(`❌ Error sincronizando encuesta local ${survey.id}:`, error);
+      failed.push({
+        id: survey.id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { promotedIds, failed };
+}
+
 // ────────────────────────────────────────────────────────────
 // MIDDLEWARE DE AUTENTICACIÓN Y AUTORIZACIÓN
 // ────────────────────────────────────────────────────────────
@@ -335,6 +403,7 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
 
     let encuestas: any[] = [];
     let azureError: any = null;
+    let syncStatus: SyncResult = { promotedIds: [], failed: [] };
 
     try {
       encuestas = await azureService.listarEncuestas(tenantId);
@@ -342,6 +411,25 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       azureError = error;
       console.error('⚠️ No se pudieron obtener encuestas desde Azure, usando almacenamiento local:', error);
       encuestas = [];
+    }
+
+    if (!azureError) {
+      const pendingLocal = localAdminStore
+        .listSurveys()
+        .some((survey) => survey.storageSource === 'local');
+
+      if (pendingLocal) {
+        syncStatus = await syncLocalSurveysToAzure(tenantId);
+        if (syncStatus.promotedIds.length > 0) {
+          try {
+            encuestas = await azureService.listarEncuestas(tenantId);
+          } catch (refreshError) {
+            console.error('⚠️ No se pudieron recargar encuestas tras la sincronización:', refreshError);
+            azureError = refreshError;
+            encuestas = [];
+          }
+        }
+      }
     }
 
     // Enriquecer cada encuesta con datos de respuestas
@@ -357,7 +445,8 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
             ultimaRespuesta: respuestas.length > 0 
               ? new Date(Math.max(...respuestas.map(r => new Date(r.timestamp).getTime())))
               : null,
-            estado: encuesta.estado || 'activa' // Default estado
+            estado: encuesta.estado || 'activa',
+            storageSource: 'azure'
           };
         } catch (error) {
           console.warn(`⚠️ Error enriching survey ${encuesta.id}:`, error);
@@ -365,7 +454,8 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
             ...encuesta,
             totalRespuestas: encuesta.totalRespuestas ?? 0,
             ultimaRespuesta: null,
-            estado: encuesta.estado || 'activa'
+            estado: encuesta.estado || 'activa',
+            storageSource: 'azure'
           };
         }
       })
@@ -384,6 +474,7 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
           tenantId: survey.tenantId || tenantId,
           totalRespuestas: survey.totalRespuestas || 0,
           ultimaRespuesta: null,
+          storageSource: survey.storageSource || 'local'
         }));
 
       combinedSurveys = [...complement, ...encuestasEnriquecidas];
@@ -435,7 +526,8 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       filters: { search, status, creator },
       timestamp: new Date().toISOString(),
       storageSource: azureError ? 'local' : 'azure',
-      fallbackCount: fallbackSurveys.length
+      fallbackCount: fallbackSurveys.filter((s) => s.storageSource === 'local').length,
+      syncStatus
     });
 
   } catch (error) {
