@@ -471,17 +471,18 @@ export class AzureTableService {
 
   async listarEncuestas(tenantId?: string, includeDeleted: boolean = false): Promise<any[]> {
     try {
-      let filter = "PartitionKey eq 'ENCUESTA'";
-      if (!includeDeleted) {
-        // Excluir explícitamente eliminadas
-        filter += ` and (estado ne 'eliminada' or estado eq null)`;
-      }
+      const filter = "PartitionKey eq 'ENCUESTA'";
 
       const entities = this.encuestasTable.listEntities({ queryOptions: { filter } });
 
       const encuestas: any[] = [];
       for await (const entity of entities) {
         const entityTenant = (entity as any).tenantId || (entity as any).tenantid || null;
+        const estadoEntidad = ((entity as any).estado as string) || 'activa';
+
+        if (!includeDeleted && estadoEntidad === 'eliminada') {
+          continue;
+        }
 
         if (tenantId && entityTenant !== tenantId) {
           continue;
@@ -494,7 +495,7 @@ export class AzureTableService {
           preguntas: JSON.parse(entity.preguntas as string),
           creador: entity.creador,
           fechaCreacion: entity.fechaCreacion,
-          estado: (entity.estado as string) || 'activa',
+          estado: estadoEntidad,
           tenantId: entityTenant,
           fechaEliminacion: entity.fechaEliminacion as string | undefined,
           eliminadaPor: entity.eliminadaPor as string | undefined,
