@@ -10,9 +10,9 @@
   "developer": {
     "name": "INCUBA CONSULTORES",
     "mpnId": "4891338",
-    "websiteUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/support",
+    "websiteUrl": "https://teampulse.incumate.io",
     "privacyUrl": "https://teampulse.incumate.io/privacy.html",
-    "termsOfUseUrl": "https://teampulse-e3gvgbhncvemchdf.brazilsouth-01.azurewebsites.net/legal/terms"
+    "termsOfUseUrl": "https://teampulse.incumate.io/terms.html"
   },
   "description": {
     "short": "Bot inteligente de encuestas y feedback para Microsoft Teams con insights de IA",
