@@ -1487,19 +1487,8 @@ app.message(/^exportar\s+(.+)$/i, async (context, state) => {
 
 app.message(/^admin_diagnose$/i, async (context) => {
   try {
-    // Verificar si es administrador - Reemplaza estos IDs con los reales
-    const adminUserIds = [
-      "105af15b-7381-4370-99a0-0cb24dcc6886", // ID de Gregorio Correa en Tenant Incuba
-      // Agrega otros IDs de administradores si es necesario
-    ];
-    
     const userId = context.activity.from.id;
     const userName = context.activity.from.name;
-    
-    if (!adminUserIds.includes(userId)) {
-      await context.sendActivity("🔒 Este comando es solo para administradores.");
-      return;
-    }
     
     await context.sendActivity("🔍 **Iniciando diagnóstico...**");
     
@@ -1507,6 +1496,12 @@ app.message(/^admin_diagnose$/i, async (context) => {
     const tenantId = context.activity.channelData?.tenant?.id;
     const tenantName = context.activity.channelData?.tenant?.name || "Desconocido";
     
+    const member = tenantId && userId ? await azureService.obtenerMiembro(userId, tenantId) : null;
+    if (!member || member.role !== 'admin') {
+      await context.sendActivity("🔒 Este comando es solo para administradores registrados en el portal.");
+      return;
+    }
+
     await context.sendActivity(`📊 **Información de contexto:**
 • Usuario: ${userName} (ID: ${userId})
 • Tenant: ${tenantName} (ID: ${tenantId})
@@ -1607,7 +1602,7 @@ app.message(/^make_me_admin$/i, async (context, state) => {
     await context.sendActivity("👑 **Verificando permisos...**");
     
     // Verificar si hay otros admins en el tenant
-    const existingAdmins = await azureService.listarAdminsEnTenant(tenantId);
+    const existingAdmins = await azureService.listarMiembrosEnTenant(tenantId, ['admin']);
     
     // Si ya hay admins, requerir confirmación especial
     if (existingAdmins.length > 0) {
@@ -1625,13 +1620,14 @@ ${existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n')}
     // Si no hay admins, proceder automáticamente (primer admin)
     const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
     
-    await azureService.agregarAdminUser(
+    await azureService.upsertMiembro({
       userId,
-      tenantId, 
-      userEmail,
-      userName,
-      'First admin - auto-promotion via make_me_admin'
-    );
+      tenantId,
+      email: userEmail,
+      name: userName,
+      role: 'admin',
+      addedBy: 'First admin - auto-promotion via make_me_admin'
+    });
     
     await context.sendActivity(`🎉 **¡Eres el primer administrador de este tenant!** 👑
 
@@ -1661,13 +1657,14 @@ app.message(/^force_make_me_admin$/i, async (context, state) => {
     const tenantId = context.activity.channelData?.tenant?.id;
     const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
     
-    await azureService.agregarAdminUser(
+    await azureService.upsertMiembro({
       userId,
-      tenantId, 
-      userEmail,
-      userName,
-      'Forced admin promotion'
-    );
+      tenantId,
+      email: userEmail,
+      name: userName,
+      role: 'admin',
+      addedBy: 'Forced admin promotion'
+    });
     
     await context.sendActivity(`⚡ **¡Administrador agregado por fuerza!** 👑
 

@@ -333,6 +333,20 @@
             border-color: #667eea;
         }
 
+        .respondent-card .survey-actions {
+            justify-content: flex-end;
+        }
+
+        .respondent-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #64748b;
+            margin: 16px 0;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         .survey-header {
             display: flex;
             justify-content: space-between;
@@ -449,6 +463,63 @@
             font-size: 4rem;
             margin-bottom: 20px;
             opacity: 0.5;
+        }
+
+        .access-section {
+            margin-top: 48px;
+            display: none;
+        }
+
+        .access-section .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .access-section .section-subtitle {
+            color: #64748b;
+            margin: 4px 0 0;
+        }
+
+        .table-wrapper {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+            overflow-x: auto;
+        }
+
+        .members-table .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .members-table th,
+        .members-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .members-table thead {
+            background: rgba(15, 23, 42, 0.03);
+        }
+
+        .members-table .member-name {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .members-table .member-id {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .members-table .member-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .modal {
@@ -1573,7 +1644,7 @@
             </section>
             <!-- Controls -->
             <div class="controls">
-                <div class="controls-row" role="toolbar" aria-label="Controles principales">
+                <div class="controls-row" id="controlsRow" role="toolbar" aria-label="Controles principales">
                     <div class="search-box">
                         <span class="search-icon" aria-hidden="true">🔍</span>
                         <input type="text" 
@@ -1585,13 +1656,13 @@
                             aria-describedby="search-help">
                         <div id="search-help" class="sr-only">Escribe para filtrar encuestas. Usa ESC para limpiar.</div>
                     </div>
-                    <button class="btn btn-primary" type="button" onclick="openCreateModal()">
+                    <button class="btn btn-primary" id="newSurveyButton" type="button" onclick="openCreateModal()">
                         ➕ Nueva Encuesta
                     </button>
-                    <button class="btn btn-secondary" type="button" onclick="refreshData()">
+                    <button class="btn btn-secondary" id="refreshButton" type="button" onclick="refreshData()">
                         🔄 Actualizar
                     </button>
-                    <button class="btn btn-secondary" type="button" onclick="exportAllData()">
+                    <button class="btn btn-secondary" id="exportButton" type="button" onclick="exportAllData()">
                         📊 Exportar Datos
                     </button>
                 </div>
@@ -1634,6 +1705,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Access Management Section (Admins only) -->
+        <section id="accessSection" class="access-section" style="display: none;">
+            <div class="section-header">
+                <div>
+                    <h2>👥 Gestión de accesos</h2>
+                    <p class="section-subtitle">Administra administradores, gestores y usuarios del tenant.</p>
+                </div>
+                <button class="btn btn-primary" type="button" onclick="openMemberModal()">
+                    ➕ Agregar miembro
+                </button>
+            </div>
+            <div id="membersContainer" class="members-table">
+                <p style="text-align: center; margin: 24px 0;">Cargando miembros...</p>
+            </div>
+        </section>
 
         <!-- Create Survey Modal -->
         <div id="createModal" class="modal">
@@ -1735,6 +1822,45 @@
             </div>
         </div>
 
+        <!-- Member Management Modal -->
+        <div id="memberModal" class="modal">
+            <div class="modal-content" style="max-width: 520px;">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="memberModalTitle">👤 Gestionar miembro</h2>
+                    <button class="close" onclick="closeMemberModal()">&times;</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="memberUserId">ID de usuario (AAD Object ID)</label>
+                    <input type="text" id="memberUserId" class="form-input" placeholder="00000000-0000-0000-0000-000000000000" aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="memberName">Nombre</label>
+                    <input type="text" id="memberName" class="form-input" placeholder="Nombre completo" aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="memberEmail">Correo electrónico</label>
+                    <input type="email" id="memberEmail" class="form-input" placeholder="usuario@empresa.com" aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="memberRole">Rol</label>
+                    <select id="memberRole" class="form-input" aria-required="true">
+                        <option value="admin">Administrador (acceso total)</option>
+                        <option value="manager">Gestor de encuestas</option>
+                        <option value="user">Usuario respondente</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                    <fluent-button appearance="stealth" onclick="closeMemberModal()">Cancelar</fluent-button>
+                    <fluent-button appearance="accent" onclick="submitMemberForm()">💾 Guardar</fluent-button>
+                </div>
+            </div>
+        </div>
+
         <script>
             // 🆕 Global variables with better organization
             let microsoftTeams;
@@ -1744,6 +1870,16 @@
             let newSurveyDraft = null;
             let isTeamsContext = false;
             let authAttempted = false;
+            let currentUserInfo = null;
+            let currentUserRole = 'user';
+            let membersData = [];
+            let editingMemberId = null;
+            let membersLoading = false;
+            const roleCapabilities = {
+                admin: { canManageAccess: true, canEditSurveys: true, canViewDashboard: true },
+                manager: { canManageAccess: false, canEditSurveys: true, canViewDashboard: true },
+                user: { canManageAccess: false, canEditSurveys: false, canViewDashboard: false }
+            };
 
             // 🆕 Initialize Teams SDK with improved error handling based on MS docs
             async function initializeTeamsApp() {
@@ -1806,8 +1942,10 @@
                     
                     // Token validation would happen here in production
                     showNotification('Autenticación exitosa', 'success');
+                    await loadSession();
+                    applyRolePermissions();
                     await loadSurveys();
-                    
+
                 } catch (authError) {
                     console.warn('⚠️ SSO authentication failed:', authError.message);
                     
@@ -1840,6 +1978,10 @@
                 const planText = document.getElementById('planText');
                 const planBadge = document.getElementById('planBadge');
                 
+                currentUserRole = 'admin';
+                currentUserInfo = { userId: 'demo-user', userName: 'Demo Admin', role: 'admin' };
+                applyRolePermissions();
+
                 if (planText) planText.textContent = 'Plan Free';
                 if (planBadge) planBadge.className = 'plan-badge plan-free';
                 await loadSurveys(); // Load mock surveys
@@ -1919,6 +2061,77 @@
                 }
             }
 
+            function getCapabilities() {
+                return roleCapabilities[currentUserRole] || roleCapabilities.user;
+            }
+
+            async function loadSession() {
+                if (!authToken) return;
+
+                try {
+                    const response = await makeAPICall('/session');
+                    const data = response.data || response;
+                    currentUserInfo = data;
+                    if (data?.role) {
+                        currentUserRole = data.role;
+                    }
+                    console.log('👤 Sesión cargada:', currentUserRole);
+                } catch (error) {
+                    console.warn('⚠️ No se pudo obtener la sesión del usuario:', error.message);
+                    currentUserInfo = null;
+                    currentUserRole = 'user';
+                }
+            }
+
+            function applyRolePermissions() {
+                const capabilities = getCapabilities();
+
+                const controlsRow = document.getElementById('controlsRow');
+                if (controlsRow) {
+                    controlsRow.style.display = capabilities.canEditSurveys ? 'flex' : 'none';
+                }
+
+                const emptyCreateBtn = document.querySelector('#emptyState .btn-primary');
+                if (emptyCreateBtn) {
+                    emptyCreateBtn.style.display = capabilities.canEditSurveys ? 'inline-flex' : 'none';
+                }
+
+                const dashboardSection = document.getElementById('dashboardSection');
+                if (dashboardSection) {
+                    dashboardSection.style.display = capabilities.canViewDashboard ? 'block' : 'none';
+                }
+
+                const accessSection = document.getElementById('accessSection');
+                if (accessSection) {
+                    accessSection.style.display = capabilities.canManageAccess ? 'block' : 'none';
+                    if (capabilities.canManageAccess) {
+                        if (authToken) {
+                            loadMembers();
+                        } else {
+                            const container = document.getElementById('membersContainer');
+                            if (container) {
+                                container.innerHTML = '<p style="text-align: center; margin: 24px 0;">Disponible cuando inicies sesión con SSO.</p>';
+                            }
+                        }
+                    }
+                }
+
+                const planBadge = document.getElementById('planBadge');
+                if (planBadge) {
+                    planBadge.style.display = capabilities.canViewDashboard ? 'inline-flex' : 'none';
+                }
+            }
+
+            function escapeHtml(value) {
+                if (value === null || value === undefined) return '';
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
             // 🆕 Actualizar información del plan en el badge
             async function updatePlanInfo() {
                 try {
@@ -1963,6 +2176,7 @@
                 const loading = document.getElementById('loading');
                 const container = document.getElementById('surveysContainer');
                 const emptyState = document.getElementById('emptyState');
+                let capabilities = getCapabilities();
                 
                 try {
                     // 1. Mostrar skeleton loading inmediatamente
@@ -1977,6 +2191,11 @@
                     let surveys;
                     try {
                         const response = await makeAPICall('/surveys');
+                        if (response.role && response.role !== currentUserRole) {
+                            currentUserRole = response.role;
+                            applyRolePermissions();
+                            capabilities = getCapabilities();
+                        }
                         surveys = response.data || response;
                     } catch (apiError) {
                         console.log('🎭 Using mock data due to API error:', apiError.message);
@@ -1988,7 +2207,9 @@
                     // 2. Simular pequeño delay para smooth transition
                     await new Promise(resolve => setTimeout(resolve, 300));
                     
-                    updateStatistics(surveys);
+                    if (capabilities.canViewDashboard) {
+                        updateStatistics(surveys);
+                    }
                     await updatePlanInfo();
                     
                     // 3. Render real surveys con fade-in
@@ -2000,9 +2221,11 @@
                     }
                     
                     // Al final de la función loadSurveys() exitosa, agregar:
-                    if (!document.getElementById('dashboardSection').style.display || 
-                        document.getElementById('dashboardSection').style.display === 'none') {
-                        await initializeDashboard(); // 🆕 Inicializar dashboard si no está visible
+                    if (capabilities.canViewDashboard) {
+                        const dashboardSection = document.getElementById('dashboardSection');
+                        if (dashboardSection && (!dashboardSection.style.display || dashboardSection.style.display === 'none')) {
+                            await initializeDashboard(); // 🆕 Inicializar dashboard si no está visible
+                        }
                     }
                     
                 } catch (error) {
@@ -2010,6 +2233,215 @@
                     container.style.display = 'none';
                     loading.style.display = 'none';
                     showNotification('Error al cargar encuestas', 'error');
+                }
+            }
+
+            async function loadMembers() {
+                if (!authToken || !getCapabilities().canManageAccess) return;
+                const container = document.getElementById('membersContainer');
+                if (!container || membersLoading) return;
+
+                membersLoading = true;
+                container.innerHTML = '<p style="text-align: center; margin: 24px 0;">Cargando miembros...</p>';
+
+                try {
+                    const response = await makeAPICall('/members');
+                    membersData = response.data || [];
+                    renderMembers(membersData);
+                } catch (error) {
+                    console.error('❌ Error loading members:', error);
+                    container.innerHTML = '<p style="text-align: center; margin: 24px 0; color: #b91c1c;">No se pudieron cargar los miembros. Intenta nuevamente.</p>';
+                } finally {
+                    membersLoading = false;
+                }
+            }
+
+            function renderMembers(members) {
+                const container = document.getElementById('membersContainer');
+                if (!container) return;
+
+                if (!members || members.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="margin: 16px 0;">
+                            <div class="empty-icon">🧑‍🤝‍🧑</div>
+                            <h3>No hay miembros registrados</h3>
+                            <p>Agrega administradores, gestores o usuarios para gestionar el acceso al panel.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const rows = members.map(member => {
+                    const userId = escapeHtml(member.rowKey);
+                    const role = escapeHtml(member.role);
+                    const date = member.dateAdded ? new Date(member.dateAdded).toLocaleString() : '-';
+
+                    return `
+                        <tr>
+                            <td>
+                                <div class="member-name">${escapeHtml(member.name)}</div>
+                                <div class="member-id">${userId}</div>
+                            </td>
+                            <td>${escapeHtml(member.email)}</td>
+                            <td>
+                                <select class="form-input" onchange="handleMemberRoleChange('${userId}', this)" data-current-role="${role}">
+                                    <option value="admin" ${role === 'admin' ? 'selected' : ''}>Administrador</option>
+                                    <option value="manager" ${role === 'manager' ? 'selected' : ''}>Gestor</option>
+                                    <option value="user" ${role === 'user' ? 'selected' : ''}>Usuario</option>
+                                </select>
+                            </td>
+                            <td>${escapeHtml(date)}</td>
+                            <td class="member-actions">
+                                <button class="btn btn-secondary btn-small" type="button" onclick="openMemberModal('${userId}')">✏️ Editar</button>
+                                <button class="btn btn-danger btn-small" type="button" onclick="removeMember('${userId}')">🗑️ Quitar</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                container.innerHTML = `
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Miembro</th>
+                                    <th>Correo</th>
+                                    <th>Rol</th>
+                                    <th>Agregado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            function openMemberModal(memberId = null) {
+                const modal = document.getElementById('memberModal');
+                const title = document.getElementById('memberModalTitle');
+                const userIdInput = document.getElementById('memberUserId');
+                const nameInput = document.getElementById('memberName');
+                const emailInput = document.getElementById('memberEmail');
+                const roleSelect = document.getElementById('memberRole');
+
+                if (!modal || !title || !userIdInput || !nameInput || !emailInput || !roleSelect) return;
+
+                if (memberId) {
+                    const member = membersData.find(m => m.rowKey === memberId);
+                    editingMemberId = memberId;
+                    title.textContent = '✏️ Editar miembro';
+                    userIdInput.value = member?.rowKey || memberId;
+                    userIdInput.disabled = true;
+                    nameInput.value = member?.name || '';
+                    emailInput.value = member?.email || '';
+                    roleSelect.value = member?.role || 'user';
+                } else {
+                    editingMemberId = null;
+                    title.textContent = '➕ Agregar miembro';
+                    userIdInput.value = '';
+                    userIdInput.disabled = false;
+                    nameInput.value = '';
+                    emailInput.value = '';
+                    roleSelect.value = 'user';
+                }
+
+                modal.style.display = 'block';
+            }
+
+            function closeMemberModal() {
+                const modal = document.getElementById('memberModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
+
+            async function submitMemberForm() {
+                const capabilities = getCapabilities();
+                if (!capabilities.canManageAccess) {
+                    showNotification('No tienes permisos para gestionar miembros.', 'warning');
+                    return;
+                }
+
+                const userIdInput = document.getElementById('memberUserId');
+                const nameInput = document.getElementById('memberName');
+                const emailInput = document.getElementById('memberEmail');
+                const roleSelect = document.getElementById('memberRole');
+
+                const userId = (userIdInput?.value || '').trim();
+                const name = (nameInput?.value || '').trim();
+                const email = (emailInput?.value || '').trim();
+                const role = roleSelect?.value || 'user';
+
+                if (!userId || !name || !email) {
+                    showNotification('Completa todos los campos obligatorios.', 'warning');
+                    return;
+                }
+
+                try {
+                    await makeAPICall('/members', {
+                        method: 'POST',
+                        body: { userId, name, email, role }
+                    });
+
+                    showNotification('Miembro guardado correctamente.', 'success');
+                    closeMemberModal();
+                    await loadMembers();
+                } catch (error) {
+                    console.error('❌ Error saving member:', error);
+                    showNotification('Error al guardar el miembro. Revisa los datos e intenta nuevamente.', 'error');
+                }
+            }
+
+            async function handleMemberRoleChange(userId, selectElement) {
+                const capabilities = getCapabilities();
+                if (!capabilities.canManageAccess) {
+                    showNotification('No tienes permisos para cambiar roles.', 'warning');
+                    return;
+                }
+
+                const newRole = selectElement.value;
+                const previousRole = selectElement.getAttribute('data-current-role');
+
+                if (newRole === previousRole) return;
+
+                try {
+                    await makeAPICall(`/members/${userId}/role`, {
+                        method: 'PATCH',
+                        body: { role: newRole }
+                    });
+
+                    selectElement.setAttribute('data-current-role', newRole);
+                    membersData = membersData.map((member) =>
+                        member.rowKey === userId ? { ...member, role: newRole } : member
+                    );
+                    showNotification('Rol actualizado correctamente.', 'success');
+                } catch (error) {
+                    console.error('❌ Error updating member role:', error);
+                    selectElement.value = previousRole;
+                    showNotification('No se pudo actualizar el rol. Intenta nuevamente.', 'error');
+                }
+            }
+
+            async function removeMember(userId) {
+                const capabilities = getCapabilities();
+                if (!capabilities.canManageAccess) {
+                    showNotification('No tienes permisos para eliminar miembros.', 'warning');
+                    return;
+                }
+
+                if (!confirm('¿Seguro que deseas quitar a este miembro?')) {
+                    return;
+                }
+
+                try {
+                    await makeAPICall(`/members/${userId}`, { method: 'DELETE' });
+                    membersData = membersData.filter((member) => member.rowKey !== userId);
+                    renderMembers(membersData);
+                    showNotification('Miembro eliminado.', 'success');
+                } catch (error) {
+                    console.error('❌ Error removing member:', error);
+                    showNotification('No se pudo eliminar al miembro.', 'error');
                 }
             }
 
@@ -2107,6 +2539,8 @@
 
             // Update statistics
             function updateStatistics(surveys) {
+                if (!getCapabilities().canViewDashboard) return;
+
                 const total = surveys.length;
                 const active = surveys.filter(s => s.estado === 'activa').length;
                 const totalResponses = surveys.reduce((sum, s) => sum + (s.totalRespuestas || 0), 0);
@@ -2121,18 +2555,53 @@
             // Render surveys
             function renderSurveys(surveys) {
                 const container = document.getElementById('surveysContainer');
+                const capabilities = getCapabilities();
                 
                 if (surveys.length === 0) {
                     container.innerHTML = '';
                     return;
                 }
-                
+
+                if (!capabilities.canEditSurveys) {
+                    const surveysHTML = surveys.map(survey => `
+                        <div class="survey-card respondent-card">
+                            <div class="survey-header">
+                                <div>
+                                    <h3 class="survey-title">${escapeHtml(survey.titulo)}</h3>
+                                    <span class="survey-id">ID: ${escapeHtml(survey.id)}</span>
+                                </div>
+                                <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
+                                    ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
+                                </span>
+                            </div>
+
+                            <div class="survey-objective">
+                                <strong>📋 Objetivo:</strong> ${escapeHtml(survey.objetivo || 'Sin objetivo definido')}
+                            </div>
+
+                            <div class="respondent-meta">
+                                <span>${survey.hasResponded ? '✅ Ya respondiste esta encuesta' : '🕒 Pendiente de responder'}</span>
+                                <span>Creada: ${formatDate(survey.fechaCreacion)}</span>
+                            </div>
+
+                            <div class="survey-actions" role="group" aria-label="Responder encuesta ${escapeHtml(survey.titulo)}">
+                                <button class="btn btn-primary" type="button" onclick="respondToSurvey('${escapeHtml(survey.id)}', ${survey.hasResponded ? 'true' : 'false'})">
+                                    ${survey.hasResponded ? '📄 Ver instrucciones' : '✍️ Responder encuesta'}
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    container.innerHTML = surveysHTML;
+                    return;
+                }
+
                 const surveysHTML = surveys.map(survey => `
                     <div class="survey-card">
                         <div class="survey-header">
                             <div>
-                                <h3 class="survey-title">${survey.titulo}</h3>
-                                <span class="survey-id">ID: ${survey.id}</span>
+                                <h3 class="survey-title">${escapeHtml(survey.titulo)}</h3>
+                                <span class="survey-id">ID: ${escapeHtml(survey.id)}</span>
                             </div>
                             <span class="status-badge ${survey.estado === 'activa' ? 'status-active' : 'status-inactive'}">
                                 ${survey.estado === 'activa' ? '🟢 ACTIVA' : '🔴 CERRADA'}
@@ -2141,7 +2610,7 @@
                         
                         <div class="survey-meta">
                             <div class="meta-item">
-                                <div class="meta-value">${survey.preguntas.length}</div>
+                                <div class="meta-value">${(survey.preguntas || []).length}</div>
                                 <div class="meta-label">Preguntas</div>
                             </div>
                             <div class="meta-item">
@@ -2153,39 +2622,39 @@
                                 <div class="meta-label">Creada</div>
                             </div>
                             <div class="meta-item">
-                                <div class="meta-value">${survey.creador}</div>
+                                <div class="meta-value">${escapeHtml(survey.creador || 'Desconocido')}</div>
                                 <div class="meta-label">Creador</div>
                             </div>
                         </div>
                         
                         <div class="survey-objective">
-                            <strong>📋 Objetivo:</strong> ${survey.objetivo}
+                            <strong>📋 Objetivo:</strong> ${escapeHtml(survey.objetivo || 'Sin objetivo definido')}
                         </div>
                         
-                        <div class="survey-actions" role="group" aria-label="Acciones para ${survey.titulo}">
+                        <div class="survey-actions" role="group" aria-label="Acciones para ${escapeHtml(survey.titulo)}">
                             <button class="btn btn-primary btn-small" 
-                                    onclick="editSurvey('${survey.id}')"
-                                    aria-label="Editar encuesta ${survey.titulo}">
+                                    onclick="editSurvey('${escapeHtml(survey.id)}')"
+                                    aria-label="Editar encuesta ${escapeHtml(survey.titulo)}">
                                 ✏️ Editar
                             </button>
                             <button class="btn btn-secondary btn-small" 
-                                    onclick="viewResults('${survey.id}')"
-                                    aria-label="Ver resultados de ${survey.titulo}">
+                                    onclick="viewResults('${escapeHtml(survey.id)}')"
+                                    aria-label="Ver resultados de ${escapeHtml(survey.titulo)}">
                                 📊 Resultados
                             </button>
                             <button class="btn btn-secondary btn-small" 
-                                    onclick="toggleSurveyStatus('${survey.id}')"
-                                    aria-label="${survey.estado === 'activa' ? 'Pausar' : 'Activar'} encuesta ${survey.titulo}">
+                                    onclick="toggleSurveyStatus('${escapeHtml(survey.id)}')"
+                                    aria-label="${survey.estado === 'activa' ? 'Pausar' : 'Activar'} encuesta ${escapeHtml(survey.titulo)}">
                                 ${survey.estado === 'activa' ? '⏸️ Pausar' : '▶️ Activar'}
                             </button>
                             <button class="btn btn-secondary btn-small" 
-                                    onclick="duplicateSurvey('${survey.id}')"
-                                    aria-label="Duplicar encuesta ${survey.titulo}">
-                                📄 Duplicar
+                                    onclick="duplicateSurvey('${escapeHtml(survey.id)}')"
+                                    aria-label="Duplicar encuesta ${escapeHtml(survey.titulo)}">
+                                🪄 Duplicar
                             </button>
                             <button class="btn btn-danger btn-small" 
-                                    onclick="deleteSurvey('${survey.id}')"
-                                    aria-label="Eliminar encuesta ${survey.titulo}">
+                                    onclick="deleteSurvey('${escapeHtml(survey.id)}')"
+                                    aria-label="Eliminar encuesta ${escapeHtml(survey.titulo)}">
                                 🗑️ Eliminar
                             </button>
                         </div>
@@ -2194,6 +2663,27 @@
                 
                 container.innerHTML = surveysHTML;
                 makeSurveyCardsFocusable();
+            }
+
+            function respondToSurvey(surveyId, alreadyResponded = false) {
+                const instructions = alreadyResponded
+                    ? `Ya registraste una respuesta para la encuesta ${surveyId}. Si necesitas actualizarla, abre el bot TeamPulse y envía "responder ${surveyId}".`
+                    : `Para responder la encuesta ${surveyId}, abre el bot TeamPulse en Microsoft Teams y envía "responder ${surveyId}".`;
+
+                showNotification(instructions, 'info');
+
+                try {
+                    if (isTeamsContext && microsoftTeams?.app?.openLink) {
+                        const appId = '4db8b9d3-589d-4da7-9b6a-1912d53efb2e';
+                        const context = encodeURIComponent(JSON.stringify({ surveyId }));
+                        const deepLink = `https://teams.microsoft.com/l/entity/${appId}/survey?context=${context}`;
+                        microsoftTeams.app.openLink(deepLink).catch(() => {
+                            console.warn('⚠️ No se pudo abrir el enlace profundo en Teams');
+                        });
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Error intentando abrir el enlace en Teams:', error);
+                }
             }
 
             function resetNewSurveyDraft() {
@@ -2210,6 +2700,11 @@
             }
 
             function openCreateModal() {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para crear encuestas.', 'warning');
+                    return;
+                }
+
                 resetNewSurveyDraft();
                 const modal = document.getElementById('createModal');
                 const titleInput = document.getElementById('newSurveyTitle');
@@ -2315,6 +2810,11 @@
             }
 
             async function submitNewSurvey() {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para crear encuestas.', 'warning');
+                    return;
+                }
+
                 const titleInput = document.getElementById('newSurveyTitle');
                 const objectiveInput = document.getElementById('newSurveyObjective');
 
@@ -2416,6 +2916,11 @@
 
             // Survey actions (same as before but with improved error handling)
             function editSurvey(surveyId) {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para editar encuestas.', 'warning');
+                    return;
+                }
+
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
@@ -2550,6 +3055,11 @@
 
             // Reemplazar la función viewResults existente:
             async function viewResults(surveyId) {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para ver resultados detallados.', 'warning');
+                    return;
+                }
+
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
@@ -2710,10 +3220,20 @@
             }
 
             function exportResults() {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para exportar resultados.', 'warning');
+                    return;
+                }
+
                 // Por ahora solo mostrar mensaje, puedes implementar export real después
                 showNotification('Función de exportar será implementada próximamente', 'success');
             }
             async function toggleSurveyStatus(surveyId) {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para cambiar el estado de encuestas.', 'warning');
+                    return;
+                }
+
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
@@ -2755,6 +3275,11 @@
             }
 
             async function duplicateSurvey(surveyId) {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para duplicar encuestas.', 'warning');
+                    return;
+                }
+
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
@@ -2796,6 +3321,11 @@
             }
 
             async function deleteSurvey(surveyId) {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para eliminar encuestas.', 'warning');
+                    return;
+                }
+
                 const survey = surveysData.find(s => s.id === surveyId);
                 if (!survey) return;
                 
@@ -2852,8 +3382,9 @@
                 
                 try {
                     // Mostrar loading overlay en dashboard
+                    const capabilities = getCapabilities();
                     const dashboardSection = document.getElementById('dashboardSection');
-                    if (dashboardSection && dashboardSection.style.display !== 'none') {
+                    if (capabilities.canViewDashboard && dashboardSection && dashboardSection.style.display !== 'none') {
                         const overlay = document.createElement('div');
                         overlay.className = 'loading-overlay';
                         overlay.id = 'refreshOverlay';
@@ -2866,7 +3397,9 @@
                     }
                     
                     await loadSurveys();
-                    await loadDashboardMetrics();
+                    if (getCapabilities().canViewDashboard) {
+                        await loadDashboardMetrics();
+                    }
                     showNotification('✅ Datos actualizados exitosamente', 'success');
                     
                 } catch (error) {
@@ -2888,6 +3421,11 @@
             }
 
             async function exportAllData() {
+                if (!getCapabilities().canEditSurveys) {
+                    showNotification('No tienes permisos para exportar datos de encuestas.', 'warning');
+                    return;
+                }
+
                 try {
                     const dataToExport = {
                         surveys: surveysData,
@@ -3151,6 +3689,14 @@
 
             // 🎯 Inicializar Dashboard
             async function initializeDashboard() {
+                if (!getCapabilities().canViewDashboard) {
+                    const dashboardSection = document.getElementById('dashboardSection');
+                    if (dashboardSection) {
+                        dashboardSection.style.display = 'none';
+                    }
+                    return;
+                }
+
                 console.log('📊 Inicializando dashboard simplificado...');
                 
                 try {
@@ -3178,6 +3724,8 @@
 
             // 📈 Cargar Métricas KPI - CON DEBUG DETALLADO
             async function loadDashboardMetrics() {
+                if (!getCapabilities().canViewDashboard) return;
+
                 //console.log('📈 [DEBUG] === INICIANDO CARGA MÉTRICAS ===');
                 //console.log('📈 [DEBUG] authToken presente:', !!authToken);
                 //console.log(`🌐 [API DEBUG] authToken presente: ${!!authToken}`);
@@ -3345,6 +3893,8 @@
 
             // 📊 Crear Visualizaciones con Datos Reales - VERSIÓN DINÁMICA
             async function createSimpleVisualizations() {
+                if (!getCapabilities().canViewDashboard) return;
+
                 console.log('📊 [VISUALIZATIONS] Iniciando con datos reales...');
                 
                 try {

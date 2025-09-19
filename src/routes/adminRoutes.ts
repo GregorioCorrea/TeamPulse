@@ -1,7 +1,7 @@
 // src/routes/adminRoutes.ts
 import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
-import { AzureTableService } from "../services/azureTableService";
+import { AzureTableService, TenantRole } from "../services/azureTableService";
 import { localAdminStore } from "../services/localAdminStore";
 
 const router = Router();
@@ -84,6 +84,8 @@ interface AuthenticatedRequest extends Request {
     userId: string;
     tenantId: string;
     userName?: string;
+    email?: string;
+    role: TenantRole;
     isAdmin?: boolean;
   };
 }
@@ -106,6 +108,8 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
           userId: 'dev-admin',
           tenantId: 'dev-tenant',
           userName: 'Developer Admin',
+          email: 'dev-admin@local',
+          role: 'admin',
           isAdmin: true
         };
         return next();
@@ -137,21 +141,18 @@ async function validateTeamsSSO(req: AuthenticatedRequest, res: Response, next: 
       name: decodedUser.userName
     });
 
-    // Verificar permisos de admin
-    const isAdmin = await checkAdminPermissions(decodedUser.userId, decodedUser.tenantId);
-    console.log('🔐 [ADMIN AUTH] Admin check result:', isAdmin);
-    
-    if (!isAdmin) {
-      console.log('🔐 [ADMIN AUTH] Admin permissions denied');
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        message: 'Admin panel access requires administrator privileges'
-      });
-    }
+    const role = await resolveTenantRole({
+      userId: decodedUser.userId,
+      tenantId: decodedUser.tenantId,
+      email: decodedUser.email,
+      userName: decodedUser.userName
+    });
 
     req.user = {
       ...decodedUser,
-      isAdmin: true
+      role,
+      email: decodedUser.email,
+      isAdmin: role === 'admin'
     };
 
     console.log('🔐 [ADMIN AUTH] Validation successful, proceeding...');
@@ -210,41 +211,68 @@ async function validateJWTToken(token: string): Promise<any> {
 }
 
 
-// Bloque de auto-promoción
-async function checkAdminPermissions(userId: string, tenantId: string): Promise<boolean> {
+// Resolución de rol para el tenant
+async function resolveTenantRole(options: {
+  userId: string;
+  tenantId: string;
+  email?: string;
+  userName?: string;
+}): Promise<TenantRole> {
+  const { userId, tenantId, email, userName } = options;
+
+  if (!tenantId || !userId) {
+    console.warn('⚠️ [ROLE] Missing tenant or user identifier, defaulting to user role');
+    return 'user';
+  }
+
   try {
-    // 1. Verificar si ya es admin
-    const adminUser = await azureService.obtenerAdminUser(userId, tenantId);
-    if (adminUser && adminUser.isActive) {
-      return true;
+    // 1. Verificar registro existente
+    const existingMember = await azureService.obtenerMiembro(userId, tenantId);
+    if (existingMember) {
+      return existingMember.role;
     }
-    
-    // 2. 🆕 SMART CHECK: ¿Es el usuario que activó la suscripción?
+
+    // 2. Auto-promoción para comprador del marketplace
     const subscription = await checkMarketplaceSubscription(userId, tenantId);
     if (subscription && subscription.userOid === userId) {
       console.log(`🚀 Auto-promoting marketplace purchaser: ${userId}`);
-      
-      await azureService.agregarAdminUser(
+
+      await azureService.upsertMiembro({
         userId,
         tenantId,
-        subscription.userEmail,
-        subscription.userName,
-        'Marketplace Purchaser Auto-Promotion'
-      );
-      
-      return true;
+        email: subscription.userEmail || email || 'unknown@tenant',
+        name: subscription.userName || userName || 'Marketplace Admin',
+        role: 'admin',
+        addedBy: 'Marketplace Purchaser Auto-Promotion'
+      });
+
+      return 'admin';
     }
-    
-    // 3. Fallback para desarrollo
+
+    // 3. Entorno de desarrollo: conceder admin para simplificar pruebas
     if (process.env.NODE_ENV === 'development') {
-      return true;
+      return 'admin';
     }
-    
-    return false;
-    
+
+    // 4. Registrar automáticamente como usuario estándar si aún no existe
+    try {
+      await azureService.upsertMiembro({
+        userId,
+        tenantId,
+        email: email || `${userId}@${tenantId}.onmicrosoft.com`,
+        name: userName || 'TeamPulse User',
+        role: 'user',
+        addedBy: 'SSO Auto-Registration'
+      });
+    } catch (autoRegError) {
+      console.warn('⚠️ [ROLE] Failed to auto-register tenant member:', autoRegError);
+    }
+
+    return 'user';
+
   } catch (error) {
-    console.error('❌ Error checking admin permissions:', error);
-    return false;
+    console.error('❌ Error resolving tenant role:', error);
+    return 'user';
   }
 }
 
@@ -269,13 +297,29 @@ async function checkMarketplaceSubscription(userId: string, tenantId: string) {
 // GUARDS DE ROL Y PLAN (locales a adminRoutes)
 // ────────────────────────────────────────────────────────────
 
-function requireAdmin(req: AuthenticatedRequest, res: Response, next: any) {
-  if (req.user?.isAdmin) return next();
-  return res.status(403).json({
-    error: 'forbidden_role',
-    message: 'Se requieren privilegios de administrador'
-  });
+function requireRole(allowed: TenantRole[]) {
+  return (req: AuthenticatedRequest, res: Response, next: any) => {
+    const role = req.user?.role;
+    if (!role) {
+      return res.status(401).json({
+        error: 'role_missing',
+        message: 'No se pudo determinar el rol del usuario'
+      });
+    }
+
+    if (!allowed.includes(role)) {
+      return res.status(403).json({
+        error: 'forbidden_role',
+        message: 'Tu rol no habilita esta acción'
+      });
+    }
+
+    next();
+  };
 }
+
+const requireAdmin = requireRole(['admin']);
+const requireManagerOrAdmin = requireRole(['admin', 'manager']);
 
 // Usamos import dinámico para no generar ciclos
 function requirePlan(allowed: Array<'free' | 'pro' | 'enterprise'>) {
@@ -317,7 +361,7 @@ function requirePlan(allowed: Array<'free' | 'pro' | 'enterprise'>) {
 // ────────────────────────────────────────────────────────────
 
 // 📊 GET /api/admin/stats - Estadísticas del dashboard
-router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/stats', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     console.log(`📊 Admin stats requested by: ${req.user?.userName}`);
 
@@ -388,19 +432,55 @@ router.get('/stats', validateTeamsSSO, async (req: AuthenticatedRequest, res: Re
 });
 
 // 📋 GET /api/admin/surveys - Listar todas las encuestas con metadata extendida
-router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/surveys', validateTeamsSSO, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log(`📋 Admin surveys list requested by: ${req.user?.userName}`);
+    console.log(`📋 Surveys list requested by: ${req.user?.userName}`);
 
     const { search, status, creator, limit = 50, offset = 0 } = req.query;
 
-    // Obtener todas las encuestas
     const tenantId = req.user?.tenantId;
+    const role = req.user?.role ?? 'user';
+    const userId = req.user?.userId;
+
     if (!tenantId) {
       res.status(400).json({ error: 'Tenant ID required' });
       return;
     }
 
+    // Vista simplificada para usuarios finales: solo encuestas activas y estado de respuesta
+    if (role === 'user') {
+      const encuestas = await azureService.listarEncuestas(tenantId);
+      const activas = encuestas.filter((encuesta) => encuesta.estado !== 'cerrada');
+
+      const tareas = await Promise.all(
+        activas.map(async (encuesta) => {
+          const hasResponded = userId
+            ? await azureService.checkUserResponse(encuesta.id!, userId)
+            : false;
+
+          return {
+            id: encuesta.id,
+            titulo: encuesta.titulo,
+            objetivo: encuesta.objetivo,
+            estado: encuesta.estado || 'activa',
+            fechaCreacion: encuesta.fechaCreacion,
+            totalRespuestas: encuesta.totalRespuestas ?? 0,
+            hasResponded
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        role,
+        data: tareas,
+        pagination: null,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Administradores y gestores: flujo completo con sincronización y enriquecimiento
     let encuestas: any[] = [];
     let azureError: any = null;
     let syncStatus: SyncResult = { promotedIds: [], failed: [] };
@@ -432,19 +512,19 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       }
     }
 
-    // Enriquecer cada encuesta con datos de respuestas
     const encuestasEnriquecidas = await Promise.all(
       encuestas.map(async (encuesta) => {
         try {
           const respuestas = await azureService.cargarRespuestasEncuesta(encuesta.id!, tenantId);
-          const participantesUnicos = new Set(respuestas.map(r => r.participanteId));
-          
+          const participantesUnicos = new Set(respuestas.map((r) => r.participanteId));
+
           return {
             ...encuesta,
             totalRespuestas: participantesUnicos.size,
-            ultimaRespuesta: respuestas.length > 0 
-              ? new Date(Math.max(...respuestas.map(r => new Date(r.timestamp).getTime())))
-              : null,
+            ultimaRespuesta:
+              respuestas.length > 0
+                ? new Date(Math.max(...respuestas.map((r) => new Date(r.timestamp).getTime())))
+                : null,
             estado: encuesta.estado || 'activa',
             storageSource: 'azure'
           };
@@ -461,7 +541,6 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       })
     );
 
-    // Incorporar encuestas locales si existen
     const fallbackSurveys = localAdminStore.listSurveys();
     let combinedSurveys = encuestasEnriquecidas;
 
@@ -480,12 +559,11 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       combinedSurveys = [...complement, ...encuestasEnriquecidas];
     }
 
-    // Aplicar filtros
     let filteredSurveys = combinedSurveys;
 
     if (search) {
       const searchTerm = (search as string).toLowerCase();
-      filteredSurveys = filteredSurveys.filter(survey =>
+      filteredSurveys = filteredSurveys.filter((survey) =>
         survey.titulo.toLowerCase().includes(searchTerm) ||
         survey.objetivo.toLowerCase().includes(searchTerm) ||
         survey.id!.toLowerCase().includes(searchTerm) ||
@@ -494,28 +572,27 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
     }
 
     if (status) {
-      filteredSurveys = filteredSurveys.filter(survey => survey.estado === status);
+      filteredSurveys = filteredSurveys.filter((survey) => survey.estado === status);
     }
 
     if (creator) {
-      filteredSurveys = filteredSurveys.filter(survey => 
+      filteredSurveys = filteredSurveys.filter((survey) =>
         survey.creador.toLowerCase().includes((creator as string).toLowerCase())
       );
     }
 
-    // Ordenar por fecha de creación (más recientes primero)
-    filteredSurveys.sort((a, b) => 
-      new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime()
+    filteredSurveys.sort(
+      (a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime()
     );
 
-    // Aplicar paginación
+    const startIndex = Number(offset) || 0;
+    const limitCount = Number(limit) || 50;
     const totalCount = filteredSurveys.length;
-    const startIndex = parseInt(offset as string);
-    const limitCount = parseInt(limit as string);
     const paginatedSurveys = filteredSurveys.slice(startIndex, startIndex + limitCount);
 
     res.json({
       success: true,
+      role,
       data: paginatedSurveys,
       pagination: {
         total: totalCount,
@@ -529,7 +606,6 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
       fallbackCount: fallbackSurveys.filter((s) => s.storageSource === 'local').length,
       syncStatus
     });
-
   } catch (error) {
     console.error('❌ Error getting surveys list:', error);
     res.status(500).json({
@@ -539,11 +615,192 @@ router.get('/surveys', validateTeamsSSO, requireAdmin, async (req: Authenticated
   }
 });
 
+// 🆔 GET /api/admin/session - Información del usuario autenticado
+router.get('/session', validateTeamsSSO, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'session_not_found' });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: {
+      userId: req.user.userId,
+      tenantId: req.user.tenantId,
+      userName: req.user.userName,
+      email: req.user.email,
+      role: req.user.role,
+      isAdmin: req.user.role === 'admin'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 👥 Gestión de miembros del tenant (sólo administradores)
+router.get('/members', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    const members = await azureService.listarMiembrosEnTenant(tenantId);
+
+    res.json({
+      success: true,
+      data: members,
+      timestamp: new Date().toISOString(),
+      total: members.length
+    });
+  } catch (error) {
+    console.error('❌ Error listing tenant members:', error);
+    res.status(500).json({
+      error: 'Failed to list members',
+      message: 'Error al obtener los miembros del tenant'
+    });
+  }
+});
+
+router.post('/members', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    const { userId, email, name, role } = req.body || {};
+
+    if (!userId || !email || !name || !role) {
+      res.status(400).json({
+        error: 'missing_fields',
+        message: 'userId, email, name y role son obligatorios'
+      });
+      return;
+    }
+
+    if (!['admin', 'manager', 'user'].includes(role)) {
+      res.status(400).json({
+        error: 'invalid_role',
+        message: 'El rol proporcionado no es válido'
+      });
+      return;
+    }
+
+    await azureService.upsertMiembro({
+      userId,
+      tenantId,
+      email,
+      name,
+      role,
+      addedBy: req.user?.userName || 'Admin Portal'
+    });
+
+    res.json({
+      success: true,
+      message: 'Miembro actualizado correctamente'
+    });
+  } catch (error) {
+    console.error('❌ Error saving tenant member:', error);
+    res.status(500).json({
+      error: 'Failed to save member',
+      message: 'Error al guardar el miembro del tenant'
+    });
+  }
+});
+
+router.patch('/members/:userId/role', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    const targetUserId = req.params.userId;
+    const { role } = req.body || {};
+
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    if (!role || !['admin', 'manager', 'user'].includes(role)) {
+      res.status(400).json({
+        error: 'invalid_role',
+        message: 'Debes indicar un rol válido'
+      });
+      return;
+    }
+
+    if (!targetUserId) {
+      res.status(400).json({ error: 'user_id_required' });
+      return;
+    }
+
+    await azureService.actualizarRolMiembro(tenantId, targetUserId, role);
+
+    res.json({
+      success: true,
+      message: 'Rol actualizado'
+    });
+  } catch (error) {
+    console.error('❌ Error updating tenant member role:', error);
+    res.status(500).json({
+      error: 'Failed to update role',
+      message: 'Error al actualizar el rol del miembro'
+    });
+  }
+});
+
+router.delete('/members/:userId', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    const targetUserId = req.params.userId;
+
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    if (!targetUserId) {
+      res.status(400).json({ error: 'user_id_required' });
+      return;
+    }
+
+    const targetMember = await azureService.obtenerMiembro(targetUserId, tenantId);
+    if (!targetMember) {
+      res.status(404).json({ error: 'member_not_found' });
+      return;
+    }
+
+    if (targetMember.role === 'admin') {
+      const admins = await azureService.listarMiembrosEnTenant(tenantId, ['admin']);
+      if (admins.length <= 1) {
+        res.status(400).json({
+          error: 'cannot_remove_last_admin',
+          message: 'No puedes eliminar al último administrador del tenant'
+        });
+        return;
+      }
+    }
+
+    await azureService.eliminarMiembro(tenantId, targetUserId);
+
+    res.json({
+      success: true,
+      message: 'Miembro eliminado'
+    });
+  } catch (error) {
+    console.error('❌ Error removing tenant member:', error);
+    res.status(500).json({
+      error: 'Failed to remove member',
+      message: 'Error al eliminar el miembro del tenant'
+    });
+  }
+});
+
 // ➕ POST /api/admin/surveys - Crear una nueva encuesta desde el panel
 router.post(
   '/surveys',
   validateTeamsSSO,
-  requireAdmin,
+  requireManagerOrAdmin,
   requirePlan(['free', 'pro', 'enterprise']),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -705,7 +962,7 @@ router.post(
 );
 
 // 📝 PUT /api/admin/surveys/:id - Actualizar encuesta completa
-router.put('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.put('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { titulo, objetivo, preguntas } = req.body;
@@ -807,7 +1064,7 @@ router.put('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro','e
 });
 
 // ⏸️ PATCH /api/admin/surveys/:id/status - Cambiar estado de encuesta
-router.patch('/surveys/:id/status', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.patch('/surveys/:id/status', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -877,7 +1134,7 @@ router.patch('/surveys/:id/status', validateTeamsSSO, requireAdmin, requirePlan(
 });
 
 // 📄 POST /api/admin/surveys/:id/duplicate - Duplicar encuesta
-router.post('/surveys/:id/duplicate', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/surveys/:id/duplicate', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { newTitle } = req.body;
@@ -945,7 +1202,7 @@ router.post('/surveys/:id/duplicate', validateTeamsSSO, requireAdmin, requirePla
 });
 
 // 🗑️ DELETE /api/admin/surveys/:id - Eliminar encuesta
-router.delete('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { confirm } = req.query;
@@ -1031,7 +1288,7 @@ router.delete('/surveys/:id', validateTeamsSSO, requireAdmin, requirePlan(['pro'
 });
 
 // 📊 GET /api/admin/surveys/:id/responses - Ver respuestas detalladas
-router.get('/surveys/:id/responses', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/surveys/:id/responses', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { format = 'json' } = req.query;
@@ -1133,7 +1390,7 @@ router.get('/surveys/:id/responses', validateTeamsSSO, requireAdmin, async (req:
 // 📊 DASHBOARD EJECUTIVO - Agregar estas rutas al final de adminRoutes.ts
 
 // 📈 GET /api/admin/dashboard/metrics - Métricas KPI en tiempo real
-router.get('/dashboard/metrics', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/dashboard/metrics', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log(`📈 Dashboard metrics requested by: ${req.user?.userName}`);
 
@@ -1263,7 +1520,7 @@ router.get('/dashboard/metrics', validateTeamsSSO, requireAdmin, async (req: Aut
 });
 
 // 📊 GET /api/admin/dashboard/charts - Datos para gráficos
-router.get('/dashboard/charts', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/dashboard/charts', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     console.log(`📊 Dashboard charts requested by: ${req.user?.userName}`);
 

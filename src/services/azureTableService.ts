@@ -75,12 +75,14 @@ interface AzureTemplate {
   nivelPlan: string;
 }
 
-interface AdminUser {
+export type TenantRole = 'admin' | 'manager' | 'user';
+
+interface TenantMember {
   partitionKey: string; // tenantId
   rowKey: string;       // userId
   email: string;
   name: string;
-  isActive: boolean;
+  role: TenantRole;
   dateAdded: string;
   addedBy: string;
 }
@@ -133,7 +135,7 @@ export class AzureTableService {
   private respuestasTable: TableClient;
   private resultadosTable: TableClient;
   private templatesTable: TableClient;
-  private adminUsersTable: TableClient;
+  private membersTable: TableClient;
   private analisisAvanzadoTable: TableClient;
   private benchmarksTable: TableClient;
   private historialMetricasTable: TableClient;
@@ -168,7 +170,7 @@ export class AzureTableService {
       credential
     );
 
-    this.adminUsersTable = new TableClient(
+    this.membersTable = new TableClient(
       `https://${accountName}.table.core.windows.net`,
       'AdminUsers',
       credential
@@ -229,7 +231,7 @@ export class AzureTableService {
     }
 
     try {
-      await this.adminUsersTable.createTable();
+      await this.membersTable.createTable();
       console.log('✅ Tabla AdminUsers inicializada');
     } catch (error) {
       // Tabla ya existe
@@ -281,68 +283,104 @@ export class AzureTableService {
       return false; // En caso de error, asumir que no respondió
     }
   }
-  // ADMIN USERS
-  async obtenerAdminUser(userId: string, tenantId: string): Promise<AdminUser | null> {
+  // TENANT MEMBERS & ROLES
+  private mapMemberEntity(entity: Record<string, unknown>): TenantMember {
+    const role = String(entity.role || 'user').toLowerCase() as TenantRole;
+    return {
+      partitionKey: entity.partitionKey as string,
+      rowKey: entity.rowKey as string,
+      email: (entity.email as string) || '',
+      name: (entity.name as string) || 'Unknown',
+      role: role === 'admin' || role === 'manager' ? role : 'user',
+      dateAdded: (entity.dateAdded as string) || new Date().toISOString(),
+      addedBy: (entity.addedBy as string) || 'System'
+    };
+  }
+
+  async obtenerMiembro(userId: string, tenantId: string): Promise<TenantMember | null> {
     try {
-      const entity = await this.adminUsersTable.getEntity(tenantId, userId);
-      
-      return {
-        partitionKey: entity.partitionKey as string,
-        rowKey: entity.rowKey as string,
-        email: entity.email as string,
-        name: entity.name as string,
-        isActive: (entity.role as string) === 'admin', // 🔧 FIX: usar role en lugar de isActive
-        dateAdded: entity.dateAdded as string,
-        addedBy: 'System' // Default value
-      };
+      const entity = await this.membersTable.getEntity(tenantId, userId);
+      return this.mapMemberEntity(entity as Record<string, unknown>);
     } catch (error) {
-      console.log(`📝 Admin user not found: ${userId} in ${tenantId}`);
+      console.log(`📝 Tenant member not found: ${userId} in ${tenantId}`);
       return null;
     }
   }
 
-  async agregarAdminUser(userId: string, tenantId: string, email: string, name: string, addedBy: string): Promise<void> {
+  async upsertMiembro(options: {
+    userId: string;
+    tenantId: string;
+    email: string;
+    name: string;
+    role: TenantRole;
+    addedBy?: string;
+  }): Promise<void> {
+    const { userId, tenantId, email, name, role, addedBy } = options;
+
     try {
       const entity = {
         partitionKey: tenantId,
         rowKey: userId,
-        email: email,
-        name: name,
-        role: 'admin', // 🔧 FIX: usar role en lugar de isActive
-        tenantId: tenantId,
-        dateAdded: new Date().toISOString()
+        email,
+        name,
+        role,
+        tenantId,
+        dateAdded: new Date().toISOString(),
+        addedBy: addedBy || 'System'
       };
 
-      await this.adminUsersTable.upsertEntity(entity); // upsert en lugar de create
-      console.log(`✅ Admin user added: ${email} in ${tenantId}`);
+      await this.membersTable.upsertEntity(entity);
+      console.log(`✅ Tenant member ${role} upserted: ${email} in ${tenantId}`);
     } catch (error) {
-      console.error('❌ Error adding admin user:', error);
+      console.error('❌ Error upserting tenant member:', error);
       throw error;
     }
   }
-  // Agregar este método en AzureTableService:
-  async listarAdminsEnTenant(tenantId: string): Promise<AdminUser[]> {
+
+  async actualizarRolMiembro(tenantId: string, userId: string, role: TenantRole): Promise<void> {
     try {
-      const entities = this.adminUsersTable.listEntities({
+      await this.membersTable.updateEntity(
+        {
+          partitionKey: tenantId,
+          rowKey: userId,
+          role
+        },
+        'Merge'
+      );
+      console.log(`🛠️ Tenant member role updated: ${userId} → ${role}`);
+    } catch (error) {
+      console.error('❌ Error updating tenant member role:', error);
+      throw error;
+    }
+  }
+
+  async eliminarMiembro(tenantId: string, userId: string): Promise<void> {
+    try {
+      await this.membersTable.deleteEntity(tenantId, userId);
+      console.log(`🗑️ Tenant member removed: ${userId} in ${tenantId}`);
+    } catch (error) {
+      console.error('❌ Error removing tenant member:', error);
+      throw error;
+    }
+  }
+
+  async listarMiembrosEnTenant(tenantId: string, roles?: TenantRole[]): Promise<TenantMember[]> {
+    try {
+      const entities = this.membersTable.listEntities({
         queryOptions: { filter: `PartitionKey eq '${tenantId}'` }
       });
 
-      const admins = [];
+      const members: TenantMember[] = [];
       for await (const entity of entities) {
-        admins.push({
-          partitionKey: entity.partitionKey as string,
-          rowKey: entity.rowKey as string,
-          email: entity.email as string,
-          name: entity.name as string,
-          isActive: (entity.role as string) === 'admin', // 🔧 FIX: usar role
-          dateAdded: entity.dateAdded as string,
-          addedBy: 'System'
-        });
+        const member = this.mapMemberEntity(entity as Record<string, unknown>);
+        if (!roles || roles.includes(member.role)) {
+          members.push(member);
+        }
       }
 
-      return admins.filter(admin => admin.isActive); // Solo retornar admins activos
+      return members;
     } catch (error) {
-      console.error('❌ Error listing tenant admins:', error);
+      console.error('❌ Error listing tenant members:', error);
       return [];
     }
   }
