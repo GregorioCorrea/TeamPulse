@@ -2,6 +2,7 @@
 import { Router, Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { AzureTableService, TenantRole } from "../services/azureTableService";
+import { searchDirectoryUsers } from "../services/graphDirectoryService";
 import { localAdminStore } from "../services/localAdminStore";
 
 const router = Router();
@@ -658,6 +659,39 @@ router.get('/members', validateTeamsSSO, requireAdmin, async (req: Authenticated
     res.status(500).json({
       error: 'Failed to list members',
       message: 'Error al obtener los miembros del tenant'
+    });
+  }
+});
+
+router.get('/members/search', validateTeamsSSO, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    const { q } = req.query;
+
+    if (!tenantId) {
+      res.status(400).json({ error: 'Tenant ID required' });
+      return;
+    }
+
+    const query = (q as string | undefined)?.trim();
+    if (!query) {
+      res.status(400).json({ error: 'missing_query', message: 'Debes indicar un criterio de búsqueda (nombre o correo)' });
+      return;
+    }
+
+    const results = await searchDirectoryUsers(query, tenantId);
+
+    res.json({
+      success: true,
+      data: results,
+      query,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error searching directory:', error);
+    res.status(500).json({
+      error: 'directory_search_failed',
+      message: 'No se pudo consultar el directorio. Verifica la configuración de Microsoft Graph.'
     });
   }
 });

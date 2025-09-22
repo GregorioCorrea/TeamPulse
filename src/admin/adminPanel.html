@@ -347,6 +347,20 @@
             flex-wrap: wrap;
         }
 
+        .respondent-card .survey-actions {
+            justify-content: flex-end;
+        }
+
+        .respondent-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #64748b;
+            margin: 16px 0;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         .survey-header {
             display: flex;
             justify-content: space-between;
@@ -463,6 +477,116 @@
             font-size: 4rem;
             margin-bottom: 20px;
             opacity: 0.5;
+        }
+
+        .access-section {
+            margin-top: 48px;
+            display: none;
+        }
+
+        .access-section .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .access-section .section-subtitle {
+            color: #64748b;
+            margin: 4px 0 0;
+        }
+
+        .member-controls {
+            margin-bottom: 16px;
+        }
+
+        .helper-text {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .directory-results {
+            margin-top: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .directory-results ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .directory-results li {
+            padding: 12px 16px;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .directory-results li:last-child {
+            border-bottom: none;
+        }
+
+        .directory-results .user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .directory-results .user-name {
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        .directory-results .user-email {
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        .members-table .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .members-table th,
+        .members-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .members-table thead {
+            background: rgba(15, 23, 42, 0.03);
+        }
+
+        .members-table .member-name {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .members-table .member-id {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .members-table .member-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .table-wrapper {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+            overflow-x: auto;
         }
 
         .access-section {
@@ -1717,6 +1841,18 @@
                     ➕ Agregar miembro
                 </button>
             </div>
+
+            <div class="member-controls">
+                <div class="member-search" id="memberSearchWrapper" style="display: none;">
+                    <label class="form-label" for="memberSearchInput">Buscar en el directorio</label>
+                    <div style="display: flex; gap: 12px;">
+                        <input type="text" id="memberSearchInput" class="form-input" placeholder="Nombre o correo" aria-label="Buscar usuarios en Microsoft Entra ID">
+                        <button class="btn btn-secondary" type="button" onclick="searchDirectoryMembers()">🔍 Buscar</button>
+                    </div>
+                    <p class="helper-text">Ingresa parte del nombre, correo o UPN para buscar en Microsoft Graph.</p>
+                </div>
+            </div>
+
             <div id="membersContainer" class="members-table">
                 <p style="text-align: center; margin: 24px 0;">Cargando miembros...</p>
             </div>
@@ -1824,7 +1960,7 @@
 
         <!-- Member Management Modal -->
         <div id="memberModal" class="modal">
-            <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-content" style="max-width: 620px;">
                 <div class="modal-header">
                     <h2 class="modal-title" id="memberModalTitle">👤 Gestionar miembro</h2>
                     <button class="close" onclick="closeMemberModal()">&times;</button>
@@ -1833,6 +1969,7 @@
                 <div class="form-group">
                     <label class="form-label" for="memberUserId">ID de usuario (AAD Object ID)</label>
                     <input type="text" id="memberUserId" class="form-input" placeholder="00000000-0000-0000-0000-000000000000" aria-required="true">
+                    <p class="helper-text" id="memberUserIdHelper">Puedes pegar el Object ID o seleccionar una coincidencia desde la búsqueda.</p>
                 </div>
 
                 <div class="form-group">
@@ -1853,6 +1990,8 @@
                         <option value="user">Usuario respondente</option>
                     </select>
                 </div>
+
+                <div id="memberSearchResults" class="directory-results" style="display: none;"></div>
 
                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                     <fluent-button appearance="stealth" onclick="closeMemberModal()">Cancelar</fluent-button>
@@ -1875,6 +2014,9 @@
             let membersData = [];
             let editingMemberId = null;
             let membersLoading = false;
+            let directorySearchEnabled = false;
+            let directorySearchBusy = false;
+            let directorySearchResults = [];
             const roleCapabilities = {
                 admin: { canManageAccess: true, canEditSurveys: true, canViewDashboard: true },
                 manager: { canManageAccess: false, canEditSurveys: true, canViewDashboard: true },
@@ -1977,9 +2119,10 @@
                 // 🔧 VERIFICAR ANTES DE USAR
                 const planText = document.getElementById('planText');
                 const planBadge = document.getElementById('planBadge');
-                
+
                 currentUserRole = 'admin';
                 currentUserInfo = { userId: 'demo-user', userName: 'Demo Admin', role: 'admin' };
+                directorySearchEnabled = true;
                 applyRolePermissions();
 
                 if (planText) planText.textContent = 'Plan Free';
@@ -2105,6 +2248,11 @@
                 if (accessSection) {
                     accessSection.style.display = capabilities.canManageAccess ? 'block' : 'none';
                     if (capabilities.canManageAccess) {
+                        const searchWrapper = document.getElementById('memberSearchWrapper');
+                        if (searchWrapper) {
+                            searchWrapper.style.display = 'block';
+                        }
+
                         if (authToken) {
                             loadMembers();
                         } else {
@@ -2112,6 +2260,11 @@
                             if (container) {
                                 container.innerHTML = '<p style="text-align: center; margin: 24px 0;">Disponible cuando inicies sesión con SSO.</p>';
                             }
+                        }
+                    } else {
+                        const searchWrapper = document.getElementById('memberSearchWrapper');
+                        if (searchWrapper) {
+                            searchWrapper.style.display = 'none';
                         }
                     }
                 }
@@ -2327,6 +2480,12 @@
 
                 if (!modal || !title || !userIdInput || !nameInput || !emailInput || !roleSelect) return;
 
+                clearDirectoryResults();
+                if (directorySearchEnabled) {
+                    const searchWrapper = document.getElementById('memberSearchWrapper');
+                    if (searchWrapper) searchWrapper.style.display = 'block';
+                }
+
                 if (memberId) {
                     const member = membersData.find(m => m.rowKey === memberId);
                     editingMemberId = memberId;
@@ -2353,6 +2512,12 @@
                 const modal = document.getElementById('memberModal');
                 if (modal) {
                     modal.style.display = 'none';
+                }
+                editingMemberId = null;
+                clearDirectoryResults();
+                const userIdInput = document.getElementById('memberUserId');
+                if (userIdInput && !editingMemberId) {
+                    userIdInput.disabled = false;
                 }
             }
 
@@ -2442,6 +2607,114 @@
                 } catch (error) {
                     console.error('❌ Error removing member:', error);
                     showNotification('No se pudo eliminar al miembro.', 'error');
+                }
+            }
+
+            function clearDirectoryResults() {
+                const resultsContainer = document.getElementById('memberSearchResults');
+                directorySearchResults = [];
+                if (resultsContainer) {
+                    resultsContainer.style.display = 'none';
+                    resultsContainer.innerHTML = '';
+                }
+            }
+
+            function renderDirectoryResults(results, query) {
+                const container = document.getElementById('memberSearchResults');
+                if (!container) return;
+
+                directorySearchResults = results || [];
+
+                if (!results || results.length === 0) {
+                    container.style.display = 'block';
+                    container.innerHTML = `
+                        <div style="padding: 12px 16px; color: #64748b;">
+                            No se encontraron usuarios que coincidan con "${escapeHtml(query)}".
+                        </div>
+                    `;
+                    return;
+                }
+
+                const items = results.map((user, index) => `
+                    <li>
+                        <div class="user-info">
+                            <span class="user-name">${escapeHtml(user.displayName || 'Sin nombre')}</span>
+                            <span class="user-email">${escapeHtml(user.email)}</span>
+                            <span class="member-id">${escapeHtml(user.id)}</span>
+                        </div>
+                        <button class="btn btn-secondary btn-small" type="button" onclick="selectDirectoryUserFromResults(${index})">
+                            Usar datos
+                        </button>
+                    </li>
+                `).join('');
+
+                container.innerHTML = `<ul>${items}</ul>`;
+                container.style.display = 'block';
+                directorySearchEnabled = true;
+            }
+
+            function selectDirectoryUserFromResults(index) {
+                const parsed = directorySearchResults[index];
+                if (!parsed) return;
+
+                const userIdInput = document.getElementById('memberUserId');
+                const nameInput = document.getElementById('memberName');
+                const emailInput = document.getElementById('memberEmail');
+
+                if (userIdInput) {
+                    userIdInput.value = parsed.id || '';
+                    userIdInput.disabled = true;
+                }
+                if (nameInput) nameInput.value = parsed.displayName || '';
+                if (emailInput) emailInput.value = parsed.email || '';
+
+                clearDirectoryResults();
+                showNotification('Datos del directorio completados.', 'success');
+            }
+
+            async function searchDirectoryMembers() {
+                if (!getCapabilities().canManageAccess) return;
+
+                const input = document.getElementById('memberSearchInput');
+                const query = (input?.value || '').trim();
+                const resultsContainer = document.getElementById('memberSearchResults');
+
+                if (!query) {
+                    clearDirectoryResults();
+                    showNotification('Ingresa un nombre o correo para buscar.', 'warning');
+                    return;
+                }
+
+                if (!authToken) {
+                    showNotification('Debes iniciar sesión para buscar en el directorio.', 'warning');
+                    return;
+                }
+
+                if (directorySearchBusy) return;
+                directorySearchBusy = true;
+
+                try {
+                    if (resultsContainer) {
+                        resultsContainer.style.display = 'block';
+                        resultsContainer.innerHTML = '<div style="padding: 12px 16px;">Buscando usuarios...</div>';
+                    }
+
+                    const response = await makeAPICall(`/members/search?q=${encodeURIComponent(query)}`);
+                    const results = response.data || [];
+                    renderDirectoryResults(results, query);
+
+                    if (results.length === 0) {
+                        showNotification('No se encontraron coincidencias en el directorio.', 'info');
+                    }
+                } catch (error) {
+                    console.error('❌ Error searching directory:', error);
+                    if (resultsContainer) {
+                        resultsContainer.style.display = 'block';
+                        resultsContainer.innerHTML = '<div style="padding: 12px 16px; color: #b91c1c;">No se pudo consultar Microsoft Graph. Verifica la configuración.</div>';
+                    }
+                    showNotification('No se pudo consultar Microsoft Graph. Verifica la configuración.', 'error');
+                } finally {
+                    directorySearchBusy = false;
                 }
             }
 
@@ -3650,7 +3923,17 @@
                 
                 setupSearch();
                 setupKeyboardNavigation();
-                
+
+                const memberSearchInput = document.getElementById('memberSearchInput');
+                if (memberSearchInput) {
+                    memberSearchInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            searchDirectoryMembers();
+                        }
+                    });
+                }
+
                 // Close modal handlers
                 window.onclick = (event) => {
                     const editModal = document.getElementById('editModal');
