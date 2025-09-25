@@ -347,20 +347,6 @@
             flex-wrap: wrap;
         }
 
-        .respondent-card .survey-actions {
-            justify-content: flex-end;
-        }
-
-        .respondent-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            color: #64748b;
-            margin: 16px 0;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
         .survey-header {
             display: flex;
             justify-content: space-between;
@@ -513,6 +499,8 @@
             border-radius: 12px;
             overflow: hidden;
             background: #fff;
+            max-height: 260px;
+            overflow-y: auto;
         }
 
         .directory-results ul {
@@ -528,10 +516,17 @@
             justify-content: space-between;
             align-items: center;
             gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
         }
 
         .directory-results li:last-child {
             border-bottom: none;
+        }
+
+        .directory-results li:hover,
+        .directory-results li.selected {
+            background: #eef2ff;
         }
 
         .directory-results .user-info {
@@ -548,6 +543,18 @@
         .directory-results .user-email {
             font-size: 0.85rem;
             color: #4a5568;
+        }
+
+        .member-static-info {
+            background: rgba(102, 126, 234, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .member-static-info p {
+            margin: 6px 0;
+            color: #475569;
         }
 
         .members-table .data-table {
@@ -1837,9 +1844,6 @@
                     <h2>👥 Gestión de accesos</h2>
                     <p class="section-subtitle">Administra administradores, gestores y usuarios del tenant.</p>
                 </div>
-                <button class="btn btn-primary" type="button" onclick="openMemberModal()">
-                    ➕ Agregar miembro
-                </button>
             </div>
 
             <div class="member-controls">
@@ -1847,9 +1851,12 @@
                     <label class="form-label" for="memberSearchInput">Buscar en el directorio</label>
                     <div style="display: flex; gap: 12px;">
                         <input type="text" id="memberSearchInput" class="form-input" placeholder="Nombre o correo" aria-label="Buscar usuarios en Microsoft Entra ID">
-                        <button class="btn btn-secondary" type="button" onclick="searchDirectoryMembers()">🔍 Buscar</button>
+                        <button class="btn btn-secondary" id="memberAddButton" type="button" onclick="openSelectedMemberModal()" disabled>
+                            ➕ Agregar
+                        </button>
                     </div>
                     <p class="helper-text">Ingresa parte del nombre, correo o UPN para buscar en Microsoft Graph.</p>
+                    <div id="memberSearchResults" class="directory-results" style="display: none;"></div>
                 </div>
             </div>
 
@@ -1960,26 +1967,34 @@
 
         <!-- Member Management Modal -->
         <div id="memberModal" class="modal">
-            <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-content" style="max-width: 520px;">
                 <div class="modal-header">
                     <h2 class="modal-title" id="memberModalTitle">👤 Gestionar miembro</h2>
                     <button class="close" onclick="closeMemberModal()">&times;</button>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="memberUserId">ID de usuario (AAD Object ID)</label>
-                    <input type="text" id="memberUserId" class="form-input" placeholder="00000000-0000-0000-0000-000000000000" aria-required="true">
-                    <p class="helper-text" id="memberUserIdHelper">Puedes pegar el Object ID o seleccionar una coincidencia desde la búsqueda.</p>
+                <div id="memberSelectedInfo" class="member-static-info" style="display: none;">
+                    <p><strong>Usuario:</strong> <span id="memberInfoName"></span></p>
+                    <p><strong>Correo:</strong> <span id="memberInfoEmail"></span></p>
+                    <p><strong>Object ID:</strong> <span id="memberInfoId"></span></p>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="memberName">Nombre</label>
-                    <input type="text" id="memberName" class="form-input" placeholder="Nombre completo" aria-required="true">
-                </div>
+                <div id="memberEditableFields">
+                    <div class="form-group">
+                        <label class="form-label" for="memberUserId">ID de usuario (AAD Object ID)</label>
+                        <input type="text" id="memberUserId" class="form-input" placeholder="00000000-0000-0000-0000-000000000000" aria-required="true">
+                        <p class="helper-text" id="memberUserIdHelper">Puedes pegar el Object ID o seleccionar una coincidencia desde la búsqueda.</p>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="memberEmail">Correo electrónico</label>
-                    <input type="email" id="memberEmail" class="form-input" placeholder="usuario@empresa.com" aria-required="true">
+                    <div class="form-group">
+                        <label class="form-label" for="memberName">Nombre</label>
+                        <input type="text" id="memberName" class="form-input" placeholder="Nombre completo" aria-required="true">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="memberEmail">Correo electrónico</label>
+                        <input type="email" id="memberEmail" class="form-input" placeholder="usuario@empresa.com" aria-required="true">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -1990,8 +2005,6 @@
                         <option value="user">Usuario respondente</option>
                     </select>
                 </div>
-
-                <div id="memberSearchResults" class="directory-results" style="display: none;"></div>
 
                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                     <fluent-button appearance="stealth" onclick="closeMemberModal()">Cancelar</fluent-button>
@@ -2017,6 +2030,10 @@
             let directorySearchEnabled = false;
             let directorySearchBusy = false;
             let directorySearchResults = [];
+            let selectedDirectoryUser = null;
+            let selectedDirectoryIndex = -1;
+            let directorySearchTimeout = null;
+            let lastDirectoryQuery = '';
             const roleCapabilities = {
                 admin: { canManageAccess: true, canEditSurveys: true, canViewDashboard: true },
                 manager: { canManageAccess: false, canEditSurveys: true, canViewDashboard: true },
@@ -2261,17 +2278,27 @@
                                 container.innerHTML = '<p style="text-align: center; margin: 24px 0;">Disponible cuando inicies sesión con SSO.</p>';
                             }
                         }
+
+                        setAddButtonState(!!selectedDirectoryUser);
                     } else {
                         const searchWrapper = document.getElementById('memberSearchWrapper');
                         if (searchWrapper) {
                             searchWrapper.style.display = 'none';
                         }
+                        setAddButtonState(false);
                     }
                 }
 
                 const planBadge = document.getElementById('planBadge');
                 if (planBadge) {
                     planBadge.style.display = capabilities.canViewDashboard ? 'inline-flex' : 'none';
+                }
+            }
+
+            function setAddButtonState(enabled) {
+                const addButton = document.getElementById('memberAddButton');
+                if (addButton) {
+                    addButton.disabled = !enabled;
                 }
             }
 
@@ -2470,33 +2497,52 @@
                 `;
             }
 
-            function openMemberModal(memberId = null) {
+            function openMemberModal(memberId = null, directoryUser = null) {
                 const modal = document.getElementById('memberModal');
                 const title = document.getElementById('memberModalTitle');
                 const userIdInput = document.getElementById('memberUserId');
                 const nameInput = document.getElementById('memberName');
                 const emailInput = document.getElementById('memberEmail');
                 const roleSelect = document.getElementById('memberRole');
+                const staticInfo = document.getElementById('memberSelectedInfo');
+                const editableFields = document.getElementById('memberEditableFields');
 
-                if (!modal || !title || !userIdInput || !nameInput || !emailInput || !roleSelect) return;
+                if (!modal || !title || !userIdInput || !nameInput || !emailInput || !roleSelect || !staticInfo || !editableFields) return;
 
-                clearDirectoryResults();
-                if (directorySearchEnabled) {
-                    const searchWrapper = document.getElementById('memberSearchWrapper');
-                    if (searchWrapper) searchWrapper.style.display = 'block';
-                }
+                if (directoryUser) {
+                    editingMemberId = null;
+                    selectedDirectoryUser = directoryUser;
+                    selectedDirectoryIndex = -1;
 
-                if (memberId) {
+                    title.textContent = '➕ Agregar miembro';
+                    staticInfo.style.display = 'block';
+                    editableFields.style.display = 'none';
+
+                    document.getElementById('memberInfoName').textContent = directoryUser.displayName || directoryUser.email || 'Sin nombre';
+                    document.getElementById('memberInfoEmail').textContent = directoryUser.email || 'Sin correo';
+                    document.getElementById('memberInfoId').textContent = directoryUser.id || 'Sin ID';
+
+                    roleSelect.value = 'user';
+                } else if (memberId) {
                     const member = membersData.find(m => m.rowKey === memberId);
                     editingMemberId = memberId;
+
+                    staticInfo.style.display = 'none';
+                    editableFields.style.display = 'block';
+
                     title.textContent = '✏️ Editar miembro';
                     userIdInput.value = member?.rowKey || memberId;
                     userIdInput.disabled = true;
                     nameInput.value = member?.name || '';
                     emailInput.value = member?.email || '';
                     roleSelect.value = member?.role || 'user';
+                    selectedDirectoryUser = null;
+                    selectedDirectoryIndex = -1;
                 } else {
                     editingMemberId = null;
+                    staticInfo.style.display = 'none';
+                    editableFields.style.display = 'block';
+
                     title.textContent = '➕ Agregar miembro';
                     userIdInput.value = '';
                     userIdInput.disabled = false;
@@ -2508,17 +2554,37 @@
                 modal.style.display = 'block';
             }
 
-            function closeMemberModal() {
+            function closeMemberModal(resetSearch = false) {
                 const modal = document.getElementById('memberModal');
                 if (modal) {
                     modal.style.display = 'none';
                 }
                 editingMemberId = null;
-                clearDirectoryResults();
+                if (resetSearch) {
+                    resetDirectorySearch();
+                }
                 const userIdInput = document.getElementById('memberUserId');
-                if (userIdInput && !editingMemberId) {
+                if (userIdInput) {
                     userIdInput.disabled = false;
                 }
+                const staticInfo = document.getElementById('memberSelectedInfo');
+                const editableFields = document.getElementById('memberEditableFields');
+                if (staticInfo) staticInfo.style.display = 'none';
+                if (editableFields) editableFields.style.display = 'block';
+                const infoName = document.getElementById('memberInfoName');
+                const infoEmail = document.getElementById('memberInfoEmail');
+                const infoId = document.getElementById('memberInfoId');
+                if (infoName) infoName.textContent = '';
+                if (infoEmail) infoEmail.textContent = '';
+                if (infoId) infoId.textContent = '';
+            }
+
+            function openSelectedMemberModal() {
+                if (!selectedDirectoryUser) {
+                    showNotification('Selecciona un usuario del directorio para agregarlo.', 'warning');
+                    return;
+                }
+                openMemberModal(null, selectedDirectoryUser);
             }
 
             async function submitMemberForm() {
@@ -2528,29 +2594,47 @@
                     return;
                 }
 
-                const userIdInput = document.getElementById('memberUserId');
-                const nameInput = document.getElementById('memberName');
-                const emailInput = document.getElementById('memberEmail');
                 const roleSelect = document.getElementById('memberRole');
-
-                const userId = (userIdInput?.value || '').trim();
-                const name = (nameInput?.value || '').trim();
-                const email = (emailInput?.value || '').trim();
                 const role = roleSelect?.value || 'user';
 
-                if (!userId || !name || !email) {
-                    showNotification('Completa todos los campos obligatorios.', 'warning');
-                    return;
-                }
-
                 try {
-                    await makeAPICall('/members', {
-                        method: 'POST',
-                        body: { userId, name, email, role }
-                    });
+                    if (editingMemberId) {
+                        const userIdInput = document.getElementById('memberUserId');
+                        const nameInput = document.getElementById('memberName');
+                        const emailInput = document.getElementById('memberEmail');
+
+                        const userId = (userIdInput?.value || '').trim();
+                        const name = (nameInput?.value || '').trim();
+                        const email = (emailInput?.value || '').trim();
+
+                        if (!userId || !name || !email) {
+                            showNotification('Completa todos los campos obligatorios.', 'warning');
+                            return;
+                        }
+
+                        await makeAPICall('/members', {
+                            method: 'POST',
+                            body: { userId, name, email, role }
+                        });
+                    } else {
+                        if (!selectedDirectoryUser) {
+                            showNotification('Selecciona un usuario del directorio antes de continuar.', 'warning');
+                            return;
+                        }
+
+                        await makeAPICall('/members', {
+                            method: 'POST',
+                            body: {
+                                userId: selectedDirectoryUser.id,
+                                name: selectedDirectoryUser.displayName || selectedDirectoryUser.email,
+                                email: selectedDirectoryUser.email,
+                                role
+                            }
+                        });
+                    }
 
                     showNotification('Miembro guardado correctamente.', 'success');
-                    closeMemberModal();
+                    closeMemberModal(true);
                     await loadMembers();
                 } catch (error) {
                     console.error('❌ Error saving member:', error);
@@ -2610,9 +2694,25 @@
                 }
             }
 
-            function clearDirectoryResults() {
+            function resetDirectorySearch() {
+                const input = document.getElementById('memberSearchInput');
+                if (input) input.value = '';
+                selectedDirectoryUser = null;
+                selectedDirectoryIndex = -1;
+                setAddButtonState(false);
+                clearDirectoryResults();
+            }
+
+            function clearDirectoryResults(preserveSelection = false) {
                 const resultsContainer = document.getElementById('memberSearchResults');
                 directorySearchResults = [];
+
+                if (!preserveSelection) {
+                    selectedDirectoryUser = null;
+                    selectedDirectoryIndex = -1;
+                    setAddButtonState(false);
+                }
+
                 if (resultsContainer) {
                     resultsContainer.style.display = 'none';
                     resultsContainer.innerHTML = '';
@@ -2624,6 +2724,8 @@
                 if (!container) return;
 
                 directorySearchResults = results || [];
+                lastDirectoryQuery = query || '';
+                selectedDirectoryIndex = -1;
 
                 if (!results || results.length === 0) {
                     container.style.display = 'block';
@@ -2636,52 +2738,53 @@
                 }
 
                 const items = results.map((user, index) => `
-                    <li>
+                    <li class="${index === selectedDirectoryIndex ? 'selected' : ''}">
                         <div class="user-info">
                             <span class="user-name">${escapeHtml(user.displayName || 'Sin nombre')}</span>
                             <span class="user-email">${escapeHtml(user.email)}</span>
                             <span class="member-id">${escapeHtml(user.id)}</span>
                         </div>
-                        <button class="btn btn-secondary btn-small" type="button" onclick="selectDirectoryUserFromResults(${index})">
-                            Usar datos
-                        </button>
                     </li>
                 `).join('');
 
                 container.innerHTML = `<ul>${items}</ul>`;
                 container.style.display = 'block';
                 directorySearchEnabled = true;
+
+                container.querySelectorAll('li').forEach((li, idx) => {
+                    li.addEventListener('click', () => selectDirectoryUserFromResults(idx));
+                });
             }
 
             function selectDirectoryUserFromResults(index) {
                 const parsed = directorySearchResults[index];
                 if (!parsed) return;
 
-                const userIdInput = document.getElementById('memberUserId');
-                const nameInput = document.getElementById('memberName');
-                const emailInput = document.getElementById('memberEmail');
+                selectedDirectoryUser = parsed;
+                selectedDirectoryIndex = index;
 
-                if (userIdInput) {
-                    userIdInput.value = parsed.id || '';
-                    userIdInput.disabled = true;
+                const searchInput = document.getElementById('memberSearchInput');
+                if (searchInput) {
+                    searchInput.value = parsed.displayName || parsed.email || '';
                 }
-                if (nameInput) nameInput.value = parsed.displayName || '';
-                if (emailInput) emailInput.value = parsed.email || '';
 
-                clearDirectoryResults();
-                showNotification('Datos del directorio completados.', 'success');
+                setAddButtonState(true);
+                clearDirectoryResults(true);
+                showNotification('Usuario del directorio seleccionado.', 'success');
             }
 
-            async function searchDirectoryMembers() {
+            async function searchDirectoryMembers(manualQuery) {
                 if (!getCapabilities().canManageAccess) return;
 
                 const input = document.getElementById('memberSearchInput');
-                const query = (input?.value || '').trim();
+                const query = (manualQuery !== undefined ? manualQuery : (input?.value || '')).trim();
                 const resultsContainer = document.getElementById('memberSearchResults');
 
-                if (!query) {
+                if (!query || query.length < 3) {
                     clearDirectoryResults();
-                    showNotification('Ingresa un nombre o correo para buscar.', 'warning');
+                    if (query) {
+                        showNotification('Escribe al menos 3 caracteres para buscar.', 'info');
+                    }
                     return;
                 }
 
@@ -2692,6 +2795,7 @@
 
                 if (directorySearchBusy) return;
                 directorySearchBusy = true;
+                lastDirectoryQuery = query;
 
                 try {
                     if (resultsContainer) {
@@ -2704,7 +2808,7 @@
                     renderDirectoryResults(results, query);
 
                     if (results.length === 0) {
-                        showNotification('No se encontraron coincidencias en el directorio.', 'info');
+                        setAddButtonState(false);
                     }
                 } catch (error) {
                     console.error('❌ Error searching directory:', error);
@@ -2716,6 +2820,31 @@
                 } finally {
                     directorySearchBusy = false;
                 }
+            }
+
+            function handleDirectoryInput() {
+                const input = document.getElementById('memberSearchInput');
+                const query = (input?.value || '').trim();
+
+                if (directorySearchTimeout) {
+                    clearTimeout(directorySearchTimeout);
+                }
+
+                if (!query) {
+                    resetDirectorySearch();
+                    return;
+                }
+
+                selectedDirectoryUser = null;
+                selectedDirectoryIndex = -1;
+                setAddButtonState(false);
+
+                if (query.length < 3) {
+                    clearDirectoryResults();
+                    return;
+                }
+
+                directorySearchTimeout = setTimeout(() => searchDirectoryMembers(query), 250);
             }
 
             // 🦴 Crear skeleton loading para surveys
@@ -3926,6 +4055,7 @@
 
                 const memberSearchInput = document.getElementById('memberSearchInput');
                 if (memberSearchInput) {
+                    memberSearchInput.addEventListener('input', handleDirectoryInput);
                     memberSearchInput.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
