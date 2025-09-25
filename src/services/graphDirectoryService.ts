@@ -21,12 +21,12 @@ let credential: ClientSecretCredential | null = null;
 function ensureCredential(): ClientSecretCredential | null {
   if (credential) return credential;
 
-  const tenantId = process.env.GRAPH_CLIENT_TENANT_ID || process.env.MP_API_TENANT_ID;
-  const clientId = process.env.GRAPH_CLIENT_ID || process.env.MP_API_CLIENT_ID;
-  const clientSecret = process.env.GRAPH_CLIENT_SECRET || process.env.MP_API_CLIENT_SECRET;
+  const tenantId = process.env.MP_API_TENANT_ID || process.env.MP_TENANT_ID;
+  const clientId = process.env.MP_API_CLIENT_ID || process.env.MP_CLIENT_ID;
+  const clientSecret = process.env.MP_API_CLIENT_SECRET || process.env.MP_CLIENT_SECRET;
 
   if (!tenantId || !clientId || !clientSecret) {
-    console.warn("⚠️ Graph credentials not fully configured. Directory search will be disabled.");
+    console.warn("⚠️ Graph credentials not fully configured (usa MP_API_* / MP_*).");
     return null;
   }
 
@@ -90,6 +90,13 @@ export async function searchDirectoryUsers(query: string, tenantId?: string): Pr
     if (!response.ok) {
       const text = await response.text();
       console.error("❌ Graph search failed:", response.status, text);
+
+      if (response.status === 403) {
+        console.error(
+          "ℹ️ Revisa que la aplicación MP_API tenga permisos 'User.Read.All' (Application) en Microsoft Graph y que se haya realizado el admin consent."
+        );
+      }
+
       return [];
     }
 

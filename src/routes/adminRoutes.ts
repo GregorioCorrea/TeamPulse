@@ -996,7 +996,7 @@ router.post(
 );
 
 // 📝 PUT /api/admin/surveys/:id - Actualizar encuesta completa
-router.put('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.put('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { titulo, objetivo, preguntas } = req.body;
@@ -1098,7 +1098,7 @@ router.put('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, requirePlan(
 });
 
 // ⏸️ PATCH /api/admin/surveys/:id/status - Cambiar estado de encuesta
-router.patch('/surveys/:id/status', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.patch('/surveys/:id/status', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -1168,7 +1168,7 @@ router.patch('/surveys/:id/status', validateTeamsSSO, requireManagerOrAdmin, req
 });
 
 // 📄 POST /api/admin/surveys/:id/duplicate - Duplicar encuesta
-router.post('/surveys/:id/duplicate', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/surveys/:id/duplicate', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { newTitle } = req.body;
@@ -1236,7 +1236,7 @@ router.post('/surveys/:id/duplicate', validateTeamsSSO, requireManagerOrAdmin, r
 });
 
 // 🗑️ DELETE /api/admin/surveys/:id - Eliminar encuesta
-router.delete('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, requirePlan(['pro','enterprise']), async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/surveys/:id', validateTeamsSSO, requireManagerOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { confirm } = req.query;
