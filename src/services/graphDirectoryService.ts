@@ -16,12 +16,10 @@ export interface DirectoryUserResult {
   email: string;
 }
 
-let credential: ClientSecretCredential | null = null;
+const credentialCache = new Map<string, ClientSecretCredential>();
 
-function ensureCredential(): ClientSecretCredential | null {
-  if (credential) return credential;
-
-  const tenantId = process.env.MP_API_TENANT_ID || process.env.MP_TENANT_ID;
+function getCredential(targetTenantId?: string): ClientSecretCredential | null {
+  const tenantId = targetTenantId?.trim() || process.env.MP_API_TENANT_ID || process.env.MP_TENANT_ID;
   const clientId = process.env.MP_API_CLIENT_ID || process.env.MP_CLIENT_ID;
   const clientSecret = process.env.MP_API_CLIENT_SECRET || process.env.MP_CLIENT_SECRET;
 
@@ -30,12 +28,16 @@ function ensureCredential(): ClientSecretCredential | null {
     return null;
   }
 
-  credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
-  return credential;
+  const cached = credentialCache.get(tenantId);
+  if (cached) return cached;
+
+  const cred = new ClientSecretCredential(tenantId, clientId, clientSecret);
+  credentialCache.set(tenantId, cred);
+  return cred;
 }
 
-async function getGraphToken(): Promise<string | null> {
-  const cred = ensureCredential();
+async function getGraphToken(tenantId?: string): Promise<string | null> {
+  const cred = getCredential(tenantId);
   if (!cred) return null;
 
   const token = await cred.getToken(GRAPH_SCOPE);
@@ -47,7 +49,7 @@ export async function searchDirectoryUsers(query: string, tenantId?: string): Pr
   if (!trimmed) return [];
 
   try {
-    if (process.env.NODE_ENV === "development" && !ensureCredential()) {
+    if (process.env.NODE_ENV === "development" && !getCredential(tenantId)) {
       // Provide mock data for local development when credentials are missing
       return [
         {
@@ -63,7 +65,7 @@ export async function searchDirectoryUsers(query: string, tenantId?: string): Pr
       ];
     }
 
-    const token = await getGraphToken();
+    const token = await getGraphToken(tenantId);
     if (!token) {
       console.warn("⚠️ Directory search skipped: missing Graph token");
       return [];
@@ -76,8 +78,9 @@ export async function searchDirectoryUsers(query: string, tenantId?: string): Pr
     url.searchParams.set("$top", "10");
     url.searchParams.set("$filter", filter);
 
-    if (tenantId) {
-      console.log(`🔎 [GRAPH] Searching directory in tenant ${tenantId}`);
+    const targetTenant = tenantId || process.env.MP_API_TENANT_ID || process.env.MP_TENANT_ID;
+    if (targetTenant) {
+      console.log(`🔎 [GRAPH] Searching directory in tenant ${targetTenant}`);
     }
 
     const response = await fetch(url.toString(), {
