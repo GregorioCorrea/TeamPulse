@@ -1581,58 +1581,109 @@ app.message(/^admin_diagnose$/i, async (context) => {
   }
 });
 
-// COMANDO MAKE_ME_ADMIN CON VALIDACIONES - Más seguro
-app.message(/^make_me_admin$/i, async (context, state) => {
-  try {
-    console.log('👑 Usuario solicitando convertirse en admin...');
-    
-    const userId = context.activity.from.id;
-    const userName = context.activity.from.name || 'Admin User';
-    const tenantId = context.activity.channelData?.tenant?.id;
-    
-    console.log(`👑 Usuario ${userId} del tenant ${tenantId} solicitando convertirse en admin...`);
 
-    // Validaciones básicas
-    if (!tenantId || !userId) {
-      await context.sendActivity("❌ **Error:** Información de usuario o tenant incompleta.");
-      console.log(`👑 Buscamos usuario ${userId} y tenant ${tenantId} solicitando convertirse en admin...`);
+function extractTeamsUserIdentity(context: TurnContext) {
+  const from = (context.activity.from ?? {}) as any;
+  const channelData = (context.activity.channelData ?? {}) as any;
+
+  const tenantId = channelData?.tenant?.id ? String(channelData.tenant.id) : undefined;
+  const aadObjectId = (from.aadObjectId || from.objectId || from.id) as string | undefined;
+  const userPrincipalName = (from.userPrincipalName || from.email || from.userId) as string | undefined;
+
+  const emailFromPayload = typeof userPrincipalName === 'string' && userPrincipalName.includes('@')
+    ? userPrincipalName
+    : typeof from.email === 'string'
+      ? from.email
+      : undefined;
+
+  const displayNameRaw = (context.activity.from?.name as string) || (emailFromPayload ? emailFromPayload.split('@')[0] : undefined) || 'TeamPulse User';
+  const displayName = displayNameRaw.trim() || 'TeamPulse User';
+
+  const normalizedEmail = emailFromPayload
+    ? String(emailFromPayload).toLowerCase()
+    : tenantId
+      ? `${displayName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`
+      : `${displayName.replace(/\s+/g, '').toLowerCase()}@unknown-tenant`;
+
+  const fallbackId = context.activity.from?.id ? String(context.activity.from.id).trim() : '';
+  const userId = aadObjectId && String(aadObjectId).trim().length > 0
+    ? String(aadObjectId)
+    : fallbackId;
+
+  return {
+    tenantId,
+    userId,
+    userName: displayName,
+    email: normalizedEmail
+  };
+}
+
+// COMANDO MAKE_ME_ADMIN CON VALIDACIONES - Más seguro
+app.message(/^make_me_admin$/i, async (context) => {
+  try {
+    const identity = extractTeamsUserIdentity(context);
+    const { tenantId, userId, userName, email } = identity;
+
+    console.log('👑 Usuario solicitando convertirse en admin...', identity);
+
+    if (!tenantId) {
+      await context.sendActivity("❌ **Error:** No pudimos detectar el tenant. Ejecuta el comando desde Microsoft Teams.");
       return;
     }
-    
+
+    if (!userId) {
+      await context.sendActivity("❌ **Error:** No pudimos identificar al usuario. Vuelve a intentar desde Teams.");
+      return;
+    }
+
+    const currentRecord = await azureService.obtenerMiembro(userId, tenantId);
+    if (currentRecord?.role === 'admin') {
+      await context.sendActivity(`✅ **Ya eres administrador de este tenant.**
+
+📧 **Email:** ${currentRecord.email || email}
+🆔 **Object ID:** ${userId}`);
+      return;
+    }
+
     await context.sendActivity("👑 **Verificando permisos...**");
-    
-    // Verificar si hay otros admins en el tenant
+
     const existingAdmins = await azureService.listarMiembrosEnTenant(tenantId, ['admin']);
-    
-    // Si ya hay admins, requerir confirmación especial
+
+    if (existingAdmins.some(admin => admin.rowKey === userId)) {
+      await context.sendActivity(`✅ **Ya eres administrador de este tenant.**
+
+📧 **Email:** ${email}
+🆔 **Object ID:** ${userId}`);
+      return;
+    }
+
     if (existingAdmins.length > 0) {
+      const adminsList = existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n');
       await context.sendActivity(`⚠️ **Este tenant ya tiene ${existingAdmins.length} administrador(es).**
 
 **Admins existentes:**
-${existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n')}
+${adminsList}
 
 **Para convertirte en admin adicional, usa:** \`force_make_me_admin\`
 
 ⚠️ **Nota:** Solo usa este comando si tienes autorización del administrador actual.`);
       return;
     }
-    
-    // Si no hay admins, proceder automáticamente (primer admin)
-    const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
-    
+
     await azureService.upsertMiembro({
       userId,
       tenantId,
-      email: userEmail,
+      email,
       name: userName,
       role: 'admin',
       addedBy: 'First admin - auto-promotion via make_me_admin'
     });
-    
+
     await context.sendActivity(`🎉 **¡Eres el primer administrador de este tenant!** 👑
 
 ✅ **Acceso de administrador concedido**
-📧 **Email:** ${userEmail}
+📧 **Email (UPN):** ${email}
+🆔 **Object ID:** ${userId}
 🏢 **Tenant:** \`${tenantId}\`
 
 🎯 **Ahora puedes:**
@@ -1642,7 +1693,6 @@ ${existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n')}
 - Ver estadísticas completas
 
 🚀 **¡Tu tenant está listo para usar TeamPulse!**`);
-
   } catch (error) {
     console.error('❌ Error en make_me_admin:', error);
     await context.sendActivity("❌ Error al procesar la solicitud. Intenta nuevamente.");
@@ -1650,29 +1700,49 @@ ${existingAdmins.map(admin => `• ${admin.name} (${admin.email})`).join('\n')}
 });
 
 // COMANDO FORCE - Para casos especiales
-app.message(/^force_make_me_admin$/i, async (context, state) => {
+app.message(/^force_make_me_admin$/i, async (context) => {
   try {
-    const userId = context.activity.from.id;
-    const userName = context.activity.from.name || 'Admin User';
-    const tenantId = context.activity.channelData?.tenant?.id;
-    const userEmail = `${userName.replace(/\s+/g, '').toLowerCase()}@${tenantId}.onmicrosoft.com`;
-    
+    const { tenantId, userId, userName, email } = extractTeamsUserIdentity(context);
+
+    if (!tenantId) {
+      await context.sendActivity("❌ **Error:** No pudimos detectar el tenant. Ejecuta el comando desde Microsoft Teams.");
+      return;
+    }
+
+    if (!userId) {
+      await context.sendActivity("❌ **Error:** No pudimos identificar al usuario. Vuelve a intentar desde Teams.");
+      return;
+    }
+
+    const existingMember = await azureService.obtenerMiembro(userId, tenantId);
+    const alreadyAdmin = existingMember?.role === 'admin';
+
     await azureService.upsertMiembro({
       userId,
       tenantId,
-      email: userEmail,
+      email,
       name: userName,
       role: 'admin',
-      addedBy: 'Forced admin promotion'
+      addedBy: alreadyAdmin ? existingMember?.addedBy || 'Forced admin promotion' : 'Forced admin promotion'
     });
-    
-    await context.sendActivity(`⚡ **¡Administrador agregado por fuerza!** 👑
+
+    if (alreadyAdmin) {
+      await context.sendActivity(`✅ **Ya eras administrador de este tenant.** Actualizamos tus datos.
+
+📧 **Email (UPN):** ${email}
+🆔 **Object ID:** ${userId}
+🏢 **Tenant:** \`${tenantId}\``);
+      return;
+    }
+
+    await context.sendActivity(`⚡ **¡Administrador agregado!** 👑
 
 ✅ **Acceso concedido a:** ${userName}
-📧 **Email:** ${userEmail}
+📧 **Email (UPN):** ${email}
+🆔 **Object ID:** ${userId}
+🏢 **Tenant:** \`${tenantId}\`
 
 ⚠️ **Nota:** Este comando debe usarse solo con autorización apropiada.`);
-
   } catch (error) {
     console.error('❌ Error en force_make_me_admin:', error);
     await context.sendActivity("❌ Error al forzar promoción a administrador.");

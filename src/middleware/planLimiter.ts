@@ -64,6 +64,42 @@ const PLAN_LIMITS: Record<PlanSlug, number> = {
 };
 
 
+type MarketplaceStatus = 'activated' | 'suspended' | 'unsubscribed' | 'pending' | 'failed' | 'unknown';
+
+function normalizeMarketplaceStatus(status: unknown): MarketplaceStatus {
+  if (typeof status !== 'string') {
+    return 'unknown';
+  }
+
+  const value = status.toLowerCase();
+  if (value === 'activated' || value === 'active') return 'activated';
+  if (value === 'suspended') return 'suspended';
+  if (value === 'unsubscribed' || value === 'uninstall' || value === 'deleted') return 'unsubscribed';
+  if (value === 'pending' || value === 'pendingactivation') return 'pending';
+  if (value === 'failed' || value === 'error') return 'failed';
+  return 'unknown';
+}
+
+function parseTimestamp(value: unknown): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return new Date(0);
+}
+
+function resolvePlanSlug(planId: string): PlanSlug {
+  const lowered = planId.toLowerCase();
+  return PLAN_MAPPING[lowered] || normalizePlan(planId);
+}
+
 /* ── obtener plan del tenant - VERSIÓN ROBUSTA ───────────────────── */
 export async function getPlan(tenantId: string): Promise<PlanSlug> {
   if (!tenantId) {
@@ -74,29 +110,43 @@ export async function getPlan(tenantId: string): Promise<PlanSlug> {
   try {
     console.log(`🔍 Buscando plan para tenant: ${tenantId}`);
 
-    // (Logs de depuración existentes, podés dejarlos si te sirven)
     const entities = subsTable.listEntities({
       queryOptions: { filter: `userTenant eq '${tenantId}'` }
     });
 
-    let latestSubscription: any = null;
-    let latestDate = new Date(0);
+    let latestActive: { entity: any; date: Date } | null = null;
+    let latestRecord: { entity: any; status: MarketplaceStatus; date: Date } | null = null;
 
     for await (const entity of entities) {
-      if (entity.status === 'Activated' && entity.planId && entity.lastModified) {
-        const d = new Date(entity.lastModified as string);
-        if (d > latestDate) {
-          latestSubscription = entity;
-          latestDate = d;
+      const status = normalizeMarketplaceStatus((entity as any).status);
+      const recordDate = parseTimestamp((entity as any).lastModified || (entity as any).createdAt);
+
+      if (!latestRecord || recordDate > latestRecord.date) {
+        latestRecord = { entity, status, date: recordDate };
+      }
+
+      if (status === 'activated' && (entity as any).planId) {
+        if (!latestActive || recordDate > latestActive.date) {
+          latestActive = { entity, date: recordDate };
         }
       }
     }
 
-    if (latestSubscription?.planId) {
-      const raw = String(latestSubscription.planId);
-      const mapped = PLAN_MAPPING[raw] || normalizePlan(raw);
+    if (latestActive?.entity?.planId) {
+      const raw = String(latestActive.entity.planId);
+      const mapped = resolvePlanSlug(raw);
       console.log(`🎯 Plan determinado: ${mapped} (desde planId=${raw})`);
       return mapped;
+    }
+
+    if (latestRecord) {
+      const status = latestRecord.status;
+      const planId = latestRecord.entity?.planId ? String(latestRecord.entity.planId) : 'desconocido';
+      console.log(`ℹ️ Último registro de marketplace para ${tenantId} está en estado '${status}' con planId=${planId}. Se asigna plan free temporalmente.`);
+
+      if (status === 'activated' && planId !== 'desconocido') {
+        return resolvePlanSlug(planId);
+      }
     }
 
     console.log(`ℹ️ No se encontró plan activo para tenant: ${tenantId}, usando free por defecto`);

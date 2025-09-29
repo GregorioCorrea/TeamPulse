@@ -292,6 +292,64 @@ function redirectToFrontendWithError(res: Response, error: string) {
   res.redirect(errorUrl);
 }
 
+
+function handleAdminConsentCallback(req: Request, res: Response): void {
+  const { admin_consent, tenant, error, error_description } = req.query;
+
+  console.log("[Landing] Admin consent callback", {
+    admin_consent,
+    tenant,
+    error,
+    error_description
+  });
+
+  if (error) {
+    console.error("[Landing] Admin consent error", error, error_description);
+    res.status(400).send(renderConsentPage({
+      title: "No se pudo completar el consentimiento",
+      message: String(error_description || error),
+      status: "error"
+    }));
+    return;
+  }
+
+  const granted = typeof admin_consent === "string" && admin_consent.toLowerCase() === "true";
+
+  res.send(renderConsentPage({
+    title: granted ? "Consentimiento otorgado" : "Consentimiento recibido",
+    message: granted
+      ? "La aplicación TeamPulse API ya tiene acceso en tu tenant. Podés cerrar esta ventana."
+      : "Recibimos la respuesta del portal, pero no pudimos confirmar el consentimiento. Verifica en Azure si quedó registrado.",
+    status: granted ? "success" : "warning"
+  }));
+}
+
+function renderConsentPage({ title, message, status }: { title: string; message: string; status: "success" | "warning" | "error"; }): string {
+  const statusColor = status === "success" ? "#107c10" : status === "warning" ? "#ffaa44" : "#d13438";
+
+  return `<!DOCTYPE html>
+  <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f3f2f1; margin: 0; padding: 40px; }
+        .card { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 12px 24px rgba(0,0,0,0.08); }
+        h1 { font-size: 1.8rem; color: ${statusColor}; margin-bottom: 16px; }
+        p { font-size: 1rem; color: #201f1e; margin-bottom: 24px; }
+        .footer { font-size: 0.85rem; color: #605e5c; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>${title}</h1>
+        <p>${message}</p>
+        <p class="footer">Si necesitas ayuda, escribinos a support@incumate.io.</p>
+      </div>
+    </body>
+  </html>`;
+}
+
 // ── Middleware y health checks (sin cambios)
 function landingDebugMiddleware(req: Request, res: Response, next: express.NextFunction): void {
   const timestamp = new Date().toISOString();
@@ -319,6 +377,7 @@ export const landingPageRouter = express.Router()
   // 🆕 OAuth endpoints
   .get("/start-login", startOAuthLogin)           // Iniciar OAuth
   .get("/oauth-callback", handleOAuthCallback)    // Callback de Microsoft
+  .get("/callback", handleAdminConsentCallback)   // Callback de admin consent
   
   // Mantener endpoints existentes por compatibilidad
   .get("/sso-config", landingHealthCheck)        // Dummy endpoint
