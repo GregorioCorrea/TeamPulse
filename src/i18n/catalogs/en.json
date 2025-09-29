@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "language": "English",
+    "locale": "en"
+  },
+  "common": {
+    "appName": "TeamPulse",
+    "unknownError": "Something went wrong. Please try again.",
+    "actionRequired": "Action required"
+  },
+  "bot": {
+    "greeting": "Hello! I'm TeamPulse. How can I help you today?",
+    "fallback": "I couldn't understand that. Please try a different command.",
+    "adminPrompt": "Use `make_me_admin` to become an administrator if this tenant has no admins yet."
+  },
+  "admin": {
+    "title": "Administration Portal",
+    "save": "Save",
+    "cancel": "Cancel",
+    "searchPlaceholder": "Search users or surveys"
+  }
+}

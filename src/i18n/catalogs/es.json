@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "language": "Español",
+    "locale": "es"
+  },
+  "common": {
+    "appName": "TeamPulse",
+    "unknownError": "Ocurrió un error inesperado. Intenta nuevamente.",
+    "actionRequired": "Acción requerida"
+  },
+  "bot": {
+    "greeting": "¡Hola! Soy TeamPulse. ¿En qué puedo ayudarte hoy?",
+    "fallback": "No pude entender eso. Probá con otro comando.",
+    "adminPrompt": "Usá `make_me_admin` para convertirte en administrador si el tenant aún no tiene uno."
+  },
+  "admin": {
+    "title": "Portal de Administración",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "searchPlaceholder": "Buscar usuarios o encuestas"
+  }
+}
