@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeamPulse - Panel de Administración</title>
+    <title data-i18n-key="admin.pageTitle" data-i18n-default="TeamPulse - Panel de Administración">TeamPulse - Panel de Administración</title>
     <!-- Teams SDK -->
     <script src="https://res.cdn.office.net/teams-js/2.22.0/js/MicrosoftTeams.min.js"></script>
     <!-- FluentUI Web Components -->
@@ -1614,9 +1614,9 @@
             <!-- Header -->
             <div class="header">
                 <div class="header-main">
-                    <h1>🎯 TeamPulse Admin</h1>
+                    <h1 data-i18n-key="admin.headerTitle" data-i18n-default="🎯 TeamPulse Admin">🎯 TeamPulse Admin</h1>
                     <div class="header-subtitle-row">
-                        <p class="subtitle">Panel de administración de encuestas y análisis</p>
+                        <p class="subtitle" data-i18n-key="admin.headerSubtitle" data-i18n-default="Panel de administración de encuestas y análisis">Panel de administración de encuestas y análisis</p>
                         <!-- 🆕 PLAN BADGE -->
                         <div class="plan-badge" id="planBadge">
                             <span class="plan-text" id="planText">Cargando...</span>
@@ -1781,19 +1781,19 @@
                         <input type="text" 
                             class="search-input" 
                             id="searchInput" 
-                            placeholder="Buscar encuestas..."
-                            aria-label="Buscar encuestas por título, objetivo o creador"
+                            placeholder="Buscar encuestas..." data-i18n-placeholder="admin.searchPlaceholder"
+                            aria-label="Buscar encuestas por título, objetivo o creador" data-i18n-aria-label="admin.toolbar.searchAria"
                             role="searchbox"
                             aria-describedby="search-help">
-                        <div id="search-help" class="sr-only">Escribe para filtrar encuestas. Usa ESC para limpiar.</div>
+                        <div id="search-help" class="sr-only" data-i18n-key="admin.toolbar.searchHelp" data-i18n-default="Escribe para filtrar encuestas. Usa ESC para limpiar.">Escribe para filtrar encuestas. Usa ESC para limpiar.</div>
                     </div>
-                    <button class="btn btn-primary" id="newSurveyButton" type="button" onclick="openCreateModal()">
+                    <button class="btn btn-primary" id="newSurveyButton" type="button" onclick="openCreateModal()" data-i18n-key="admin.buttons.newSurvey" data-i18n-default="➕ Nueva Encuesta">
                         ➕ Nueva Encuesta
                     </button>
-                    <button class="btn btn-secondary" id="refreshButton" type="button" onclick="refreshData()">
+                    <button class="btn btn-secondary" id="refreshButton" type="button" onclick="refreshData()" data-i18n-key="admin.buttons.refresh" data-i18n-default="🔄 Actualizar">
                         🔄 Actualizar
                     </button>
-                    <button class="btn btn-secondary" id="exportButton" type="button" onclick="exportAllData()">
+                    <button class="btn btn-secondary" id="exportButton" type="button" onclick="exportAllData()" data-i18n-key="admin.buttons.export" data-i18n-default="📊 Exportar Datos">
                         📊 Exportar Datos
                     </button>
                 </div>
@@ -1807,19 +1807,19 @@
                     <div class="demo-badge">MODO DEMOSTRACIÓN</div>
                 -->
                     <div class="auth-icon">🔐</div>
-                    <h2 class="auth-title">Panel de Administración</h2>
-                    <p class="auth-description">
+                    <h2 class="auth-title" data-i18n-key="admin.auth.title" data-i18n-default="Panel de Administración">Panel de Administración</h2>
+                    <p class="auth-description" data-i18n-key="admin.auth.description" data-i18n-default="El panel está funcionando en modo demostración con datos de ejemplo. Para acceso completo con datos reales, se requiere configuración SSO de Microsoft Entra ID.">
                         El panel está funcionando en modo demostración con datos de ejemplo. 
                         Para acceso completo con datos reales, se requiere configuración SSO de Microsoft Entra ID.
                     </p>
-                    <button class="btn btn-primary" onclick="initializeDemoMode()" aria-label="Continuar con la demostración de encuestas">
+                    <button class="btn btn-primary" onclick="initializeDemoMode()" aria-label="Continuar con la demostración de encuestas" data-i18n-key="admin.auth.demoButton" data-i18n-default="🚀 Continuar con Demo" data-i18n-aria-label="admin.auth.demoAria">
                         🚀 Continuar con Demo
                     </button>
                 </div>
 
                 <div id="loading" class="loading">
                     <div class="loading-spinner"></div>
-                    <p>Cargando encuestas...</p>
+                    <p data-i18n-key="admin.loading.surveys" data-i18n-default="Cargando encuestas...">Cargando encuestas...</p>
                 </div>
 
                 <div id="surveysContainer" class="surveys-grid" style="display: none;">
@@ -1828,9 +1828,9 @@
 
                 <div id="emptyState" class="empty-state" style="display: none;">
                     <div class="empty-icon">📋</div>
-                    <h3>No hay encuestas disponibles</h3>
-                    <p>Crea tu primera encuesta para comenzar</p>
-                    <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Crear primera encuesta">
+                    <h3 data-i18n-key="admin.empty.title" data-i18n-default="No hay encuestas disponibles">No hay encuestas disponibles</h3>
+                    <p data-i18n-key="admin.empty.description" data-i18n-default="Crea tu primera encuesta para comenzar">Crea tu primera encuesta para comenzar</p>
+                    <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Crear primera encuesta" data-i18n-key="admin.empty.action" data-i18n-default="➕ Crear Primera Encuesta" data-i18n-aria-label="admin.empty.actionAria">
                         ➕ Crear Primera Encuesta
                     </button>
                 </div>
@@ -1841,27 +1841,27 @@
         <section id="accessSection" class="access-section" style="display: none;">
             <div class="section-header">
                 <div>
-                    <h2>👥 Gestión de accesos</h2>
-                    <p class="section-subtitle">Administra administradores, gestores y usuarios del tenant.</p>
+                    <h2 data-i18n-key="admin.access.title" data-i18n-default="👥 Gestión de accesos">👥 Gestión de accesos</h2>
+                    <p class="section-subtitle" data-i18n-key="admin.access.subtitle" data-i18n-default="Administra administradores, gestores y usuarios del tenant.">Administra administradores, gestores y usuarios del tenant.</p>
                 </div>
             </div>
 
             <div class="member-controls">
                 <div class="member-search" id="memberSearchWrapper" style="display: none;">
-                    <label class="form-label" for="memberSearchInput">Buscar en el directorio</label>
+                    <label class="form-label" for="memberSearchInput" data-i18n-key="admin.access.searchLabel" data-i18n-default="Buscar en el directorio">Buscar en el directorio</label>
                     <div style="display: flex; gap: 12px;">
-                        <input type="text" id="memberSearchInput" class="form-input" placeholder="Nombre o correo" aria-label="Buscar usuarios en Microsoft Entra ID">
-                        <button class="btn btn-secondary" id="memberAddButton" type="button" onclick="openSelectedMemberModal()" disabled>
+                        <input type="text" id="memberSearchInput" class="form-input" placeholder="Nombre o correo" data-i18n-placeholder="admin.access.searchPlaceholder" aria-label="Buscar usuarios en Microsoft Entra ID" data-i18n-aria-label="admin.access.searchAria">
+                        <button class="btn btn-secondary" id="memberAddButton" type="button" onclick="openSelectedMemberModal()" disabled data-i18n-key="admin.access.addFromDirectory" data-i18n-default="➕ Agregar">
                             ➕ Agregar
                         </button>
                     </div>
-                    <p class="helper-text">Ingresa parte del nombre, correo o UPN para buscar en Microsoft Graph.</p>
+                    <p class="helper-text" data-i18n-key="admin.access.helper" data-i18n-default="Ingresa parte del nombre, correo o UPN para buscar en Microsoft Graph.">Ingresa parte del nombre, correo o UPN para buscar en Microsoft Graph.</p>
                     <div id="memberSearchResults" class="directory-results" style="display: none;"></div>
                 </div>
             </div>
 
             <div id="membersContainer" class="members-table">
-                <p style="text-align: center; margin: 24px 0;">Cargando miembros...</p>
+                <p style="text-align: center; margin: 24px 0;" data-i18n-key="admin.access.loadingMembers" data-i18n-default="Cargando miembros...">Cargando miembros...</p>
             </div>
         </section>
 
@@ -1869,18 +1869,18 @@
         <div id="createModal" class="modal">
             <div class="modal-content" style="max-width: 720px;">
                 <div class="modal-header">
-                    <h2 class="modal-title">➕ Crear Nueva Encuesta</h2>
+                    <h2 class="modal-title" data-i18n-key="admin.modals.create.title" data-i18n-default="➕ Crear Nueva Encuesta">➕ Crear Nueva Encuesta</h2>
                     <button class="close" onclick="closeCreateModal()">&times;</button>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="newSurveyTitle">Título de la encuesta</label>
-                    <input type="text" id="newSurveyTitle" class="form-input" placeholder="Ej: Encuesta de clima laboral Q1" aria-required="true">
+                    <label class="form-label" for="newSurveyTitle" data-i18n-key="admin.modals.create.titleLabel" data-i18n-default="Título de la encuesta">Título de la encuesta</label>
+                    <input type="text" id="newSurveyTitle" class="form-input" placeholder="Ej: Encuesta de clima laboral Q1" data-i18n-placeholder="admin.modals.create.titlePlaceholder" aria-required="true">
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="newSurveyObjective">Objetivo</label>
-                    <textarea id="newSurveyObjective" class="form-input" rows="3" placeholder="Describe el objetivo de esta encuesta" aria-required="true"></textarea>
+                    <label class="form-label" for="newSurveyObjective" data-i18n-key="admin.modals.create.objectiveLabel" data-i18n-default="Objetivo">Objetivo</label>
+                    <textarea id="newSurveyObjective" class="form-input" rows="3" placeholder="Describe el objetivo de esta encuesta" data-i18n-placeholder="admin.modals.create.objectivePlaceholder" aria-required="true"></textarea>
                 </div>
 
                 <div class="questions-section">
@@ -1893,7 +1893,7 @@
 
                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                     <fluent-button appearance="stealth" onclick="closeCreateModal()">Cancelar</fluent-button>
-                    <fluent-button appearance="accent" onclick="submitNewSurvey()">✅ Crear Encuesta</fluent-button>
+                    <fluent-button appearance="accent" onclick="submitNewSurvey()" data-i18n-key="admin.modals.create.save" data-i18n-default="✅ Crear Encuesta">✅ Crear Encuesta</fluent-button>
                 </div>
             </div>
         </div>
@@ -2014,6 +2014,116 @@
         </div>
 
         <script>
+            // 🌐 Localization helpers
+            const localizationState = {
+                locale: 'es',
+                catalog: {},
+                ready: false
+            };
+
+            function normalizeLocale(locale) {
+                if (!locale || typeof locale !== 'string') {
+                    return localizationState.locale;
+                }
+                return locale.toLowerCase();
+            }
+
+            function getValueFromCatalog(catalog, segments) {
+                return segments.reduce((acc, segment) => {
+                    if (acc && typeof acc === 'object' && segment in acc) {
+                        return acc[segment];
+                    }
+                    return undefined;
+                }, catalog);
+            }
+
+            function formatTemplate(template, params) {
+                if (!params || typeof template !== 'string') {
+                    return template;
+                }
+                return template.replace(/{{\s*([^}]+)\s*}}/g, (_, key) => {
+                    const value = params[key.trim()];
+                    return value === undefined || value === null ? '' : String(value);
+                });
+            }
+
+            function translateAdmin(key, fallback, params) {
+                if (!localizationState.ready) {
+                    return formatTemplate(fallback, params) || fallback || key;
+                }
+                const segments = key.split('.');
+                const raw = getValueFromCatalog(localizationState.catalog, segments);
+                if (raw === undefined || raw === null) {
+                    return formatTemplate(fallback, params) || fallback || key;
+                }
+                return formatTemplate(raw, params) || fallback || key;
+            }
+
+            async function loadLocalization(preferredLocale) {
+                const locale = normalizeLocale(preferredLocale);
+                if (locale === localizationState.locale && localizationState.ready) {
+                    return;
+                }
+                try {
+                    const response = await fetch(`/api/i18n/catalogs/${encodeURIComponent(locale)}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const payload = await response.json();
+                    localizationState.locale = payload.locale || locale;
+                    localizationState.catalog = payload.catalog || {};
+                    localizationState.ready = true;
+                    document.documentElement.setAttribute('lang', localizationState.locale);
+                    applyTranslations();
+                } catch (error) {
+                    console.warn('⚠️ [I18N] Error loading catalog:', error);
+                    localizationState.ready = false;
+                }
+            }
+
+            function applyTranslations(root = document) {
+                if (!localizationState.ready) {
+                    return;
+                }
+
+                root.querySelectorAll('[data-i18n-key]').forEach((element) => {
+                    const key = element.getAttribute('data-i18n-key');
+                    if (!key) return;
+                    const fallback = element.getAttribute('data-i18n-default') || element.textContent || '';
+                    const translated = translateAdmin(key, fallback);
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        element.value = translated;
+                    } else {
+                        element.textContent = translated;
+                    }
+                });
+
+                root.querySelectorAll('[data-i18n-placeholder]').forEach((element) => {
+                    const key = element.getAttribute('data-i18n-placeholder');
+                    if (!key) return;
+                    const fallback = element.getAttribute('placeholder') || '';
+                    const translated = translateAdmin(key, fallback);
+                    element.setAttribute('placeholder', translated);
+                });
+
+                const titleEl = document.querySelector('title[data-i18n-key]');
+                if (titleEl) {
+                    const key = titleEl.getAttribute('data-i18n-key');
+                    const fallback = titleEl.getAttribute('data-i18n-default') || titleEl.textContent || '';
+                    const translated = translateAdmin(key, fallback);
+                    document.title = translated;
+                }
+            }
+
+            async function bootstrapLocalization(initialLocale) {
+                await loadLocalization(initialLocale || navigator.language || 'es');
+            }
+
+            async function updateLocale(locale) {
+                if (!locale) return;
+                await loadLocalization(locale);
+            }
+
             // 🆕 Global variables with better organization
             let microsoftTeams;
             let authToken = null;
@@ -2072,6 +2182,8 @@
                     try {
                         const context = await window.microsoftTeams.app.getContext();
                         console.log('✅ Teams context obtained');
+
+                        await updateLocale(context?.app?.locale || context?.user?.locale);
                         
                         // Attempt SSO
                         await attemptAuthentication();
@@ -2422,7 +2534,7 @@
                 if (!container || membersLoading) return;
 
                 membersLoading = true;
-                container.innerHTML = '<p style="text-align: center; margin: 24px 0;">Cargando miembros...</p>';
+                container.innerHTML = '<p style="text-align: center; margin: 24px 0;" data-i18n-key="admin.access.loadingMembers" data-i18n-default="Cargando miembros...">Cargando miembros...</p>';
 
                 try {
                     const response = await makeAPICall('/members');
@@ -4047,7 +4159,9 @@
             }
 
             // 🆕 Event listeners with improved Teams detection
-            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', async () => {
+                await bootstrapLocalization(navigator.language);
+                applyTranslations();
                 console.log('🚀 AdminPanel DOM loaded, initializing...');
                 
                 setupSearch();

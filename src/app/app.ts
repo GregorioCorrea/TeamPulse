@@ -18,6 +18,8 @@ import { enviarReportePorEmail } from "../services/emailService";  // Envío de 
 import { recordResponse } from "../services/analyticsService"; // ── Analítica en tiempo real
 import { EncuestaAnalisis } from "../services/aiInsightsService"; // ── Modelo de análisis de encuesta
 import { AdvancedAnalysisService, AdvancedAnalysisResult } from "../services/aiAdvancedService"; // ── Análisis avanzado de encuestas
+import { translate } from "../i18n";
+import { getContextLocale } from "../i18n/teams";
 
 // Crear instancia global del servicio Azure
 const azureService = new AzureTableService();
@@ -53,6 +55,18 @@ const app = new Application({
     enable_feedback_loop: true,
   },
 });
+
+// ============================
+// UTILIDADES DE LOCALIZACIÓN
+// ============================
+function createTranslator(context: TurnContext) {
+  const locale = getContextLocale(context);
+  return {
+    locale,
+    t: (key: string, defaultValue: string, params?: Record<string, string | number | boolean>) =>
+      translate(key, { locale, params, defaultValue })
+  };
+}
 
 // ============================
 // INTERFACES
@@ -231,14 +245,16 @@ const TEMPLATES_PREDEFINIDOS = [
 
 // handler para mostrar comandos disponibles
 app.adaptiveCards.actionSubmit('show_commands', async (context, state, data) => {
-  const card = createAvailableCommandsCard();
-  await context.sendActivity("🔄 Generando...");
+  const { locale, t } = createTranslator(context);
+  const card = createAvailableCommandsCard(locale);
+  await context.sendActivity(t('bot.common.generating', '🔄 Generando...'));
   await context.sendActivity(MessageFactory.attachment(card));
 });
 
 app.adaptiveCards.actionSubmit('show_help', async (context, state, data) => {
-  const welcomeCard = createWelcomeCard();
-  await context.sendActivity("🔄 Generando...");
+  const { locale, t } = createTranslator(context);
+  const welcomeCard = createWelcomeCard(locale);
+  await context.sendActivity(t('bot.common.generating', '🔄 Generando...'));
   await context.sendActivity(MessageFactory.attachment(welcomeCard));
 });
 
@@ -1876,8 +1892,9 @@ app.message(/^reportar\s+([\s\S]+)/i, async (context) => {
 
 // COMANDO AYUDA
 app.message(/^ayuda|Ayuda$/i, async (context, state) => {
-  const welcomeCard = createWelcomeCard();
-  await context.sendActivity("🔄 Generando...");
+  const { locale, t } = createTranslator(context);
+  const welcomeCard = createWelcomeCard(locale);
+  await context.sendActivity(t('bot.common.generating', '🔄 Generando...'));
   await context.sendActivity(MessageFactory.attachment(welcomeCard));
 });
 
@@ -2446,7 +2463,7 @@ async function createListSurveysCardAsync(encuestas: Encuesta[], userId?: string
 // ============================
 // FUNCIÓN PARA CREAR CARD DE BIENVENIDA
 // ============================
-function createWelcomeCard(): any {
+function createWelcomeCard(locale: string): any {
   const card = {
     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
     "type": "AdaptiveCard",
@@ -2454,13 +2471,13 @@ function createWelcomeCard(): any {
     "body": [
       {
         "type": "TextBlock",
-        "text": "👋 ¡Bienvenido a TeamPulse!",
+        "text": translate('bot.cards.welcome.title', { locale, defaultValue: '👋 ¡Bienvenido a TeamPulse!' }),
         "weight": "Bolder",
         "size": "Large"
       },
       {
         "type": "TextBlock",
-        "text": "¿Qué te gustaría hacer?",
+        "text": translate('bot.cards.welcome.subtitle', { locale, defaultValue: '¿Qué te gustaría hacer?' }),
         "wrap": true,
         "spacing": "Medium"
       }
@@ -2468,26 +2485,26 @@ function createWelcomeCard(): any {
     "actions": [
       {
         "type": "Action.Submit",
-        "title": "➕ Crear Encuesta",
+        "title": translate('bot.cards.welcome.actions.createSurvey', { locale, defaultValue: '➕ Crear Encuesta' }),
         "data": { "verb": "create_new_survey" }
       },
       {
         "type": "Action.Submit",
-        "title": "📋 Ver Encuestas",
+        "title": translate('bot.cards.welcome.actions.listSurveys', { locale, defaultValue: '📋 Ver Encuestas' }),
         "data": { "verb": "list_surveys" }
       },
       {
         "type": "Action.Submit",
-        "title": "📘 Ver Comandos",
+        "title": translate('bot.cards.welcome.actions.showCommands', { locale, defaultValue: '📘 Ver Comandos' }),
         "data": { "verb": "show_commands" }
-    },
-    {
-      "type": "Action.Submit",
-      "title": "❓ Ayuda",
-      "data": { "verb": "show_help" }
-    }
-  ]
-};
+      },
+      {
+        "type": "Action.Submit",
+        "title": translate('bot.cards.welcome.actions.help', { locale, defaultValue: '❓ Ayuda' }),
+        "data": { "verb": "show_help" }
+      }
+    ]
+  };
 
   return CardFactory.adaptiveCard(card);
 }
@@ -2531,7 +2548,8 @@ function createSurveyIdInputCard(): any {
 // ============================
 // FUNCIÓN PARA CREAR CARD DE COMANDOS DISPONIBLES
 // ============================
-function createAvailableCommandsCard(): any {
+function createAvailableCommandsCard(locale: string): any {
+  const translateText = (key: string, fallback: string) => translate(key, { locale, defaultValue: fallback });
   const card = {
     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
     "type": "AdaptiveCard",
@@ -2539,13 +2557,13 @@ function createAvailableCommandsCard(): any {
     "body": [
       {
         "type": "TextBlock",
-        "text": "📘 Comandos Disponibles",
+        "text": translateText('bot.cards.availableCommands.title', '📘 Comandos Disponibles'),
         "weight": "Bolder",
         "size": "Large"
       },
       {
         "type": "TextBlock",
-        "text": "Usá estos comandos en TeamPulse:",
+        "text": translateText('bot.cards.availableCommands.subtitle', 'Usá estos comandos en TeamPulse:'),
         "wrap": true
       },
 

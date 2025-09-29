@@ -11,12 +11,43 @@
   "bot": {
     "greeting": "¡Hola! Soy TeamPulse. ¿En qué puedo ayudarte hoy?",
     "fallback": "No pude entender eso. Probá con otro comando.",
-    "adminPrompt": "Usá `make_me_admin` para convertirte en administrador si el tenant aún no tiene uno."
+    "adminPrompt": "Usá `make_me_admin` para convertirte en administrador si el tenant aún no tiene uno.",
+    "common": {
+      "generating": "Generando..."
+    },
+    "cards": {
+      "welcome": {
+        "title": "¡Bienvenido a TeamPulse!",
+        "subtitle": "¿Qué te gustaría hacer?",
+        "actions": {
+          "createSurvey": "Crear encuesta",
+          "listSurveys": "Ver encuestas",
+          "showCommands": "Ver comandos",
+          "help": "Ayuda"
+        }
+      }
+    }
   },
   "admin": {
     "title": "Portal de Administración",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "searchPlaceholder": "Buscar usuarios o encuestas"
+    "searchPlaceholder": "Buscar usuarios o encuestas",
+    "pageTitle": "TeamPulse - Panel de Administración",
+    "headerTitle": "🎯 TeamPulse Admin",
+    "headerSubtitle": "Gestioná encuestas, roles y análisis desde un único lugar.",
+    "buttons": {
+      "createSurvey": "Crear Encuesta",
+      "syncAzure": "Sincronizar con Azure",
+      "refresh": "Actualizar",
+      "newMember": "Agregar Miembro",
+      "addFromDirectory": "Agregar desde directorio"
+    },
+    "modal": {
+      "titleNewMember": "Agregar miembro",
+      "titleEditMember": "Editar miembro",
+      "save": "Guardar",
+      "cancel": "Cancelar"
+    }
   }
 }

@@ -67,3 +67,10 @@ registerCatalog("pt", ptCatalog);
 - Reemplazar literales en bot y panel por `translate(...)`.
 - Sincronizar este repositorio con la herramienta de traducciones que defina el equipo.
 - Añadir pruebas automatizadas que verifiquen que no haya claves faltantes.
+
+## Endpoints disponibles
+
+- `GET /api/i18n/locales`: devuelve el idioma por defecto y la lista de locales soportados actualmente.
+- `GET /api/i18n/catalogs/:locale`: retorna el catálogo completo para el locale solicitado (la aplicación normaliza códigos como `en-US`).
+
+Estos endpoints pueden consumirse desde el panel o desde cualquier cliente para precargar traducciones externas.

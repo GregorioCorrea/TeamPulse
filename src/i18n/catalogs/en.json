@@ -11,12 +11,43 @@
   "bot": {
     "greeting": "Hello! I'm TeamPulse. How can I help you today?",
     "fallback": "I couldn't understand that. Please try a different command.",
-    "adminPrompt": "Use `make_me_admin` to become an administrator if this tenant has no admins yet."
+    "adminPrompt": "Use `make_me_admin` to become an administrator if this tenant has no admins yet.",
+    "common": {
+      "generating": "Generating..."
+    },
+    "cards": {
+      "welcome": {
+        "title": "Welcome to TeamPulse!",
+        "subtitle": "What would you like to do?",
+        "actions": {
+          "createSurvey": "Create survey",
+          "listSurveys": "View surveys",
+          "showCommands": "Show commands",
+          "help": "Help"
+        }
+      }
+    }
   },
   "admin": {
     "title": "Administration Portal",
     "save": "Save",
     "cancel": "Cancel",
-    "searchPlaceholder": "Search users or surveys"
+    "searchPlaceholder": "Search users or surveys",
+    "pageTitle": "TeamPulse - Administration Panel",
+    "headerTitle": "🎯 TeamPulse Admin",
+    "headerSubtitle": "Manage surveys, roles and analytics from one place.",
+    "buttons": {
+      "createSurvey": "Create survey",
+      "syncAzure": "Sync with Azure",
+      "refresh": "Refresh",
+      "newMember": "Add member",
+      "addFromDirectory": "Add from directory"
+    },
+    "modal": {
+      "titleNewMember": "Add member",
+      "titleEditMember": "Edit member",
+      "save": "Save",
+      "cancel": "Cancel"
+    }
   }
 }

@@ -15,6 +15,8 @@ import appBot from "./app/app";
 import { marketplaceRouter } from "./webhook/marketplacewebhook";
 import { landingPageRouter } from "./webhook/landingPageHandler"; // 🆕 Router actualizado con SSO
 import { adminRouter } from "./routes/adminRoutes"; // 🆕 Admin panel routes
+import { getCatalog, getDefaultLocale, ensureLocale, getSupportedLocales } from "./i18n";
+
 
 const app = express();
 app.set("trust proxy", 1); // detrás de Azure App Service / Front Door
@@ -92,6 +94,22 @@ try {
 
 // ── 🆕 ADMIN PANEL ROUTES ────────────────────────────────────────
 app.use("/api/admin", adminRouter);
+
+// ── 🆕 I18N ROUTES ─────────────────────────────────────────────
+app.get("/api/i18n/locales", (_req, res) => {
+  res.json({
+    defaultLocale: getDefaultLocale(),
+    locales: getSupportedLocales()
+  });
+});
+
+app.get("/api/i18n/catalogs/:locale", (req, res) => {
+  const locale = ensureLocale(req.params.locale);
+  res.json({
+    locale,
+    catalog: getCatalog(locale)
+  });
+});
 
 // ── 🆕 SERVE ADMIN PANEL HTML con CSP Headers ─────────────────────
 app.get("/admin", (req, res) => {
